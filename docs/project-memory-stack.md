@@ -125,12 +125,13 @@ uv run ./configure-agent-mcps.py
 
 Current installer behavior:
 
-- installs `codebase-memory-mcp` with UI by default
 - installs `lean-ctx` and runs `lean-ctx setup`
 - installs `agentmemory`
-- keeps the older `agentmemory` Hermes/OMP wiring path working
-
-Current MCP configuration script behavior:
+- installs skill packs:
+  - `DietrichGebert/ponytail` (global, language-agnostic companion)
+  - `mattpocock/skills` (global project-memory guidance)
+- keeps a modern global-skill baseline for Hermes/OMP when configured
+- installs `codebase-memory-mcp` with UI by default
 
 - prompts with checkbox-style selections for `lean-ctx`, `codebase-memory-mcp`, and `agentmemory`
 - adds selected MCP servers to `~/.hermes/config.yaml` under `mcp_servers`
@@ -218,6 +219,7 @@ Use warnings, not hard failure, for missing optional memory tools in normal proj
 command -v lean-ctx >/dev/null || echo "warning: lean-ctx missing"
 command -v codebase-memory-mcp >/dev/null || echo "warning: codebase-memory-mcp missing"
 command -v agentmemory >/dev/null || echo "warning: agentmemory missing"
+test -f ~/.hermes/skills/ponytail/SKILL.md && echo "ponytail: global"
 ```
 
 Fresh agent-stack CI may be stricter. In this repo, `docker-smoke-test.sh` must fail when the stack install contract breaks.

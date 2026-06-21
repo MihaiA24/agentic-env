@@ -115,13 +115,14 @@ for (const skillsRoot of [
   path.join(home, '.omp', 'agent', 'skills'),
   path.join(home, '.pi', 'agent', 'skills'),
 ]) {
-  for (const name of ['lean-ctx', 'codebase-memory-mcp', 'agentmemory']) {
+  for (const name of ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']) {
     const skillPath = path.join(skillsRoot, name, 'SKILL.md');
     if (!fs.existsSync(skillPath)) {
       throw new Error(`missing skill ${skillPath}`);
     }
   }
 }
+
 JS
 
 if [ "$failures" -ne 0 ]; then

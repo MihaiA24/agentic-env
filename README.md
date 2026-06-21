@@ -140,6 +140,28 @@ uv run ./configure-agent-mcps.py --yes --server lean-ctx --server codebase-memor
 
 Then rerun `hermes mcp list`.
 
+
+### 5) Existing-project onboarding (no full fresh bootstrap)
+
+From an already-installed machine/CI agent environment, wire the memory MCPs in-place:
+
+```bash
+cd /path/to/your/dotfiles/agentic-env
+uv run ./install-skills-mcps.py --all-skills --all-mcps --yes
+uv run ./configure-agent-mcps.py --yes
+```
+
+Then from any repo:
+
+```bash
+hermes mcp list
+hermes mcp test agentmemory
+hermes mcp test codebase-memory-mcp
+```
+
+Ponytail (`ponytail`) is installed as a **global, language-agnostic skill bundle** via
+`install-skills-mcps.py` and is available to all supported harnesses that read user
+global skills.
 ## Fresh environment in Docker (smoke-test enabled)
 
 Files:

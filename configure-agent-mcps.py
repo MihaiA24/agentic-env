@@ -117,6 +117,22 @@ Good memories:
 Important accepted decisions must also be promoted to plain text in `docs/adr/*.md`. `agentmemory` improves recall; it is not the canonical audit record.
 """,
     ),
+    "ponytail": Skill(
+        name="ponytail",
+        body="""---
+name: ponytail
+description: Use for prompt composition, review framing, and concise implementation habits across languages.
+---
+
+# ponytail
+
+Use `ponytail` as a language-agnostic code-quality and prompting companion.
+
+- Apply for reviews, refactors, and implementation guidance with stable heuristics.
+- Keep prompts short, concrete, and test-grounded.
+- Pair with project-specific conventions in `CONTEXT.md` and ADRs.
+""",
+    ),
 }
 
 AGENT_CHOICES = ("hermes", "omp")
@@ -414,7 +430,10 @@ def main(argv: list[str] | None = None) -> int:
     if "omp" in agents:
         ok_all = configure_omp(servers, dry_run=args.dry_run) and ok_all
     if install_matching_skills:
-        ok_all = install_skills(agents, server_names, dry_run=args.dry_run) and ok_all
+        install_names = list(server_names)
+        if server_names and "ponytail" not in install_names:
+            install_names.append("ponytail")
+        ok_all = install_skills(agents, install_names, dry_run=args.dry_run) and ok_all
     else:
         skip("global skills: skipped")
 

@@ -37,19 +37,67 @@ def _configure_hermes_agentmemory(path: Path) -> bool:
     text = path.read_text(encoding="utf-8") if path.exists() else ""
     updated = False
 
-    if "agentmemory:" not in text:
-        if "mcp_servers:" not in text:
-            block = [
-                "",
-                "mcp_servers:",
-                "  agentmemory:",
-                f"    command: {_AGENTMEMORY_HERMES_COMMAND}",
-                f"    args: {_AGENTMEMORY_HERMES_ARGS}",
-                "",
-            ]
-            text = text.rstrip() + "\n".join(block)
-            updated = True
-        else:
+    if "mcp_servers:" not in text:
+        block = [
+            "",
+            "mcp_servers:",
+            "  agentmemory:",
+            f"    command: {_AGENTMEMORY_HERMES_COMMAND}",
+            f"    args: {_AGENTMEMORY_HERMES_ARGS}",
+            "",
+        ]
+        text = text.rstrip() + "\n".join(block)
+        updated = True
+    else:
+        lines = text.splitlines()
+        inserted = False
+        for i, line in enumerate(lines):
+            if not re.match(r"^\s*agentmemory:\s*$", line):
+                continue
+
+            entry_indent = len(line) - len(line.lstrip())
+            child_indent = " " * (entry_indent + 2)
+            next_i = i + 1
+
+            # Consume malformed same-indentation keys that can be left by older installers
+            # while keeping real sibling MCP server entries intact.
+            while next_i < len(lines):
+                raw = lines[next_i]
+                if not raw.strip():
+                    next_i += 1
+                    continue
+
+                raw_indent = len(raw) - len(raw.lstrip())
+                if raw_indent < entry_indent:
+                    break
+
+                key_match = re.match(r"^\s*([^:#\s][^:]*)\s*:\s*$", raw)
+                if key_match and raw_indent == entry_indent:
+                    key = key_match.group(1)
+                    if key not in {"command", "args", "env"}:
+                        break
+
+                next_i += 1
+
+            block = lines[i + 1 : next_i]
+            has_command = any(
+                re.match(rf"^{re.escape(child_indent)}command:\s*", ln) for ln in block
+            )
+            has_args = any(
+                re.match(rf"^{re.escape(child_indent)}args:\s*", ln) for ln in block
+            )
+
+            if not (has_command and has_args):
+                lines[i + 1 : next_i] = [
+                    f"{child_indent}command: {_AGENTMEMORY_HERMES_COMMAND}",
+                    f"{child_indent}args: {_AGENTMEMORY_HERMES_ARGS}",
+                ]
+                text = "\n".join(lines) + "\n"
+                updated = True
+            inserted = True
+            break
+
+        if not inserted:
             block = [
                 "mcp_servers:",
                 "  agentmemory:",
@@ -58,21 +106,18 @@ def _configure_hermes_agentmemory(path: Path) -> bool:
                 "",
             ]
             lines = text.splitlines()
-            inserted = False
             for i, line in enumerate(lines):
                 if re.match(r"^\s*mcp_servers:\s*$", line):
                     child_indent = line[: len(line) - len(line.lstrip())] + "  "
                     lines[i + 1 : i + 1] = [
                         f"{child_indent}agentmemory:",
-                        f"{child_indent}command: {_AGENTMEMORY_HERMES_COMMAND}",
-                        f"{child_indent}args: {_AGENTMEMORY_HERMES_ARGS}",
+                        f"{child_indent}  command: {_AGENTMEMORY_HERMES_COMMAND}",
+                        f"{child_indent}  args: {_AGENTMEMORY_HERMES_ARGS}",
                     ]
                     text = "\n".join(lines) + "\n"
                     updated = True
-                    inserted = True
                     break
-
-            if not inserted:
+            else:
                 warn(
                     "Hermes config: unexpected mcp_servers format; appending agentmemory MCP block"
                 )

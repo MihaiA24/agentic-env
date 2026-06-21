@@ -42,6 +42,103 @@ Equivalent shorthand:
 - `uv run ./configure-agent-mcps.py`
 - `uv run ./update-agentic-stack.py`
 
+
+## Runbooks
+
+
+### 1) Smoke validate from scratch (recommended)
+
+```bash
+cd /path/to/your/dotfiles/agentic-env
+docker compose up --build --exit-code-from fresh-install
+```
+
+What this runbook validates:
+- installs from clean container
+- verifies `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory` are callable
+- verifies Hermes/OMP MCP artifacts and global skills are present
+
+### 2) Interactive container validation (same checkbook, inspectable)
+
+```bash
+cd /path/to/your/dotfiles/agentic-env
+docker compose run --rm --entrypoint sh fresh-install
+```
+
+Important: this opens a **fresh image**. It does not pre-install `hermes`, `lean-ctx`, or any MCP tooling.
+Run install/configure commands first, then smoke checks.
+
+Inside container:
+
+```bash
+cd /workspace
+# Install all components into the container first
+uv run --script install-agents.py --all --yes
+uv run --script install-skills-mcps.py --all-mcps --yes
+uv run --script configure-agent-mcps.py --yes
+
+# Quick runtime checks for each CLI
+hermes --help
+omp --help
+lean-ctx doctor
+agentmemory doctor
+codebase-memory-mcp --version
+```
+
+You can also run all steps in one command:
+
+```bash
+docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv run --script install-agents.py --all --yes && uv run --script install-skills-mcps.py --all-mcps --yes && uv run --script configure-agent-mcps.py --yes && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
+```
+
+### 3) Host-side install + configure smoke (no docker)
+
+If you need to run on the host machine directly:
+
+```bash
+cd /path/to/your/dotfiles/agentic-env
+uv run ./install-agents.py --all --yes
+uv run ./install-skills-mcps.py --all-mcps --yes
+uv run ./configure-agent-mcps.py --yes
+lean-ctx doctor
+agentmemory doctor
+codebase-memory-mcp --version
+hermes --help
+omp --help
+```
+
+Use `./docker-smoke-test.sh` when you want the strict full contract assertions from one command.
+
+
+### 4) Check MCP visibility inside Hermes
+
+In a working Hermes install:
+
+```bash
+hermes mcp list
+```
+
+If you see the two entries below, they are wired:
+- `agentmemory` (transport: `npx`)
+- `codebase-memory-mcp` (transport: `codebase-memory-mcp`)
+
+Functional checks:
+
+```bash
+hermes mcp test agentmemory
+hermes mcp test codebase-memory-mcp
+```
+
+If `hermes mcp list` crashes, your `~/.hermes/config.yaml` likely has malformed MCP YAML.
+Repair by adding clean blocks:
+
+```bash
+hermes config set memory.provider agentmemory
+uv run ./configure-agent-mcps.py --yes --server lean-ctx --server codebase-memory-mcp --server agentmemory --agent hermes
+```
+
+Then rerun `hermes mcp list`.
+
 ## Fresh environment in Docker (smoke-test enabled)
 
 Files:

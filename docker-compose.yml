@@ -1,0 +1,9 @@
+services:
+  fresh-install:
+    build:
+      context: .
+      dockerfile: Dockerfile.agentic
+    working_dir: /workspace
+    command: ["/bin/sh", "./docker-smoke-test.sh"]
+    volumes:
+      - .:/workspace

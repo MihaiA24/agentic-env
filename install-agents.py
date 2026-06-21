@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import ask, cmd_exists, run, run_shell, ok, warn, skip
+from common import ask, cmd_exists, cmd_works, run, run_shell, ok, warn, skip
 
 
 def _install_hermes(non_interactive: bool) -> bool:
@@ -27,9 +27,15 @@ def _install_hermes(non_interactive: bool) -> bool:
 
 
 def _install_omp(non_interactive: bool) -> bool:
-    if cmd_exists("omp") and not ask("Reinstall OMP / Oh My Pi", default=False, non_interactive=non_interactive):
-        skip("OMP / Oh My Pi: skipped")
-        return False
+    if cmd_exists("omp"):
+        if cmd_works("omp"):
+            if not ask(
+                "Reinstall OMP / Oh My Pi", default=False, non_interactive=non_interactive
+            ):
+                skip("OMP / Oh My Pi: skipped")
+                return False
+        else:
+            warn("OMP / Oh My Pi exists but appears broken; reinstalling")
 
     if not cmd_exists("curl"):
         warn("curl is required to install OMP / Oh My Pi")

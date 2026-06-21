@@ -16,6 +16,20 @@ def cmd_exists(name: str) -> bool:
     return shutil.which(name) is not None
 
 
+def cmd_works(name: str, args: Iterable[str] = ("--help",), timeout_sec: int = 2) -> bool:
+    try:
+        subprocess.run(
+            [name, *args],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout_sec,
+        )
+        return True
+    except Exception:
+        return False
+
+
 def ask(prompt: str, *, default: bool, non_interactive: bool) -> bool:
     if non_interactive:
         return default

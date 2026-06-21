@@ -1,0 +1,30 @@
+name: Agentic env smoke test
+
+on:
+  push:
+    paths:
+      - 'agentic-env/**'
+      - '.github/workflows/agentic-env-smoke-test.yml'
+  pull_request:
+    paths:
+      - 'agentic-env/**'
+      - '.github/workflows/agentic-env-smoke-test.yml'
+  workflow_dispatch:
+
+jobs:
+  agentic-smoke-test:
+    name: Fresh install smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: agentic-env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify docker compose available
+        run: docker compose version
+
+      - name: Run fresh-install smoke test
+        run: docker compose up --build --exit-code-from fresh-install

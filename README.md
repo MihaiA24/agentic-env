@@ -14,6 +14,7 @@ Docs:
 - `install-skills-mcps.py`
   - Installs:
     - mattpocock skills pack (global)
+    - ponytail skill bundle (global, agent-dispatch)
     - `codebase-memory-mcp` (UI install supported)
     - `lean-ctx`
     - `agentmemory` (CLI + Hermes MCP + OMP extension config)

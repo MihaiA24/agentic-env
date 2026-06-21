@@ -3,9 +3,9 @@
 # requires-python = ">=3.10"
 # dependencies = ["rich>=13.7"]
 # ///
-"""Install mattpocock skills and MCP tooling."""
-
 from __future__ import annotations
+
+"""Install agent skills and MCP tooling."""
 
 import argparse
 import json
@@ -15,6 +15,10 @@ import urllib.request
 from pathlib import Path
 
 from common import ask, cmd_exists, ok, run, run_shell, skip, warn
+
+_SKILLS_CLI_PACKAGE = "skills@latest"
+_MATTPOCK_SKILL_PACK = "mattpocock/skills"
+_PONYTAIL_SKILL_PACK = "DietrichGebert/ponytail"
 
 _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
@@ -224,15 +228,33 @@ def _configure_pi_agentmemory() -> bool:
     return True
 
 
-def _install_skills(_: bool) -> bool:
+def _install_skill_package(source: str) -> bool:
+    command = ["add", source, "--agent", "*", "--global", "--yes"]
+    if cmd_exists("skills"):
+        run(["skills", *command])
+        return True
+
     if not cmd_exists("npm"):
-        warn("npm is required to install mattpocock skills")
+        warn("npm is required to install skills via npx")
         return False
 
-    run(["npx", "--yes", "skills@latest", "add", "mattpocock/skills"])
-    ok("mattpocock skills: installed")
+    run(["npx", "--yes", _SKILLS_CLI_PACKAGE, *command])
     return True
 
+
+def _install_skills(_: bool) -> bool:
+    if not cmd_exists("skills") and not cmd_exists("npm"):
+        warn("skills CLI requires npm or a global skills binary")
+        return False
+
+    if not _install_skill_package(_MATTPOCK_SKILL_PACK):
+        return False
+    ok("mattpocock skills: installed")
+
+    if not _install_skill_package(_PONYTAIL_SKILL_PACK):
+        return False
+    ok("ponytail skill: installed")
+    return True
 
 def _install_codebase_memory(with_ui: bool) -> bool:
     if not cmd_exists("curl"):
@@ -285,7 +307,7 @@ def _install_lean_ctx(non_interactive: bool) -> bool:
 
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Install mattpocock skills and MCP tools"
+        description="Install shared skills and MCP tooling"
     )
     parser.add_argument(
         "--all-skills", action="store_true", help="Install all skills without prompting"
@@ -308,7 +330,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not do_skills and not do_codebase and not do_lean and not do_agentmemory:
         do_skills = ask(
-            "Install mattpocock skills", default=False, non_interactive=non_interactive
+            "Install skill packs (mattpocock + ponytail)",
+            default=False,
+            non_interactive=non_interactive,
         )
         do_codebase = ask(
             "Install MCP: codebase-memory-mcp",
@@ -325,9 +349,10 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if do_skills:
-        _install_skills(non_interactive)
+        if not _install_skills(non_interactive):
+            warn("Skill installation failed")
     else:
-        skip("mattpocock skills: skipped")
+        skip("skill packs: skipped")
 
     if do_codebase:
         with_ui = ask(

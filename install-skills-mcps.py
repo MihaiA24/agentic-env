@@ -14,7 +14,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn
+from common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn, info
 
 _SKILLS_CLI_PACKAGE = "skills@latest"
 _MATTPOCK_SKILL_PACK = "mattpocock/skills"
@@ -231,6 +231,7 @@ def _configure_pi_agentmemory() -> bool:
 def _install_skill_package(source: str) -> bool:
     command = ["add", source, "--agent", "*", "--global", "--yes"]
     if cmd_exists("skills"):
+        info(f"Installing skill pack: {source}...")
         run(["skills", *command])
         return True
 
@@ -238,6 +239,7 @@ def _install_skill_package(source: str) -> bool:
         warn("npm is required to install skills via npx")
         return False
 
+    info(f"Installing skill pack: {source}...")
     run(["npx", "--yes", _SKILLS_CLI_PACKAGE, *command])
     return True
 
@@ -264,6 +266,7 @@ def _install_codebase_memory(with_ui: bool) -> bool:
     base = (
         "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh"
     )
+    info("Installing codebase-memory-mcp...")
     run_shell(f"curl -fsSL {base} | bash" + (" -s -- --ui" if with_ui else ""))
     ok("codebase-memory-mcp: installed" + (" (with UI)" if with_ui else ""))
     return True
@@ -277,6 +280,7 @@ def _install_agentmemory(_non_interactive: bool) -> bool:
     if cmd_exists("agentmemory"):
         skip("agentmemory: already installed")
     else:
+        info("Installing agentmemory...")
         run(["npm", "install", "-g", _AGENTMEMORY_NPM_PACKAGE])
         ok("agentmemory: installed")
 
@@ -291,6 +295,7 @@ def _install_lean_ctx(non_interactive: bool) -> bool:
         warn("curl is required to install lean-ctx")
         return False
 
+    info("Installing lean-ctx...")
     run_shell("curl -fsSL https://leanctx.com/install.sh | sh")
     ok("lean-ctx: installed")
 

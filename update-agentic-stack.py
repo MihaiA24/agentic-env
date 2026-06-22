@@ -9,10 +9,11 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import cmd_exists, run, run_shell, ok, set_verbose, skip, warn
+from common import cmd_exists, run, run_shell, ok, set_verbose, skip, warn, info
 
 
 def _update(label: str, action) -> bool:
+    info(f"Updating {label}...")
     try:
         action()
     except FileNotFoundError:

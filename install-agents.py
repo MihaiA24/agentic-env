@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import ask, cmd_exists, cmd_works, run, run_shell, ok, set_verbose, skip, warn
+from common import ask, cmd_exists, cmd_works, run, run_shell, ok, set_verbose, skip, warn, info
 
 
 def _install_hermes(non_interactive: bool) -> bool:
@@ -21,6 +21,7 @@ def _install_hermes(non_interactive: bool) -> bool:
         warn("curl is required to install Hermes Agent")
         return False
 
+    info("Installing Hermes...")
     run_shell("curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
     ok("Hermes Agent: installed")
     return True
@@ -41,6 +42,7 @@ def _install_omp(non_interactive: bool) -> bool:
         warn("curl is required to install OMP / Oh My Pi")
         return False
 
+    info("Installing OMP / Oh My Pi...")
     run_shell("curl -fsSL https://omp.sh/install | sh")
     ok("OMP / Oh My Pi: installed")
     return True
@@ -55,6 +57,7 @@ def _install_codex(non_interactive: bool) -> bool:
         skip("OpenAI Codex CLI: skipped")
         return False
 
+    info("Installing OpenAI Codex CLI...")
     run(["npm", "install", "-g", "@openai/codex"])
     ok("OpenAI Codex CLI: installed")
     return True
@@ -69,6 +72,7 @@ def _install_claude(non_interactive: bool) -> bool:
         warn("curl is required to install Claude Code")
         return False
 
+    info("Installing Claude Code...")
     run_shell("curl -fsSL https://claude.ai/install.sh | bash")
     ok("Claude Code: installed")
     return True

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -24,8 +23,6 @@ _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
     "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
 )
-_AGENTMEMORY_HERMES_COMMAND = "npx"
-_AGENTMEMORY_HERMES_ARGS = '["-y", "@agentmemory/mcp"]'
 
 
 def _download_text(url: str) -> str | None:
@@ -37,142 +34,20 @@ def _download_text(url: str) -> str | None:
         return None
 
 
-def _configure_hermes_agentmemory(path: Path) -> bool:
-    text = path.read_text(encoding="utf-8") if path.exists() else ""
-    updated = False
-
-    if "mcp_servers:" not in text:
-        block = [
-            "",
-            "mcp_servers:",
-            "  agentmemory:",
-            f"    command: {_AGENTMEMORY_HERMES_COMMAND}",
-            f"    args: {_AGENTMEMORY_HERMES_ARGS}",
-            "",
+def _configure_hermes_agentmemory() -> bool:
+    configure_script = Path(__file__).with_name("configure-agent-mcps.py")
+    run(
+        [
+            sys.executable,
+            str(configure_script),
+            "--server",
+            "agentmemory",
+            "--agent",
+            "hermes",
+            "--yes",
+            "--no-skills",
         ]
-        text = text.rstrip() + "\n".join(block)
-        updated = True
-    else:
-        lines = text.splitlines()
-        inserted = False
-        for i, line in enumerate(lines):
-            if not re.match(r"^\s*agentmemory:\s*$", line):
-                continue
-
-            entry_indent = len(line) - len(line.lstrip())
-            child_indent = " " * (entry_indent + 2)
-            next_i = i + 1
-
-            # Consume malformed same-indentation keys that can be left by older installers
-            # while keeping real sibling MCP server entries intact.
-            while next_i < len(lines):
-                raw = lines[next_i]
-                if not raw.strip():
-                    next_i += 1
-                    continue
-
-                raw_indent = len(raw) - len(raw.lstrip())
-                if raw_indent < entry_indent:
-                    break
-
-                key_match = re.match(r"^\s*([^:#\s][^:]*)\s*:\s*$", raw)
-                if key_match and raw_indent == entry_indent:
-                    key = key_match.group(1)
-                    if key not in {"command", "args", "env"}:
-                        break
-
-                next_i += 1
-
-            block = lines[i + 1 : next_i]
-            has_command = any(
-                re.match(rf"^{re.escape(child_indent)}command:\s*", ln) for ln in block
-            )
-            has_args = any(
-                re.match(rf"^{re.escape(child_indent)}args:\s*", ln) for ln in block
-            )
-
-            if not (has_command and has_args):
-                lines[i + 1 : next_i] = [
-                    f"{child_indent}command: {_AGENTMEMORY_HERMES_COMMAND}",
-                    f"{child_indent}args: {_AGENTMEMORY_HERMES_ARGS}",
-                ]
-                text = "\n".join(lines) + "\n"
-                updated = True
-            inserted = True
-            break
-
-        if not inserted:
-            block = [
-                "mcp_servers:",
-                "  agentmemory:",
-                f"    command: {_AGENTMEMORY_HERMES_COMMAND}",
-                f"    args: {_AGENTMEMORY_HERMES_ARGS}",
-                "",
-            ]
-            lines = text.splitlines()
-            for i, line in enumerate(lines):
-                if re.match(r"^\s*mcp_servers:\s*$", line):
-                    child_indent = line[: len(line) - len(line.lstrip())] + "  "
-                    lines[i + 1 : i + 1] = [
-                        f"{child_indent}agentmemory:",
-                        f"{child_indent}  command: {_AGENTMEMORY_HERMES_COMMAND}",
-                        f"{child_indent}  args: {_AGENTMEMORY_HERMES_ARGS}",
-                    ]
-                    text = "\n".join(lines) + "\n"
-                    updated = True
-                    break
-            else:
-                warn(
-                    "Hermes config: unexpected mcp_servers format; appending agentmemory MCP block"
-                )
-                text = (text.rstrip() + "\n") + "\n".join([""] + block)
-                updated = True
-
-    provider = None
-    lines = text.splitlines()
-    memory_line = None
-    for i, line in enumerate(lines):
-        if re.match(r"^\s*memory:\s*$", line):
-            memory_line = i
-            base_indent = len(line) - len(line.lstrip())
-            break
-    else:
-        base_indent = 0
-        memory_line = None
-
-    if memory_line is None:
-        lines.extend(["", "memory:", "  provider: agentmemory"])
-        text = "\n".join(lines) + "\n"
-        updated = True
-    else:
-        for j in range(memory_line + 1, len(lines)):
-            child = lines[j]
-            if not child.strip():
-                continue
-            child_indent = len(child) - len(child.lstrip())
-            if child_indent <= base_indent:
-                break
-            m = re.match(r"^\s*provider:\s*(.*)\s*$", child)
-            if m:
-                provider = m.group(1)
-                break
-
-        if provider is None:
-            lines.insert(memory_line + 1, " " * (base_indent + 2) + "provider: agentmemory")
-            text = "\n".join(lines) + "\n"
-            updated = True
-        elif provider != "agentmemory":
-            warn(
-                "Hermes config: existing memory.provider is set; skipped changing it"
-            )
-
-    if updated:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-        ok("Hermes config: agentmemory MCP entry added/updated")
-    else:
-        skip("Hermes config: agentmemory already configured")
-
+    )
     return True
 
 
@@ -258,6 +133,7 @@ def _install_skills(_: bool) -> bool:
     ok("ponytail skill: installed")
     return True
 
+
 def _install_codebase_memory(with_ui: bool) -> bool:
     if not cmd_exists("curl"):
         warn("curl is required to install codebase-memory-mcp")
@@ -284,9 +160,8 @@ def _install_agentmemory(_non_interactive: bool) -> bool:
         run(["npm", "install", "-g", _AGENTMEMORY_NPM_PACKAGE])
         ok("agentmemory: installed")
 
-    hermes_path = Path.home() / ".hermes" / "config.yaml"
     pi_ok = _configure_pi_agentmemory()
-    hermes_ok = _configure_hermes_agentmemory(hermes_path)
+    hermes_ok = _configure_hermes_agentmemory()
     return hermes_ok and pi_ok
 
 

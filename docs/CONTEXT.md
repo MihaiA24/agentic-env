@@ -39,6 +39,10 @@
   - A maintenance run that refreshes installed agent stack components without opening prompts or re-running interactive bootstrap installers.
   - _Avoid_: Fresh install, smoke test
 
+- **Setup runner**
+  - The shared `run_cmd` wrapper in `agentic-env/setup_helpers.sh` that keeps setup scripts quiet by default, prints command progress, and dumps captured output only on failure.
+  - _Avoid_: Per-script command wrapper copies
+
 - **Smoke test**
   - The `docker-smoke-test.sh` contract that must pass before an image is accepted.
 

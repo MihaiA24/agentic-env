@@ -8,19 +8,33 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Callable
 
-from common import cmd_exists, info, ok, run, run_shell, set_verbose, skip, warn
+from common import cmd_exists, info, ok, run, set_verbose, skip, warn
 
 AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
-UpdateAction = Callable[[], None]
-UpdateStep = tuple[str, str, UpdateAction, str]
+UPDATE_STEPS: tuple[tuple[str, str, list[str], str], ...] = (
+    (
+        "Hermes Agent",
+        "hermes",
+        ["hermes", "update", "--yes"],
+        "Hermes Agent: not installed",
+    ),
+    ("OMP / Oh My Pi", "omp", ["omp", "update"], "OMP / Oh My Pi: not installed"),
+    ("Claude Code", "claude", ["claude", "update"], "Claude Code: not installed"),
+    (
+        "codebase-memory-mcp",
+        "codebase-memory-mcp",
+        ["codebase-memory-mcp", "update"],
+        "codebase-memory-mcp: not installed",
+    ),
+    ("lean-ctx", "lean-ctx", ["lean-ctx", "update"], "lean-ctx: not installed"),
+)
 
 
-def _update(label: str, action: UpdateAction) -> bool:
+def _update(label: str, command: list[str]) -> bool:
     info(f"Updating {label}...")
     try:
-        action()
+        run(command)
     except FileNotFoundError:
         warn(f"{label}: required tool missing")
         return False
@@ -34,48 +48,14 @@ def _update(label: str, action: UpdateAction) -> bool:
 def _update_if_present(
     label: str,
     dependency: str,
-    action: UpdateAction,
+    command: list[str],
     *,
     missing_message: str,
 ) -> bool:
     if not cmd_exists(dependency):
         skip(missing_message)
         return True
-    return _update(label, action)
-
-
-def _update_hermes() -> None:
-    run(["hermes", "update", "--yes"])
-
-
-def _update_omp() -> None:
-    run(["omp", "update"])
-
-
-def _update_claude() -> None:
-    run(["claude", "update"])
-
-
-def _update_codebase_memory() -> None:
-    run(["codebase-memory-mcp", "update"])
-
-
-def _update_lean_ctx() -> None:
-    run(["lean-ctx", "update"])
-
-
-UPDATE_STEPS: tuple[UpdateStep, ...] = (
-    ("Hermes Agent", "hermes", _update_hermes, "Hermes Agent: not installed"),
-    ("OMP / Oh My Pi", "omp", _update_omp, "OMP / Oh My Pi: not installed"),
-    ("Claude Code", "claude", _update_claude, "Claude Code: not installed"),
-    (
-        "codebase-memory-mcp",
-        "codebase-memory-mcp",
-        _update_codebase_memory,
-        "codebase-memory-mcp: not installed",
-    ),
-    ("lean-ctx", "lean-ctx", _update_lean_ctx, "lean-ctx: not installed"),
-)
+    return _update(label, command)
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -91,10 +71,7 @@ def _update_codex() -> bool:
     if not cmd_exists("npm"):
         warn("OpenAI Codex CLI: npm not installed")
         return False
-    return _update(
-        "OpenAI Codex CLI",
-        lambda: run(["npm", "update", "-g", "@openai/codex"]),
-    )
+    return _update("OpenAI Codex CLI", ["npm", "update", "-g", "@openai/codex"])
 
 
 def _update_agentmemory() -> bool:
@@ -110,20 +87,17 @@ def _update_agentmemory() -> bool:
     # updater only refreshes the globally installed CLI package.
     return _update(
         "agentmemory CLI",
-        lambda: run(["npm", "update", "-g", AGENTMEMORY_NPM_PACKAGE]),
+        ["npm", "update", "-g", AGENTMEMORY_NPM_PACKAGE],
     )
 
 
 def _update_skills() -> bool:
-    if cmd_exists("npm") and cmd_exists("skills"):
-        return _update(
-            "skills CLI",
-            lambda: run(["skills", "update", "-g", "-y"]),
-        )
+    if cmd_exists("skills"):
+        return _update("skills CLI", ["skills", "update", "-g", "-y"])
     if cmd_exists("npm"):
         return _update(
             "skills CLI",
-            lambda: run_shell("npx --yes skills@latest update -g -y"),
+            ["npx", "--yes", "skills@latest", "update", "-g", "-y"],
         )
     skip("skills CLI: npm/command missing")
     return True
@@ -134,9 +108,9 @@ def main(argv: list[str] | None = None) -> int:
     set_verbose(args.verbose)
 
     ok_all = True
-    for label, binary, action, missing in UPDATE_STEPS:
+    for label, binary, command, missing in UPDATE_STEPS:
         ok_all = (
-            _update_if_present(label, binary, action, missing_message=missing)
+            _update_if_present(label, binary, command, missing_message=missing)
             and ok_all
         )
 

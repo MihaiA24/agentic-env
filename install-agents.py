@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import ask, cmd_exists, cmd_works, run, run_shell, ok, warn, skip
+from common import ask, cmd_exists, cmd_works, run, run_shell, ok, set_verbose, skip, warn
 
 
 def _install_hermes(non_interactive: bool) -> bool:
@@ -78,11 +78,13 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Install Hermes/OMP/Codex/Claude")
     parser.add_argument("--all", action="store_true", help="Install all tools without prompting")
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
+    parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
+    set_verbose(args.verbose)
     non_interactive = bool(args.yes)
 
     if args.all or non_interactive:

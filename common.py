@@ -10,6 +10,36 @@ from rich.console import Console
 from rich.prompt import Confirm
 
 console = Console()
+_VERBOSE_OUTPUT = False
+
+
+def set_verbose(enabled: bool) -> None:
+    global _VERBOSE_OUTPUT
+    _VERBOSE_OUTPUT = bool(enabled)
+
+
+def _run(cmd: Iterable[str]) -> subprocess.CompletedProcess[str]:
+    command = list(cmd)
+    if _VERBOSE_OUTPUT:
+        result = subprocess.run(command, check=False, text=True)
+    else:
+        result = subprocess.run(
+            command,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+    if result.returncode != 0:
+        if result.stdout:
+            warn(result.stdout.rstrip())
+        if result.stderr:
+            warn(result.stderr.rstrip())
+        raise subprocess.CalledProcessError(
+            result.returncode, command, output=result.stdout, stderr=result.stderr
+        )
+    return result
 
 
 def cmd_exists(name: str) -> bool:
@@ -37,11 +67,11 @@ def ask(prompt: str, *, default: bool, non_interactive: bool) -> bool:
 
 
 def run(cmd: Iterable[str]) -> None:
-    subprocess.run(list(cmd), check=True)
+    _run(cmd)
 
 
 def run_shell(cmd: str) -> None:
-    subprocess.run(["bash", "-lc", cmd], check=True)
+    _run(["bash", "-lc", cmd])
 
 
 def ok(message: str) -> None:

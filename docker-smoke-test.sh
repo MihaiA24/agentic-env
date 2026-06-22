@@ -2,53 +2,40 @@
 set -eu
 
 SKIP_INSTALL=${SKIP_INSTALL:-0}
+VERBOSE="${VERBOSE:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    -v|--verbose)
+      VERBOSE=1
+      ;;
+    *)
+      ;;
+  esac
+done
+export VERBOSE
 
-if [ "$SKIP_INSTALL" != "1" ]; then
-  echo "[1/5] Installing agent CLIs"
-  uv run --script install-agents.py --all --yes
+_run_log="$(mktemp -t dotfiles-run.XXXXXX)"
+_node_script="$(mktemp -t dotfiles-smoke-check.XXXXXX.js)"
+cleanup() {
+  rm -f "$_run_log" "$_node_script"
+}
+trap cleanup EXIT
 
-  echo "[2/5] Installing MCP/tooling"
-  uv run --script install-skills-mcps.py --all-mcps --yes
+run_cmd() {
+  : >"$_run_log"
+  if [ "$VERBOSE" = "1" ]; then
+    sh -c "$*"
+    return
+  fi
 
-  echo "[3/5] Configuring agent MCP servers"
-  uv run --script configure-agent-mcps.py --yes
-fi
-
-if [ "$SKIP_INSTALL" != "1" ]; then
-  echo "[4/5] Verifying installed binaries"
-else
-  echo "[4/5] Verifying installed binaries (SKIP_INSTALL=1)"
-fi
-
-failures=0
-
-require_command() {
-  cmd="$1"
-  if command -v "$cmd" >/dev/null 2>&1; then
-    echo "✓ command exists: $cmd"
-    if "$cmd" --help >/dev/null 2>&1 || "$cmd" -h >/dev/null 2>&1 || "$cmd" --version >/dev/null 2>&1 || "$cmd" -V >/dev/null 2>&1 || "$cmd" version >/dev/null 2>&1; then
-      echo "✓ smoke callable: $cmd"
-    else
-      echo "✗ smoke callable failed: $cmd"
-      failures=$((failures + 1))
-    fi
-  else
-    echo "✗ missing command: $cmd"
-    failures=$((failures + 1))
+  if ! sh -c "$*" >"$_run_log" 2>&1; then
+    echo "Command failed: $*" >&2
+    cat "$_run_log" >&2
+    return 1
   fi
 }
 
-require_command hermes
-require_command omp
-require_command codex
-require_command claude
-require_command lean-ctx
-require_command codebase-memory-mcp
-require_command agentmemory
-
-
-echo "[5/5] Verifying Hermes and OMP config artifacts"
-node - <<'JS'
+cat >"$_node_script" <<'JS'
 const fs = require('fs');
 const path = require('path');
 const home = process.env.HOME;
@@ -122,8 +109,53 @@ for (const skillsRoot of [
     }
   }
 }
-
 JS
+
+if [ "$SKIP_INSTALL" != "1" ]; then
+  echo "[1/5] Installing agent CLIs"
+  run_cmd "uv run --script install-agents.py --all --yes"
+
+  echo "[2/5] Installing MCP/tooling"
+  run_cmd "uv run --script install-skills-mcps.py --all-mcps --yes"
+
+  echo "[3/5] Configuring agent MCP servers"
+  run_cmd "uv run --script configure-agent-mcps.py --yes"
+fi
+
+if [ "$SKIP_INSTALL" != "1" ]; then
+  echo "[4/5] Verifying installed binaries"
+else
+  echo "[4/5] Verifying installed binaries (SKIP_INSTALL=1)"
+fi
+
+failures=0
+
+require_command() {
+  cmd="$1"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    echo "✓ command exists: $cmd"
+    if "$cmd" --help >/dev/null 2>&1 || "$cmd" -h >/dev/null 2>&1 || "$cmd" --version >/dev/null 2>&1 || "$cmd" -V >/dev/null 2>&1 || "$cmd" version >/dev/null 2>&1; then
+      echo "✓ smoke callable: $cmd"
+    else
+      echo "✗ smoke callable failed: $cmd"
+      failures=$((failures + 1))
+    fi
+  else
+    echo "✗ missing command: $cmd"
+    failures=$((failures + 1))
+  fi
+}
+
+require_command hermes
+require_command omp
+require_command codex
+require_command claude
+require_command lean-ctx
+require_command codebase-memory-mcp
+require_command agentmemory
+
+echo "[5/5] Verifying Hermes and OMP config artifacts"
+run_cmd "node $_node_script"
 
 if [ "$failures" -ne 0 ]; then
   echo "Failed checks: $failures"

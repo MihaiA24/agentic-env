@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import cmd_exists, run, run_shell, ok, skip, warn
+from common import cmd_exists, run, run_shell, ok, set_verbose, skip, warn
 
 
 def _update(label: str, action) -> bool:
@@ -32,9 +32,15 @@ def _update_if_present(label: str, dependency: str, action, *, missing_message: 
         skip(missing_message)
 
 
-def main(argv: list[str] | None = None) -> int:
-    argparse.ArgumentParser(description="Update installed agentic tooling").parse_args(argv or sys.argv[1:])
+def _parse(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Update installed agentic tooling")
+    parser.add_argument("--verbose", action="store_true", help="Show full command output")
+    return parser.parse_args(argv)
 
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse(argv or sys.argv[1:])
+    set_verbose(args.verbose)
     for label, binary, action, missing in (
         ("Hermes Agent", "hermes", lambda: run(["hermes", "update"]), "Hermes Agent: not installed"),
         ("OMP / Oh My Pi", "omp", lambda: run(["omp", "update"]), "OMP / Oh My Pi: not installed"),

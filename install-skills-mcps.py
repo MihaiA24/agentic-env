@@ -14,7 +14,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from common import ask, cmd_exists, ok, run, run_shell, skip, warn
+from common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn
 
 _SKILLS_CLI_PACKAGE = "skills@latest"
 _MATTPOCK_SKILL_PACK = "mattpocock/skills"
@@ -316,11 +316,13 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         "--all-mcps", action="store_true", help="Install all MCPs without prompting"
     )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
+    parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
+    set_verbose(args.verbose)
     non_interactive = bool(args.yes)
 
     do_skills = bool(args.all_skills or non_interactive)

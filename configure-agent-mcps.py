@@ -16,7 +16,7 @@ from pathlib import Path
 
 from rich.prompt import Prompt
 
-from common import cmd_exists, console, ok, skip, warn
+from common import cmd_exists, console, ok, set_verbose, skip, warn
 
 
 @dataclass(frozen=True)
@@ -166,7 +166,10 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--yes", action="store_true", help="Select defaults without prompts")
     parser.add_argument("--no-skills", action="store_true", help="Do not add global skills")
-    parser.add_argument("--dry-run", action="store_true", help="Print actions without writing files")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print actions without writing files"
+    )
+    parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
 
 
@@ -398,6 +401,7 @@ def warn_missing_commands(servers: list[McpServer]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
+    set_verbose(args.verbose)
     server_names = _select_many(
         "MCP servers",
         list(MCP_SERVERS),

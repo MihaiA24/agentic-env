@@ -33,10 +33,15 @@ def _update_if_present(label: str, dependency: str, action, *, missing_message: 
         skip(missing_message)
 
 
+def _update_claude() -> None:
+    run(["claude", "update"])
+
+
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Update installed agentic tooling")
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
+
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -45,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     for label, binary, action, missing in (
         ("Hermes Agent", "hermes", lambda: run(["hermes", "update"]), "Hermes Agent: not installed"),
         ("OMP / Oh My Pi", "omp", lambda: run(["omp", "update"]), "OMP / Oh My Pi: not installed"),
-        ("Claude Code", "claude", lambda: run_shell("curl -fsSL https://claude.ai/install.sh | bash"), "Claude Code: not installed"),
+        ("Claude Code", "claude", _update_claude, "Claude Code: not installed"),
         ("codebase-memory-mcp", "codebase-memory-mcp", lambda: run(["codebase-memory-mcp", "update"]), "codebase-memory-mcp: not installed"),
         ("lean-ctx", "lean-ctx", lambda: run(["lean-ctx", "update"]), "lean-ctx: not installed"),
         ("agentmemory", "agentmemory", lambda: run(["agentmemory", "upgrade"]), "agentmemory: not installed"),

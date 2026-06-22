@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import cmd_exists, cmd_works, run, run_shell, ok, skip, warn
+from common import cmd_exists, run, run_shell, ok, skip, warn
 
 
 def _update(label: str, action) -> bool:
@@ -34,12 +34,7 @@ def main(argv: list[str] | None = None) -> int:
         skip("Hermes Agent: not installed")
 
     if cmd_exists("omp"):
-        if cmd_exists("bun") and cmd_works("bun", args=("version",)):
-            _update("OMP / Oh My Pi", lambda: run(["bun", "install", "-g", "@oh-my-pi/pi-coding-agent"]))
-        elif cmd_exists("npm"):
-            _update("OMP / Oh My Pi", lambda: run(["npm", "install", "-g", "@oh-my-pi/pi-coding-agent"]))
-        else:
-            _update("OMP / Oh My Pi", lambda: run_shell("curl -fsSL https://omp.sh/install | sh"))
+        _update("OMP / Oh My Pi", lambda: run(["omp", "update"]))
     else:
         skip("OMP / Oh My Pi: not installed")
 

@@ -35,6 +35,10 @@
     - `install-skills-mcps.py --all-mcps --yes`
     - `configure-agent-mcps.py --yes`
 
+- **Unattended update**
+  - A maintenance run that refreshes installed agent stack components without opening prompts or re-running interactive bootstrap installers.
+  - _Avoid_: Fresh install, smoke test
+
 - **Smoke test**
   - The `docker-smoke-test.sh` contract that must pass before an image is accepted.
 

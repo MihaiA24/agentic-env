@@ -25,8 +25,8 @@ Docs:
     - `agentmemory`
   - Adds matching global skills for Hermes and OMP when missing.
 - `update-agentic-stack.py`
-  - Updates installed components:
-    - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory`
+  - Updates installed components without interactive prompts:
+    - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
 
 ## Quick usage (from this folder)
 ```bash
@@ -42,6 +42,14 @@ Equivalent shorthand:
 - `uv run ./install-skills-mcps.py`
 - `uv run ./configure-agent-mcps.py`
 - `uv run ./update-agentic-stack.py`
+
+### Update policy
+
+`update-agentic-stack.py` is an unattended maintenance command.
+
+- Use each tool's native updater when it supports one (`hermes update --yes`, `omp update`, `claude update`).
+- Update npm-installed CLIs through npm (`codex`, `agentmemory`) instead of re-running curl installers.
+- Do not call `agentmemory upgrade` here. That command prompts to re-run the pinned `iii-engine` installer and can mutate the current workspace when `package.json` is present. Run it manually when intentionally refreshing the `iii-engine` runtime.
 
 
 ## Runbooks
@@ -162,6 +170,7 @@ hermes mcp test codebase-memory-mcp
 Ponytail (`ponytail`) is installed as a **global, language-agnostic skill bundle** via
 `install-skills-mcps.py` and is available to all supported harnesses that read user
 global skills.
+
 ## Fresh environment in Docker (smoke-test enabled)
 
 Files:

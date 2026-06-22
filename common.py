@@ -73,6 +73,7 @@ def run(cmd: Iterable[str]) -> None:
 def run_shell(cmd: str) -> None:
     _run(["bash", "-lc", cmd])
 
+
 def info(message: str) -> None:
     console.print(f"[blue]•[/] {message}")
 

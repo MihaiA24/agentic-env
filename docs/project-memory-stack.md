@@ -127,9 +127,12 @@ Current installer behavior:
 
 - installs `lean-ctx` and runs `lean-ctx setup`
 - installs `agentmemory`
-- installs skill packs:
-  - `DietrichGebert/ponytail` (global, language-agnostic companion)
-  - `mattpocock/skills` (global project-memory guidance)
+- installs skill packs via `agentic-env/skill-packs.json` by default:
+  - `DietrichGebert/ponytail`
+  - `mattpocock/skills`
+- each skill pack in JSON can include optional `skills` to install a subset by default
+- if `--skill` is passed, each selected pack is filtered by intersection with requested skills (when pack constraints exist)
+- `--skill-config` can point to an alternate JSON profile
 - keeps a modern global-skill baseline for Hermes/OMP when configured
 - installs `codebase-memory-mcp` with UI by default
 
@@ -138,6 +141,43 @@ Current installer behavior:
 - adds selected MCP servers to OMP MCP config files under `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json`
 - adds matching global skills under `~/.hermes/skills`, `~/.omp/agent/skills`, and `~/.pi/agent/skills` when missing
 - leaves existing MCP server and skill entries unchanged
+### Skill pack JSON format
+
+`agentic-env/skill-packs.json` defines:
+
+- `packs`: list of skill pack descriptors
+  - `name`: canonical pack name
+  - `source`: GitHub owner/repo identifier for `skills add`
+  - `label`: human-readable label in install logs
+  - `aliases`: additional pack selectors for CLI prompts and `--skill-pack`
+  - `skills`: optional whitelist of skill ids to install by default for that pack
+- `profiles`: named pack lists, e.g. `default`, `minimal`, `agentic-only`
+
+Example:
+
+```json
+{
+  "packs": [
+    {
+      "name": "mattpocock",
+      "source": "mattpocock/skills",
+      "label": "mattpocock skills",
+      "aliases": ["mattpocock", "mattpocock/skills"],
+      "skills": ["ask", "tdd"]
+    }
+  ],
+  "profiles": {
+    "default": ["mattpocock"]
+  }
+}
+```
+
+Behavior:
+
+- Packs with `skills` default to that subset.
+- If you pass `--skill`, installer applies requested skills to each selected pack:
+  - pack with no `skills`: installs requested skills
+  - pack with `skills`: installs intersection of requested and configured skills
 
 Manual commands, when needed:
 

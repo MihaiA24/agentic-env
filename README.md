@@ -29,6 +29,33 @@ Docs:
     - `--skill-config` to point at an alternate config file
   - Example custom config:
     - `uv run ./install-skills-mcps.py --skill-config skill-packs.generic.json --all-skills`
+  - Skill config JSON (example):
+    ```json
+    {
+      "packs": [
+        {
+          "name": "mattpocock",
+          "source": "mattpocock/skills",
+          "label": "mattpocock skills",
+          "aliases": ["mattpocock", "mattpocock/skills"],
+          "skills": ["ask", "tdd"]
+        },
+        {
+          "name": "ponytail",
+          "source": "DietrichGebert/ponytail",
+          "label": "ponytail skill",
+          "aliases": ["ponytail", "dietrichgebert/ponytail"]
+        }
+      ],
+      "profiles": {
+        "default": ["mattpocock", "ponytail"],
+        "minimal": ["mattpocock"],
+        "agentic-only": ["ponytail"]
+      }
+    }
+    ```
+    - Packs without `skills` install full pack contents by default.
+    - When `skills` exists and you pass `--skill`, installs the intersection of both lists.
 - `configure-agent-mcps.py`
   - Adds selected project-memory MCP servers to Hermes and OMP global config when missing:
     - `lean-ctx`

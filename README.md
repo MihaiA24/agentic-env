@@ -18,15 +18,14 @@ Docs:
     - `codebase-memory-mcp` (UI install supported)
     - `lean-ctx`
     - `agentmemory` (CLI + Hermes MCP + OMP extension config)
-- `configure-agent-mcps.py`
-  - Adds selected project-memory MCP servers to Hermes and OMP global config when missing:
-    - `lean-ctx`
-    - `codebase-memory-mcp`
-    - `agentmemory`
-  - Adds matching global skills for Hermes and OMP when missing.
-- `update-agentic-stack.py`
-  - Updates installed components without interactive prompts:
-    - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
+  - Skill packs are driven by `skill-packs.json` with:
+    - `packs` (source, label, aliases)
+    - `profiles` (named pack sets)
+  - Supports:
+    - `--skill-pack` (comma-separated, repeated)
+    - `--skill-profile` (e.g. `default`, `minimal`, `agentic-only`)
+    - `--skill-config` to point at an alternate config file
+    - `--all-skills`
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
 

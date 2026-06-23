@@ -1,0 +1,27 @@
+{
+  "packs": [
+    {
+      "name": "mattpocock",
+      "source": "mattpocock/skills",
+      "label": "mattpocock skills",
+      "aliases": [
+        "mattpocock",
+        "mattpocock/skills"
+      ]
+    },
+    {
+      "name": "ponytail",
+      "source": "DietrichGebert/ponytail",
+      "label": "ponytail skill",
+      "aliases": [
+        "ponytail",
+        "dietrichgebert/ponytail"
+      ]
+    }
+  ],
+  "profiles": {
+    "default": ["mattpocock", "ponytail"],
+    "minimal": ["mattpocock"],
+    "agentic-only": ["ponytail"]
+  }
+}

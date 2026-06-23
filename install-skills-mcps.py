@@ -18,27 +18,148 @@ from common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn,
 
 
 _SKILLS_CLI_PACKAGE = "skills@latest"
-_MATTPOCK_SKILL_PACK = "mattpocock/skills"
-_PONYTAIL_SKILL_PACK = "DietrichGebert/ponytail"
 _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
     "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
 )
 _SKILL_AGENTS = ("Hermes Agent", "Pi", "Claude Code", "Codex")  # Pi == ohmipy
-_SKILL_PACKS: tuple[tuple[str, str, str], ...] = (
-    ("mattpocock", _MATTPOCK_SKILL_PACK, "mattpocock skills"),
-    ("ponytail", _PONYTAIL_SKILL_PACK, "ponytail skill"),
+_SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
+_DEFAULT_SKILL_PACKS: tuple[tuple[str, str, str], ...] = (
+    ("mattpocock", "mattpocock/skills", "mattpocock skills"),
+    ("ponytail", "DietrichGebert/ponytail", "ponytail skill"),
 )
-_SKILL_PACK_ALIASES = {
+_DEFAULT_SKILL_PACK_ALIASES = {
     "mattpocock": "mattpocock",
     "mattpocock/skills": "mattpocock",
     "ponytail": "ponytail",
     "dietrichgebert/ponytail": "ponytail",
 }
+_DEFAULT_SKILL_PACK_PROFILES = {"default": ["mattpocock", "ponytail"]}
+_SKILL_PACKS: tuple[tuple[str, str, str], ...] = _DEFAULT_SKILL_PACKS
+_SKILL_PACK_ALIASES = {**_DEFAULT_SKILL_PACK_ALIASES}
+_SKILL_PACK_PROFILES = {**_DEFAULT_SKILL_PACK_PROFILES}
+
+
+def _load_skill_pack_config(path: Path) -> bool:
+    global _SKILL_PACKS, _SKILL_PACK_ALIASES, _SKILL_PACK_PROFILES
+
+    if not path.exists():
+        if path != _SKILL_PACK_CONFIG_PATH:
+            warn(f"Skill pack config not found: {path}")
+            return False
+        _SKILL_PACKS = _DEFAULT_SKILL_PACKS
+        _SKILL_PACK_ALIASES = {**_DEFAULT_SKILL_PACK_ALIASES}
+        _SKILL_PACK_PROFILES = {**_DEFAULT_SKILL_PACK_PROFILES}
+        return True
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        warn(f"Invalid JSON in {path}: {exc}")
+        return False
+    except OSError as exc:
+        warn(f"Cannot read {path}: {exc}")
+        return False
+
+    if not isinstance(payload, dict):
+        warn(f"Invalid skill-pack config in {path}: expected object")
+        return False
+
+    packs_payload = payload.get("packs")
+    if not isinstance(packs_payload, list) or not packs_payload:
+        warn(f"Invalid skill-pack config in {path}: 'packs' must be a non-empty list")
+        return False
+
+    packs: list[tuple[str, str, str]] = []
+    aliases: dict[str, str] = {}
+    pack_names: set[str] = set()
+    for item in packs_payload:
+        if not isinstance(item, dict):
+            warn(f"Invalid pack entry in {path}: {item!r}")
+            return False
+        name = item.get("name")
+        source = item.get("source")
+        label = item.get("label", f"{name} skill")
+        if not isinstance(name, str) or not name.strip():
+            warn(f"Invalid pack name in {path}: {name!r}")
+            return False
+        if not isinstance(source, str) or not source.strip():
+            warn(f"Invalid source for pack '{name}' in {path}: {source!r}")
+            return False
+        if not isinstance(label, str) or not label.strip():
+            warn(f"Invalid label for pack '{name}' in {path}: {label!r}")
+            return False
+
+        aliases_raw = item.get("aliases", [])
+        if not isinstance(aliases_raw, list):
+            warn(f"Invalid aliases for pack '{name}' in {path}: expected list")
+            return False
+
+        canonical = name.strip().lower()
+        source = source.strip()
+        label = label.strip()
+        if canonical in pack_names:
+            warn(f"Duplicate pack '{canonical}' in {path}")
+            return False
+        pack_names.add(canonical)
+        packs.append((canonical, source, label))
+        source_alias = source.lower()
+        if source_alias in aliases and aliases[source_alias] != canonical:
+            warn(
+                f"Source '{source_alias}' is also an alias for '{aliases[source_alias]}', "
+                f"not '{canonical}', in {path}"
+            )
+            return False
+        aliases[source_alias] = canonical
+        for raw_alias in aliases_raw:
+            if not isinstance(raw_alias, str):
+                warn(f"Invalid alias for pack '{name}' in {path}: {raw_alias!r}")
+                return False
+            alias_key = raw_alias.strip().lower()
+            if not alias_key:
+                continue
+            if alias_key in aliases and aliases[alias_key] != canonical:
+                warn(
+                    f"Alias '{alias_key}' maps to both '{aliases[alias_key]}' and '{canonical}' in {path}"
+                )
+                return False
+            aliases[alias_key] = canonical
+
+    profiles_payload = payload.get("profiles", {"default": [name for name, _, _ in packs]})
+    if not isinstance(profiles_payload, dict):
+        warn(f"Invalid 'profiles' in {path}: expected object")
+        return False
+
+    profiles: dict[str, list[str]] = {}
+    for profile_name, pack_values in profiles_payload.items():
+        if not isinstance(profile_name, str) or not profile_name.strip():
+            warn(f"Invalid profile name in {path}: {profile_name!r}")
+            return False
+        if not isinstance(pack_values, list) or not all(isinstance(item, str) for item in pack_values):
+            warn(f"Invalid profile '{profile_name}' in {path}: expected list of pack names")
+            return False
+        normalized: list[str] = []
+        for raw_pack in pack_values:
+            canonical_pack = raw_pack.strip().lower()
+            if canonical_pack not in pack_names:
+                warn(f"Profile '{profile_name}' references unknown pack '{raw_pack}' in {path}")
+                return False
+            if canonical_pack not in normalized:
+                normalized.append(canonical_pack)
+        profiles[profile_name.strip()] = normalized
+
+    _SKILL_PACKS = tuple(packs)
+    _SKILL_PACK_ALIASES = aliases
+    _SKILL_PACK_PROFILES = profiles
+    return True
 
 
 def _all_skill_packs() -> list[str]:
     return [name for name, _, _ in _SKILL_PACKS]
+
+
+def _all_skill_profiles() -> list[str]:
+    return list(_SKILL_PACK_PROFILES.keys())
 
 
 def _skill_pack_source(name: str) -> str:
@@ -47,6 +168,8 @@ def _skill_pack_source(name: str) -> str:
 
 def _skill_pack_label(name: str) -> str:
     return {name: label for name, _, label in _SKILL_PACKS}[name]
+
+
 
 
 def _parse_skill_packs(values: list[str] | None) -> tuple[list[str], list[str]]:
@@ -333,6 +456,20 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--skill-profile",
+        metavar="NAME",
+        help=(
+            "Install packs from this profile in the skill pack config. "
+            "Defaults to 'default' only when selected in non-interactive mode."
+        ),
+    )
+    parser.add_argument(
+        "--skill-config",
+        metavar="PATH",
+        default=str(_SKILL_PACK_CONFIG_PATH),
+        help="Path to JSON skill pack config (packs + profiles).",
+    )
+    parser.add_argument(
         "--all-mcps", action="store_true", help="Install all MCPs without prompting"
     )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
@@ -345,6 +482,9 @@ def main(argv: list[str] | None = None) -> int:
     set_verbose(args.verbose)
     non_interactive = bool(args.yes)
 
+    if not _load_skill_pack_config(Path(args.skill_config)):
+        return 1
+
     requested_skill_packs, unknown_skill_packs = _parse_skill_packs(args.skill_pack)
     if unknown_skill_packs:
         warn(f"Unknown skill pack(s): {', '.join(sorted(unknown_skill_packs))}")
@@ -355,8 +495,19 @@ def main(argv: list[str] | None = None) -> int:
         selected_skill_packs = _all_skill_packs()
     elif requested_skill_packs:
         selected_skill_packs = requested_skill_packs
+    elif args.skill_profile:
+        profile_name = args.skill_profile.strip()
+        if not profile_name:
+            warn("Empty --skill-profile value")
+            return 1
+        profile = _SKILL_PACK_PROFILES.get(profile_name)
+        if profile is None:
+            warn(f"Unknown skill profile: {profile_name}")
+            warn(f"Available: {', '.join(_all_skill_profiles())}")
+            return 1
+        selected_skill_packs = profile
     elif non_interactive:
-        selected_skill_packs = _all_skill_packs()
+        selected_skill_packs = _SKILL_PACK_PROFILES.get("default", _all_skill_packs())
     else:
         selected_skill_packs = []
 

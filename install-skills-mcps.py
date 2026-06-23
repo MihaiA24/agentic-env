@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 import urllib.request
 from pathlib import Path
 
 from common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn, info
+
 
 _SKILLS_CLI_PACKAGE = "skills@latest"
 _MATTPOCK_SKILL_PACK = "mattpocock/skills"
@@ -23,6 +25,70 @@ _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
     "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
 )
+
+
+def _command_exists(binary: str) -> bool:
+    if cmd_exists(binary):
+        return True
+    return (Path.home() / ".local" / "bin" / binary).is_file()
+
+
+def _should_install_mcp(binary: str, label: str, non_interactive: bool) -> bool:
+    if _command_exists(binary):
+        if not ask(f"Reinstall {label}", default=False, non_interactive=non_interactive):
+            skip(f"{label}: already installed")
+            return False
+    return True
+
+
+def _is_npm_permission_error(exc: subprocess.CalledProcessError) -> bool:
+    message = (exc.stderr or "") + (exc.stdout or "")
+    lower = message.lower()
+    return "eacces" in lower or "permission denied" in lower
+
+
+def _install_agentmemory_user_local(package: str) -> bool:
+    local_prefix = Path.home() / ".local" / "agentmemory"
+    try:
+        run(["npm", "install", "--prefix", str(local_prefix), "-g", package])
+    except subprocess.CalledProcessError:
+        warn(f"agentmemory: local npm install failed for prefix {local_prefix}")
+        return False
+    binary_path = local_prefix / "bin" / "agentmemory"
+    if not binary_path.exists():
+        warn(f"agentmemory fallback install succeeded but binary missing: {binary_path}")
+        return False
+
+    user_bin_dir = Path.home() / ".local" / "bin"
+    user_bin_dir.mkdir(parents=True, exist_ok=True)
+    shim_path = user_bin_dir / "agentmemory"
+    try:
+        shim_path.write_text(
+            f'#!/usr/bin/env sh\nexec "{binary_path}" "$@"\n',
+            encoding="utf-8",
+        )
+        shim_path.chmod(0o755)
+    except OSError as exc:
+        warn(f"agentmemory: failed to write local shim {shim_path}: {exc}")
+        return False
+    ok(f"agentmemory: installed to user-local npm prefix {local_prefix}")
+    skip(
+        "PATH may not include ~/.local/bin automatically; add it to use the fallback binary"
+    )
+    return True
+
+
+def _install_npm_global(package: str, label: str) -> bool:
+    try:
+        run(["npm", "install", "-g", package])
+        ok(f"{label}: installed")
+        return True
+    except subprocess.CalledProcessError as exc:
+        if not _is_npm_permission_error(exc):
+            warn(f"{label}: npm install failed")
+            return False
+        warn(f"{label}: global npm install blocked by permissions")
+        return _install_agentmemory_user_local(package)
 
 
 def _download_text(url: str) -> str | None:
@@ -134,7 +200,15 @@ def _install_skills(_: bool) -> bool:
     return True
 
 
-def _install_codebase_memory(with_ui: bool) -> bool:
+
+def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
+    if not _should_install_mcp(
+        "codebase-memory-mcp",
+        "codebase-memory-mcp",
+        non_interactive,
+    ):
+        return True
+
     if not cmd_exists("curl"):
         warn("curl is required to install codebase-memory-mcp")
         return False
@@ -148,24 +222,28 @@ def _install_codebase_memory(with_ui: bool) -> bool:
     return True
 
 
-def _install_agentmemory(_non_interactive: bool) -> bool:
+def _install_agentmemory(non_interactive: bool) -> bool:
+    if not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
+        return True
+
     if not cmd_exists("npm"):
         warn("npm is required to install agentmemory")
         return False
 
-    if cmd_exists("agentmemory"):
-        skip("agentmemory: already installed")
-    else:
-        info("Installing agentmemory...")
-        run(["npm", "install", "-g", _AGENTMEMORY_NPM_PACKAGE])
-        ok("agentmemory: installed")
+    info("Installing agentmemory...")
+    if not _install_npm_global(_AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
+        return False
 
     pi_ok = _configure_pi_agentmemory()
     hermes_ok = _configure_hermes_agentmemory()
     return hermes_ok and pi_ok
 
 
+
 def _install_lean_ctx(non_interactive: bool) -> bool:
+    if not _should_install_mcp("lean-ctx", "lean-ctx", non_interactive):
+        return True
+
     if not cmd_exists("curl"):
         warn("curl is required to install lean-ctx")
         return False
@@ -242,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
             default=True,
             non_interactive=non_interactive,
         )
-        _install_codebase_memory(with_ui)
+        _install_codebase_memory(with_ui, non_interactive)
     else:
         skip("codebase-memory-mcp: skipped")
 

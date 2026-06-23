@@ -24,9 +24,9 @@ _AGENTMEMORY_PI_INDEX_TS = (
 )
 _SKILL_AGENTS = ("Hermes Agent", "Pi", "Claude Code", "Codex")  # Pi == ohmipy
 _SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
-_DEFAULT_SKILL_PACKS: tuple[tuple[str, str, str], ...] = (
-    ("mattpocock", "mattpocock/skills", "mattpocock skills"),
-    ("ponytail", "DietrichGebert/ponytail", "ponytail skill"),
+_DEFAULT_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
+    ("mattpocock", "mattpocock/skills", "mattpocock skills", ()),
+    ("ponytail", "DietrichGebert/ponytail", "ponytail skill", ()),
 )
 _DEFAULT_SKILL_PACK_ALIASES = {
     "mattpocock": "mattpocock",
@@ -35,7 +35,7 @@ _DEFAULT_SKILL_PACK_ALIASES = {
     "dietrichgebert/ponytail": "ponytail",
 }
 _DEFAULT_SKILL_PACK_PROFILES = {"default": ["mattpocock", "ponytail"]}
-_SKILL_PACKS: tuple[tuple[str, str, str], ...] = _DEFAULT_SKILL_PACKS
+_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = _DEFAULT_SKILL_PACKS
 _SKILL_PACK_ALIASES = {**_DEFAULT_SKILL_PACK_ALIASES}
 _SKILL_PACK_PROFILES = {**_DEFAULT_SKILL_PACK_PROFILES}
 
@@ -70,7 +70,7 @@ def _load_skill_pack_config(path: Path) -> bool:
         warn(f"Invalid skill-pack config in {path}: 'packs' must be a non-empty list")
         return False
 
-    packs: list[tuple[str, str, str]] = []
+    packs: list[tuple[str, str, str, tuple[str, ...]]] = []
     aliases: dict[str, str] = {}
     pack_names: set[str] = set()
     for item in packs_payload:
@@ -95,6 +95,21 @@ def _load_skill_pack_config(path: Path) -> bool:
             warn(f"Invalid aliases for pack '{name}' in {path}: expected list")
             return False
 
+        skills_raw = item.get("skills", [])
+        if not isinstance(skills_raw, list):
+            warn(f"Invalid skills filter for pack '{name}' in {path}: expected list")
+            return False
+        skills: list[str] = []
+        for raw_skill in skills_raw:
+            if not isinstance(raw_skill, str):
+                warn(f"Invalid skill value for pack '{name}' in {path}: {raw_skill!r}")
+                return False
+            skill = raw_skill.strip()
+            if not skill:
+                continue
+            if skill not in skills:
+                skills.append(skill)
+
         canonical = name.strip().lower()
         source = source.strip()
         label = label.strip()
@@ -102,7 +117,7 @@ def _load_skill_pack_config(path: Path) -> bool:
             warn(f"Duplicate pack '{canonical}' in {path}")
             return False
         pack_names.add(canonical)
-        packs.append((canonical, source, label))
+        packs.append((canonical, source, label, tuple(skills)))
         source_alias = source.lower()
         if source_alias in aliases and aliases[source_alias] != canonical:
             warn(
@@ -125,7 +140,7 @@ def _load_skill_pack_config(path: Path) -> bool:
                 return False
             aliases[alias_key] = canonical
 
-    profiles_payload = payload.get("profiles", {"default": [name for name, _, _ in packs]})
+    profiles_payload = payload.get("profiles", {"default": [name for name, _, _, _ in packs]})
     if not isinstance(profiles_payload, dict):
         warn(f"Invalid 'profiles' in {path}: expected object")
         return False
@@ -155,7 +170,7 @@ def _load_skill_pack_config(path: Path) -> bool:
 
 
 def _all_skill_packs() -> list[str]:
-    return [name for name, _, _ in _SKILL_PACKS]
+    return [name for name, _, _, _ in _SKILL_PACKS]
 
 
 def _all_skill_profiles() -> list[str]:
@@ -163,21 +178,22 @@ def _all_skill_profiles() -> list[str]:
 
 
 def _skill_pack_source(name: str) -> str:
-    return {name: source for name, source, _ in _SKILL_PACKS}[name]
+    return {name: source for name, source, _, _ in _SKILL_PACKS}[name]
 
 
 def _skill_pack_label(name: str) -> str:
-    return {name: label for name, _, label in _SKILL_PACKS}[name]
+    return {name: label for name, _, label, _ in _SKILL_PACKS}[name]
 
+
+def _skill_pack_skills(name: str) -> list[str]:
+    return list({name: skills for name, _, _, skills in _SKILL_PACKS}[name])
 
 
 
 def _parse_skill_packs(values: list[str] | None) -> tuple[list[str], list[str]]:
-    if not values:
-        return [], []
     selected: list[str] = []
     unknown: list[str] = []
-    for raw in values:
+    for raw in values or []:
         for token in raw.split(","):
             name = token.strip().lower()
             if not name:
@@ -191,9 +207,21 @@ def _parse_skill_packs(values: list[str] | None) -> tuple[list[str], list[str]]:
     return selected, unknown
 
 
+def _parse_skill_names(values: list[str] | None) -> list[str]:
+    requested: list[str] = []
+    for raw in values or []:
+        for token in raw.split(","):
+            name = token.strip()
+            if not name:
+                continue
+            if name not in requested:
+                requested.append(name)
+    return requested
+
+
 def _select_skill_packs(non_interactive: bool) -> list[str]:
     selected: list[str] = []
-    for name, _, label in _SKILL_PACKS:
+    for name, _, label, _ in _SKILL_PACKS:
         if ask(f"Install skill pack: {label}?", default=False, non_interactive=non_interactive):
             selected.append(name)
     return selected
@@ -346,23 +374,47 @@ def _configure_pi_agentmemory() -> bool:
     return True
 
 
-def _install_skills(skill_packs: list[str]) -> bool:
+def _install_skills(skill_packs: list[str], requested_skills: list[str]) -> bool:
     if not cmd_exists("skills") and not cmd_exists("npm"):
         warn("skills CLI requires npm or a global skills binary")
         return False
 
     for pack in skill_packs:
         source = _skill_pack_source(pack)
-        if not _install_skill_package(source):
+        configured_skills = _skill_pack_skills(pack)
+
+        if configured_skills:
+            if requested_skills:
+                filtered_skills = [
+                    skill for skill in requested_skills if skill in configured_skills
+                ]
+                if not filtered_skills:
+                    warn(
+                        f"{_skill_pack_label(pack)}: no requested skills matched this pack's filter; skipped"
+                    )
+                    continue
+            else:
+                filtered_skills = configured_skills
+        else:
+            filtered_skills = requested_skills
+
+        if not _install_skill_package(source, filtered_skills):
+            warn(f"{_skill_pack_label(pack)}: installation failed")
             return False
-        ok(f"{_skill_pack_label(pack)}: installed")
     return True
-def _install_skill_package(source: str) -> bool:
+
+
+def _install_skill_package(source: str, skills: list[str]) -> bool:
     command = ["add", source, "--global", "--yes"]
+    for skill in skills:
+        command.extend(["--skill", skill])
     for agent in _skill_agents():
         command.extend(["--agent", agent])
     if cmd_exists("skills"):
-        info(f"Installing skill pack: {source}...")
+        if skills:
+            info(f"Installing skills: {', '.join(skills)} from {source}...")
+        else:
+            info(f"Installing skill pack: {source}...")
         run(["skills", *command])
         return True
 
@@ -370,9 +422,29 @@ def _install_skill_package(source: str) -> bool:
         warn("npm is required to install skills via npx")
         return False
 
-    info(f"Installing skill pack: {source}...")
+    if skills:
+        info(f"Installing skills: {', '.join(skills)} from {source}...")
+    else:
+        info(f"Installing skill pack: {source}...")
     run(["npx", "--yes", _SKILLS_CLI_PACKAGE, *command])
     return True
+def _install_agentmemory(non_interactive: bool) -> bool:
+    if not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
+        return True
+
+    if not cmd_exists("npm"):
+        warn("npm is required to install agentmemory")
+        return False
+
+    info("Installing agentmemory...")
+    if not _install_npm_global(_AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
+        return False
+
+    pi_ok = _configure_pi_agentmemory()
+    hermes_ok = _configure_hermes_agentmemory()
+    return hermes_ok and pi_ok
+
+
 
 
 
@@ -397,24 +469,6 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     run_shell(f"curl -fsSL {base} | bash" + (" -s -- --ui" if with_ui else ""))
     ok("codebase-memory-mcp: installed" + (" (with UI)" if with_ui else ""))
     return True
-
-
-def _install_agentmemory(non_interactive: bool) -> bool:
-    if not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
-        return True
-
-    if not cmd_exists("npm"):
-        warn("npm is required to install agentmemory")
-        return False
-
-    info("Installing agentmemory...")
-    if not _install_npm_global(_AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
-        return False
-
-    pi_ok = _configure_pi_agentmemory()
-    hermes_ok = _configure_hermes_agentmemory()
-    return hermes_ok and pi_ok
-
 
 
 def _install_lean_ctx(non_interactive: bool) -> bool:
@@ -456,6 +510,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--skill",
+        action="append",
+        help=(
+            "Install only these skill names from the selected packs (repeat or use commas). "
+            "Requires the skills CLI --skill filter."
+        ),
+    )
+    parser.add_argument(
         "--skill-profile",
         metavar="NAME",
         help=(
@@ -490,6 +552,8 @@ def main(argv: list[str] | None = None) -> int:
         warn(f"Unknown skill pack(s): {', '.join(sorted(unknown_skill_packs))}")
         warn(f"Available: {', '.join(_all_skill_packs())}")
         return 1
+
+    requested_skill_names = _parse_skill_names(args.skill)
 
     if args.all_skills:
         selected_skill_packs = _all_skill_packs()
@@ -540,7 +604,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if do_skills:
-        if not _install_skills(selected_skill_packs):
+        if not _install_skills(selected_skill_packs, requested_skill_names):
             warn("Skill installation failed")
     else:
         skip("skill packs: skipped")

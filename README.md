@@ -19,13 +19,16 @@ Docs:
     - `lean-ctx`
     - `agentmemory` (CLI + Hermes MCP + OMP extension config)
   - Skill packs are driven by `skill-packs.json` with:
-    - `packs` (source, label, aliases)
+    - `packs` entries can optionally define `skills` (array of specific skill names)
+      to install only those from that pack.
     - `profiles` (named pack sets)
-  - Supports:
+  - Supported options:
     - `--skill-pack` (comma-separated, repeated)
-    - `--skill-profile` (e.g. `default`, `minimal`, `agentic-only`)
+    - `--skill` (comma-separated, repeated; filters each selected pack)
+    - `--skill-profile` (for example: `default`, `minimal`, `agentic-only`)
     - `--skill-config` to point at an alternate config file
-    - `--all-skills`
+  - Example custom config:
+    - `uv run ./install-skills-mcps.py --skill-config skill-packs.generic.json --all-skills`
 - `configure-agent-mcps.py`
   - Adds selected project-memory MCP servers to Hermes and OMP global config when missing:
     - `lean-ctx`

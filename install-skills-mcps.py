@@ -20,12 +20,60 @@ from common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn,
 _SKILLS_CLI_PACKAGE = "skills@latest"
 _MATTPOCK_SKILL_PACK = "mattpocock/skills"
 _PONYTAIL_SKILL_PACK = "DietrichGebert/ponytail"
-
 _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
     "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
 )
 _SKILL_AGENTS = ("Hermes Agent", "Pi", "Claude Code", "Codex")  # Pi == ohmipy
+_SKILL_PACKS: tuple[tuple[str, str, str], ...] = (
+    ("mattpocock", _MATTPOCK_SKILL_PACK, "mattpocock skills"),
+    ("ponytail", _PONYTAIL_SKILL_PACK, "ponytail skill"),
+)
+_SKILL_PACK_ALIASES = {
+    "mattpocock": "mattpocock",
+    "mattpocock/skills": "mattpocock",
+    "ponytail": "ponytail",
+    "dietrichgebert/ponytail": "ponytail",
+}
+
+
+def _all_skill_packs() -> list[str]:
+    return [name for name, _, _ in _SKILL_PACKS]
+
+
+def _skill_pack_source(name: str) -> str:
+    return {name: source for name, source, _ in _SKILL_PACKS}[name]
+
+
+def _skill_pack_label(name: str) -> str:
+    return {name: label for name, _, label in _SKILL_PACKS}[name]
+
+
+def _parse_skill_packs(values: list[str] | None) -> tuple[list[str], list[str]]:
+    if not values:
+        return [], []
+    selected: list[str] = []
+    unknown: list[str] = []
+    for raw in values:
+        for token in raw.split(","):
+            name = token.strip().lower()
+            if not name:
+                continue
+            canonical = _SKILL_PACK_ALIASES.get(name)
+            if canonical is None:
+                unknown.append(token.strip())
+                continue
+            if canonical not in selected:
+                selected.append(canonical)
+    return selected, unknown
+
+
+def _select_skill_packs(non_interactive: bool) -> list[str]:
+    selected: list[str] = []
+    for name, _, label in _SKILL_PACKS:
+        if ask(f"Install skill pack: {label}?", default=False, non_interactive=non_interactive):
+            selected.append(name)
+    return selected
 
 
 def _skill_agents() -> list[str]:
@@ -44,6 +92,7 @@ def _should_install_mcp(binary: str, label: str, non_interactive: bool) -> bool:
             skip(f"{label}: already installed")
             return False
     return True
+
 
 
 def _is_npm_permission_error(exc: subprocess.CalledProcessError) -> bool:
@@ -174,6 +223,17 @@ def _configure_pi_agentmemory() -> bool:
     return True
 
 
+def _install_skills(skill_packs: list[str]) -> bool:
+    if not cmd_exists("skills") and not cmd_exists("npm"):
+        warn("skills CLI requires npm or a global skills binary")
+        return False
+
+    for pack in skill_packs:
+        source = _skill_pack_source(pack)
+        if not _install_skill_package(source):
+            return False
+        ok(f"{_skill_pack_label(pack)}: installed")
+    return True
 def _install_skill_package(source: str) -> bool:
     command = ["add", source, "--global", "--yes"]
     for agent in _skill_agents():
@@ -192,19 +252,6 @@ def _install_skill_package(source: str) -> bool:
     return True
 
 
-def _install_skills(_: bool) -> bool:
-    if not cmd_exists("skills") and not cmd_exists("npm"):
-        warn("skills CLI requires npm or a global skills binary")
-        return False
-
-    if not _install_skill_package(_MATTPOCK_SKILL_PACK):
-        return False
-    ok("mattpocock skills: installed")
-
-    if not _install_skill_package(_PONYTAIL_SKILL_PACK):
-        return False
-    ok("ponytail skill: installed")
-    return True
 
 
 
@@ -278,6 +325,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         "--all-skills", action="store_true", help="Install all skills without prompting"
     )
     parser.add_argument(
+        "--skill-pack",
+        action="append",
+        help=(
+            "Install one or more skill packs (for example: mattpocock, ponytail). "
+            "Repeat or use commas."
+        ),
+    )
+    parser.add_argument(
         "--all-mcps", action="store_true", help="Install all MCPs without prompting"
     )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
@@ -290,17 +345,35 @@ def main(argv: list[str] | None = None) -> int:
     set_verbose(args.verbose)
     non_interactive = bool(args.yes)
 
-    do_skills = bool(args.all_skills or non_interactive)
+    requested_skill_packs, unknown_skill_packs = _parse_skill_packs(args.skill_pack)
+    if unknown_skill_packs:
+        warn(f"Unknown skill pack(s): {', '.join(sorted(unknown_skill_packs))}")
+        warn(f"Available: {', '.join(_all_skill_packs())}")
+        return 1
+
+    if args.all_skills:
+        selected_skill_packs = _all_skill_packs()
+    elif requested_skill_packs:
+        selected_skill_packs = requested_skill_packs
+    elif non_interactive:
+        selected_skill_packs = _all_skill_packs()
+    else:
+        selected_skill_packs = []
+
+    do_skills = bool(selected_skill_packs)
     do_codebase = bool(args.all_mcps or non_interactive)
     do_lean = bool(args.all_mcps or non_interactive)
     do_agentmemory = bool(args.all_mcps or non_interactive)
 
     if not do_skills and not do_codebase and not do_lean and not do_agentmemory:
         do_skills = ask(
-            "Install skill packs (mattpocock + ponytail)",
+            "Install skill packs",
             default=False,
             non_interactive=non_interactive,
         )
+        if do_skills:
+            selected_skill_packs = _select_skill_packs(non_interactive)
+            do_skills = bool(selected_skill_packs)
         do_codebase = ask(
             "Install MCP: codebase-memory-mcp",
             default=False,
@@ -316,7 +389,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if do_skills:
-        if not _install_skills(non_interactive):
+        if not _install_skills(selected_skill_packs):
             warn("Skill installation failed")
     else:
         skip("skill packs: skipped")
@@ -342,6 +415,8 @@ def main(argv: list[str] | None = None) -> int:
         skip("agentmemory: skipped")
 
     return 0
+
+
 
 
 if __name__ == "__main__":

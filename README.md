@@ -27,8 +27,8 @@ Docs:
     - `--skill` (comma-separated, repeated; filters each selected pack)
     - `--skill-profile` (for example: `default`, `minimal`, `agentic-only`)
     - `--skill-config` to point at an alternate config file
-  - Example custom config:
-    - `uv run ./install-skills-mcps.py --skill-config skill-packs.generic.json --all-skills`
+  - Example override config file:
+    - `uv run ./install-skills-mcps.py --skill-config custom-skill-packs.json --all-skills`
   - Skill config JSON (example):
     ```json
     {

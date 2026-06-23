@@ -18,17 +18,18 @@ Docs:
     - `codebase-memory-mcp` (UI install supported)
     - `lean-ctx`
     - `agentmemory` (CLI + Hermes MCP + OMP extension config)
-  - Skill packs are driven by `skill-packs.json` with:
-    - `packs` entries can optionally define `skills` (array of specific skill names)
-      to install only those from that pack.
-    - `profiles` (named pack sets)
+  - Skill packs are driven by `skill-packs.json` (default) with:
+    - `packs` entries that can define optional `skills` (array of specific skill names)
+      to install only those from that pack by default.
+    - `profiles` (named pack sets).
   - Supported options:
-    - `--skill-pack` (comma-separated, repeated)
-    - `--skill` (comma-separated, repeated; filters each selected pack)
-    - `--skill-profile` (for example: `default`, `minimal`, `agentic-only`)
-    - `--skill-config` to point at an alternate config file
-  - Example override config file:
-    - `uv run ./install-skills-mcps.py --skill-config custom-skill-packs.json --all-skills`
+    - `--skill-pack` (comma-separated, repeated) to choose packs.
+    - `--skill` (comma-separated, repeated; filters each selected pack).
+    - `--skill-agent` (comma-separated, repeated; defaults to `hermes,ohmipy,claude,codex`).
+    - `--skill-profile` (for example: `default`, `minimal`, `agentic-only`).
+    - `--all-skills` to install every configured pack.
+  - Example:
+    - `uv run ./install-skills-mcps.py --all-skills --skill-agent hermes,ohmipy,claude,codex --yes`
   - Skill config JSON (example):
     ```json
     {

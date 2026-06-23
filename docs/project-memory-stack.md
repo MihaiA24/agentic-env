@@ -131,7 +131,8 @@ Current installer behavior:
   - `DietrichGebert/ponytail`
   - `mattpocock/skills`
 - each skill pack in JSON can include optional `skills` to install a subset by default
-- if `--skill` is passed, each selected pack is filtered by intersection with requested skills (when pack constraints exist)
+- if `--skill` is passed, each selected pack is filtered by intersection with requested skills
+- installs to target agents in `--skill-agent` (default: `hermes,ohmipy,claude,codex`)
 - `--skill-config` can point to an alternate JSON profile
 - keeps a modern global-skill baseline for Hermes/OMP when configured
 - installs `codebase-memory-mcp` with UI by default
@@ -151,8 +152,8 @@ Current installer behavior:
   - `label`: human-readable label in install logs
   - `aliases`: additional pack selectors for CLI prompts and `--skill-pack`
   - `skills`: optional whitelist of skill ids to install by default for that pack
+- `--skill-agent`: optional list of target clients for `skills` installation
 - `profiles`: named pack lists, e.g. `default`, `minimal`, `agentic-only`
-
 Example:
 
 ```json

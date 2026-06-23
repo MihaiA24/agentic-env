@@ -22,7 +22,17 @@ _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
     "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
 )
-_SKILL_AGENTS = ("Hermes Agent", "Pi", "Claude Code", "Codex")  # Pi == ohmipy
+_SKILL_AGENTS: tuple[tuple[str, str], ...] = (
+    ("hermes", "Hermes Agent"),
+    ("ohmipy", "Pi"),  # Pi == ohmipy
+    ("claude", "Claude Code"),
+    ("codex", "Codex"),
+)
+_SKILL_AGENT_LABELS = {agent: label for agent, label in _SKILL_AGENTS}
+_SKILL_AGENT_LOOKUP = {
+    **{agent: agent for agent, _ in _SKILL_AGENTS},
+    **{label.lower(): agent for agent, label in _SKILL_AGENTS},
+}
 _SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
 _DEFAULT_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     ("mattpocock", "mattpocock/skills", "mattpocock skills", ()),
@@ -219,16 +229,39 @@ def _parse_skill_names(values: list[str] | None) -> list[str]:
     return requested
 
 
+def _parse_skill_agents(values: list[str] | None) -> tuple[list[str], list[str]]:
+    selected: list[str] = []
+    unknown: list[str] = []
+    for raw in values or []:
+        for token in raw.split(","):
+            value = token.strip().lower()
+            if not value:
+                continue
+            if value == "all":
+                return list(_all_skill_agents()), []
+            canonical = _SKILL_AGENT_LOOKUP.get(value)
+            if canonical is None:
+                unknown.append(token.strip())
+                continue
+            if canonical not in selected:
+                selected.append(canonical)
+    return selected, unknown
+
+
+def _all_skill_agents() -> list[str]:
+    return [agent for agent, _ in _SKILL_AGENTS]
+
+
+def _skill_agent_label(agent: str) -> str:
+    return _SKILL_AGENT_LABELS[agent]
+
+
 def _select_skill_packs(non_interactive: bool) -> list[str]:
     selected: list[str] = []
     for name, _, label, _ in _SKILL_PACKS:
         if ask(f"Install skill pack: {label}?", default=False, non_interactive=non_interactive):
             selected.append(name)
     return selected
-
-
-def _skill_agents() -> list[str]:
-    return [*_SKILL_AGENTS]
 
 
 def _command_exists(binary: str) -> bool:
@@ -374,9 +407,15 @@ def _configure_pi_agentmemory() -> bool:
     return True
 
 
-def _install_skills(skill_packs: list[str], requested_skills: list[str]) -> bool:
+def _install_skills(
+    skill_packs: list[str], requested_skills: list[str], skill_agents: list[str]
+) -> bool:
     if not cmd_exists("skills") and not cmd_exists("npm"):
         warn("skills CLI requires npm or a global skills binary")
+        return False
+
+    if not skill_agents:
+        warn("No target agents selected for skill installation")
         return False
 
     for pack in skill_packs:
@@ -398,18 +437,20 @@ def _install_skills(skill_packs: list[str], requested_skills: list[str]) -> bool
         else:
             filtered_skills = requested_skills
 
-        if not _install_skill_package(source, filtered_skills):
+        if not _install_skill_package(source, filtered_skills, skill_agents):
             warn(f"{_skill_pack_label(pack)}: installation failed")
             return False
     return True
 
 
-def _install_skill_package(source: str, skills: list[str]) -> bool:
+def _install_skill_package(
+    source: str, skills: list[str], skill_agents: list[str]
+) -> bool:
     command = ["add", source, "--global", "--yes"]
     for skill in skills:
         command.extend(["--skill", skill])
-    for agent in _skill_agents():
-        command.extend(["--agent", agent])
+    for skill_agent in skill_agents:
+        command.extend(["--agent", _skill_agent_label(skill_agent)])
     if cmd_exists("skills"):
         if skills:
             info(f"Installing skills: {', '.join(skills)} from {source}...")
@@ -518,6 +559,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--skill-agent",
+        action="append",
+        help=(
+            "Install to specific agents (for example: hermes, ohmipy, claude, codex). "
+            "Repeat or use commas. Defaults to all configured targets."
+        ),
+    )
+    parser.add_argument(
         "--skill-profile",
         metavar="NAME",
         help=(
@@ -538,7 +587,6 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
 
-
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
     set_verbose(args.verbose)
@@ -554,6 +602,12 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     requested_skill_names = _parse_skill_names(args.skill)
+    requested_skill_agents, unknown_skill_agents = _parse_skill_agents(args.skill_agent)
+    if unknown_skill_agents:
+        warn(f"Unknown skill agent(s): {', '.join(sorted(unknown_skill_agents))}")
+        warn(f"Available: {', '.join(_all_skill_agents())}")
+        return 1
+    selected_skill_agents = requested_skill_agents or _all_skill_agents()
 
     if args.all_skills:
         selected_skill_packs = _all_skill_packs()
@@ -604,7 +658,9 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if do_skills:
-        if not _install_skills(selected_skill_packs, requested_skill_names):
+        if not _install_skills(
+            selected_skill_packs, requested_skill_names, selected_skill_agents
+        ):
             warn("Skill installation failed")
     else:
         skip("skill packs: skipped")

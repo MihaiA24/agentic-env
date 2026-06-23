@@ -25,6 +25,11 @@ _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
 _AGENTMEMORY_PI_INDEX_TS = (
     "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
 )
+_SKILL_AGENTS = ("Hermes Agent", "Pi", "Claude Code", "Codex")  # Pi == ohmipy
+
+
+def _skill_agents() -> list[str]:
+    return [*_SKILL_AGENTS]
 
 
 def _command_exists(binary: str) -> bool:
@@ -170,7 +175,9 @@ def _configure_pi_agentmemory() -> bool:
 
 
 def _install_skill_package(source: str) -> bool:
-    command = ["add", source, "--agent", "*", "--global", "--yes"]
+    command = ["add", source, "--global", "--yes"]
+    for agent in _skill_agents():
+        command.extend(["--agent", agent])
     if cmd_exists("skills"):
         info(f"Installing skill pack: {source}...")
         run(["skills", *command])

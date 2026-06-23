@@ -26,9 +26,17 @@ Docs:
     - `--skill-profile` (e.g. `default`, `minimal`, `agentic-only`)
     - `--skill-config` to point at an alternate config file
     - `--all-skills`
+- `configure-agent-mcps.py`
+  - Adds selected project-memory MCP servers to Hermes and OMP global config when missing:
+    - `lean-ctx`
+    - `codebase-memory-mcp`
+    - `agentmemory`
+  - Adds matching global skills for Hermes and OMP when missing.
+- `update-agentic-stack.py`
+  - Updates installed components without interactive prompts:
+    - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
-
 ## Quick usage (from this folder)
 ```bash
 cd /path/to/your/dotfiles/agentic-env

@@ -34,33 +34,17 @@ _SKILL_AGENT_LOOKUP = {
     **{label.lower(): agent for agent, label in _SKILL_AGENTS},
 }
 _SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
-_DEFAULT_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
-    ("mattpocock", "mattpocock/skills", "mattpocock skills", ()),
-    ("ponytail", "DietrichGebert/ponytail", "ponytail skill", ()),
-)
-_DEFAULT_SKILL_PACK_ALIASES = {
-    "mattpocock": "mattpocock",
-    "mattpocock/skills": "mattpocock",
-    "ponytail": "ponytail",
-    "dietrichgebert/ponytail": "ponytail",
-}
-_DEFAULT_SKILL_PACK_PROFILES = {"default": ["mattpocock", "ponytail"]}
-_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = _DEFAULT_SKILL_PACKS
-_SKILL_PACK_ALIASES = {**_DEFAULT_SKILL_PACK_ALIASES}
-_SKILL_PACK_PROFILES = {**_DEFAULT_SKILL_PACK_PROFILES}
+_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = ()
+_SKILL_PACK_ALIASES: dict[str, str] = {}
+_SKILL_PACK_PROFILES: dict[str, list[str]] = {}
 
 
 def _load_skill_pack_config(path: Path) -> bool:
     global _SKILL_PACKS, _SKILL_PACK_ALIASES, _SKILL_PACK_PROFILES
 
     if not path.exists():
-        if path != _SKILL_PACK_CONFIG_PATH:
-            warn(f"Skill pack config not found: {path}")
-            return False
-        _SKILL_PACKS = _DEFAULT_SKILL_PACKS
-        _SKILL_PACK_ALIASES = {**_DEFAULT_SKILL_PACK_ALIASES}
-        _SKILL_PACK_PROFILES = {**_DEFAULT_SKILL_PACK_PROFILES}
-        return True
+        warn(f"Skill pack config not found: {path}")
+        return False
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))

@@ -89,20 +89,30 @@ for (const skillsRoot of [
 JS
 
 if [ "$SKIP_INSTALL" != "1" ]; then
-  echo "[1/5] Installing agent CLIs"
-  run_cmd "uv run --script install-agents.py --all --yes"
+  echo "[1/7] Installing agentic-env tool"
+  run_cmd "uv tool install --force ."
 
-  echo "[2/5] Installing MCP/tooling"
-  run_cmd "uv run --script install-skills-mcps.py --all-mcps --yes"
+  echo "[2/7] Installing agent CLIs"
+  run_cmd "agentic-install-agents --all --yes"
 
-  echo "[3/5] Configuring agent MCP servers"
-  run_cmd "uv run --script configure-agent-mcps.py --yes"
+  echo "[3/7] Installing MCP/tooling"
+  run_cmd "agentic-install-skills-mcps --all-mcps --yes"
+
+  echo "[4/7] Configuring agent MCP servers"
+  run_cmd "agentic-configure-agent-mcps --yes"
+
+  echo "[5/7] Verifying root script wrappers"
+  run_cmd "uv run --with rich python -c 'import agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.configure_agent_mcps, agentic_env.update_agentic_stack'"
+  run_cmd "uv run --script install-agents.py --help"
+  run_cmd "uv run --script install-skills-mcps.py --help"
+  run_cmd "uv run --script configure-agent-mcps.py --help"
+  run_cmd "uv run --script update-agentic-stack.py --help"
 fi
 
 if [ "$SKIP_INSTALL" != "1" ]; then
-  echo "[4/5] Verifying installed binaries"
+  echo "[6/7] Verifying installed binaries"
 else
-  echo "[4/5] Verifying installed binaries (SKIP_INSTALL=1)"
+  echo "[6/7] Verifying installed binaries (SKIP_INSTALL=1)"
 fi
 
 failures=0
@@ -123,6 +133,13 @@ require_command() {
   fi
 }
 
+if [ "$SKIP_INSTALL" != "1" ]; then
+  require_command agentic-install-agents
+  require_command agentic-install-skills-mcps
+  require_command agentic-configure-agent-mcps
+  require_command agentic-update-stack
+fi
+
 require_command hermes
 require_command omp
 require_command codex
@@ -131,7 +148,7 @@ require_command lean-ctx
 require_command codebase-memory-mcp
 require_command agentmemory
 
-echo "[5/5] Verifying Hermes and OMP config artifacts"
+echo "[7/7] Verifying Hermes and OMP config artifacts"
 run_cmd "node $_node_script"
 
 if [ "$failures" -ne 0 ]; then

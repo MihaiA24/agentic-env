@@ -1,24 +1,24 @@
-# Agentic environment scripts
+# Agentic environment tools
 
-This folder provisions and updates a local multi-agent tooling stack.
+This folder packages commands that provision and update a local multi-agent tooling stack.
 
 Docs:
 - [Project memory stack](docs/project-memory-stack.md) – guide and one-repo template for `lean-ctx`, `codebase-memory-mcp`, `agentmemory`, `CONTEXT.md`, and ADR usage.
 
-- `install-agents.py`
+- `agentic-install-agents`
   - Installs/reinstalls:
     - Hermes Agent (`hermes`)
     - OMP / Oh My Pi (`omp`)
     - OpenAI Codex CLI (`codex`)
     - Claude Code (`claude`)
-- `install-skills-mcps.py`
+- `agentic-install-skills-mcps`
   - Installs:
     - mattpocock skills pack (global)
     - ponytail skill bundle (global, agent-dispatch)
     - `codebase-memory-mcp` (UI install supported)
     - `lean-ctx`
     - `agentmemory` (CLI + Hermes MCP + OMP extension config)
-  - Skill packs are driven by `skill-packs.json` (default) with:
+  - Skill packs are driven by the bundled `agentic_env/skill-packs.json` default with:
     - `packs` entries that can define optional `skills` (array of specific skill names)
       to install only those from that pack by default.
     - `profiles` (named pack sets).
@@ -27,65 +27,52 @@ Docs:
     - `--skill` (comma-separated, repeated; filters each selected pack).
     - `--skill-agent` (comma-separated, repeated; defaults to `hermes,ohmipy,claude,codex`).
     - `--skill-profile` (for example: `default`, `minimal`, `agentic-only`).
+    - `--skill-config PATH` to use a custom skill-pack config.
     - `--all-skills` to install every configured pack.
   - Example:
-    - `uv run ./install-skills-mcps.py --all-skills --skill-agent hermes,ohmipy,claude,codex --yes`
-  - Skill config JSON (example):
-    ```json
-    {
-      "packs": [
-        {
-          "name": "mattpocock",
-          "source": "mattpocock/skills",
-          "label": "mattpocock skills",
-          "aliases": ["mattpocock", "mattpocock/skills"],
-          "skills": ["ask", "tdd"]
-        },
-        {
-          "name": "ponytail",
-          "source": "DietrichGebert/ponytail",
-          "label": "ponytail skill",
-          "aliases": ["ponytail", "dietrichgebert/ponytail"]
-        }
-      ],
-      "profiles": {
-        "default": ["mattpocock", "ponytail"],
-        "minimal": ["mattpocock"],
-        "agentic-only": ["ponytail"]
-      }
-    }
-    ```
+    - `agentic-install-skills-mcps --all-skills --skill-agent hermes,ohmipy,claude,codex --yes`
+  - Skill config JSON keeps the same shape as the bundled default.
     - Packs without `skills` install full pack contents by default.
     - When `skills` exists and you pass `--skill`, installs the intersection of both lists.
-- `configure-agent-mcps.py`
+- `agentic-configure-agent-mcps`
   - Adds selected project-memory MCP servers to Hermes and OMP global config when missing:
     - `lean-ctx`
     - `codebase-memory-mcp`
     - `agentmemory`
   - Adds matching global skills for Hermes and OMP when missing.
-- `update-agentic-stack.py`
+- `agentic-update-stack`
   - Updates installed components without interactive prompts:
     - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
+  - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
+- Root `*.py` files remain `uv run --script` compatibility wrappers for development and smoke checks.
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
-## Quick usage (from this folder)
+
+## Quick usage
+
+Install the command set from this checkout:
+
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-uv run ./install-agents.py
-uv run ./install-skills-mcps.py
-uv run ./configure-agent-mcps.py
-uv run ./update-agentic-stack.py
+uv tool install --force .
+agentic-install-agents
+agentic-install-skills-mcps
+agentic-configure-agent-mcps
+agentic-update-stack
 ```
 
-Equivalent shorthand:
-- `uv run ./install-agents.py`
-- `uv run ./install-skills-mcps.py`
-- `uv run ./configure-agent-mcps.py`
-- `uv run ./update-agentic-stack.py`
+Development compatibility wrappers remain available from the checkout:
+
+```bash
+uv run --script install-agents.py
+uv run --script install-skills-mcps.py
+uv run --script configure-agent-mcps.py
+uv run --script update-agentic-stack.py
+```
 
 ### Update policy
 
-`update-agentic-stack.py` is an unattended maintenance command.
+`agentic-update-stack` is an unattended maintenance command.
 
 - Use each tool's native updater when it supports one (`hermes update --yes`, `omp update`, `claude update`).
 - Update npm-installed CLIs through npm (`codex`, `agentmemory`) instead of re-running curl installers.
@@ -122,9 +109,10 @@ Inside container:
 ```bash
 cd /workspace
 # Install all components into the container first
-uv run --script install-agents.py --all --yes
-uv run --script install-skills-mcps.py --all-mcps --yes
-uv run --script configure-agent-mcps.py --yes
+uv tool install --force .
+agentic-install-agents --all --yes
+agentic-install-skills-mcps --all-mcps --yes
+agentic-configure-agent-mcps --yes
 
 # Quick runtime checks for each CLI
 hermes --help
@@ -137,7 +125,7 @@ codebase-memory-mcp --version
 You can also run all steps in one command:
 
 ```bash
-docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv run --script install-agents.py --all --yes && uv run --script install-skills-mcps.py --all-mcps --yes && uv run --script configure-agent-mcps.py --yes && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
+docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-install-agents --all --yes && agentic-install-skills-mcps --all-mcps --yes && agentic-configure-agent-mcps --yes && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
 ```
 
 ### 3) Host-side install + configure smoke (no docker)
@@ -146,9 +134,10 @@ If you need to run on the host machine directly:
 
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-uv run ./install-agents.py --all --yes
-uv run ./install-skills-mcps.py --all-mcps --yes
-uv run ./configure-agent-mcps.py --yes
+uv tool install --force .
+agentic-install-agents --all --yes
+agentic-install-skills-mcps --all-mcps --yes
+agentic-configure-agent-mcps --yes
 lean-ctx doctor
 agentmemory doctor
 codebase-memory-mcp --version
@@ -183,7 +172,7 @@ Repair by adding clean blocks:
 
 ```bash
 hermes config set memory.provider agentmemory
-uv run ./configure-agent-mcps.py --yes --server lean-ctx --server codebase-memory-mcp --server agentmemory --agent hermes
+agentic-configure-agent-mcps --yes --server lean-ctx --server codebase-memory-mcp --server agentmemory --agent hermes
 ```
 
 Then rerun `hermes mcp list`.
@@ -195,8 +184,8 @@ From an already-installed machine/CI agent environment, wire the memory MCPs in-
 
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-uv run ./install-skills-mcps.py --all-skills --all-mcps --yes
-uv run ./configure-agent-mcps.py --yes
+agentic-install-skills-mcps --all-skills --all-mcps --yes
+agentic-configure-agent-mcps --yes
 ```
 
 Then from any repo:
@@ -208,7 +197,7 @@ hermes mcp test codebase-memory-mcp
 ```
 
 Ponytail (`ponytail`) is installed as a **global, language-agnostic skill bundle** via
-`install-skills-mcps.py` and is available to all supported harnesses that read user
+`agentic-install-skills-mcps` and is available to all supported harnesses that read user
 global skills.
 
 ## Fresh environment in Docker (smoke-test enabled)
@@ -255,12 +244,14 @@ docker run --rm -v "$PWD":/workspace agentic-env-fresh-install /bin/sh ./docker-
 
 ### Current smoke contract
 The run is successful only if all checks pass:
-1. `install-agents.py --all --yes` succeeds.
-2. `install-skills-mcps.py --all-mcps --yes` succeeds.
-3. `configure-agent-mcps.py --yes` succeeds.
-4. Binary checks pass for:
+1. `uv tool install --force .` succeeds.
+2. `agentic-install-agents --all --yes` succeeds.
+3. `agentic-install-skills-mcps --all-mcps --yes` succeeds.
+4. `agentic-configure-agent-mcps --yes` succeeds.
+5. Root script wrappers load and expose help through `uv run --script`.
+6. Binary checks pass for:
    - `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory`
-5. Hermes and OMP config checks pass:
+7. Hermes and OMP config checks pass:
    - `~/.hermes/config.yaml` contains `lean-ctx`, `codebase-memory-mcp`, and `agentmemory` MCP entries
    - `~/.pi/agent/settings.json` includes the `agentmemory` extension
    - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain the selected MCP entries
@@ -274,4 +265,4 @@ The run is successful only if all checks pass:
 - `alpine` images were rejected due installer/runtime incompatibilities (`omp`/Hermes path).
 - `bookworm`/other slim tags were tested but were larger with no reliability gain.
 ## Dependencies
-- `rich` is required and is installed automatically via uv script metadata.
+- `rich` is required and is installed automatically through package dependencies or uv script metadata.

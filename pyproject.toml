@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentic-env"
+version = "0.1.0"
+description = "Install and maintain a local agentic tooling stack"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["rich>=13.7"]
+
+[project.scripts]
+agentic-install-agents = "agentic_env.install_agents:main"
+agentic-install-skills-mcps = "agentic_env.install_skills_mcps:main"
+agentic-configure-agent-mcps = "agentic_env.configure_agent_mcps:main"
+agentic-update-stack = "agentic_env.update_agentic_stack:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentic_env"]
+artifacts = ["agentic_env/skill-packs.json"]

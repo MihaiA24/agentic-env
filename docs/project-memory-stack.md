@@ -119,15 +119,16 @@ From this repo:
 
 ```bash
 cd agentic-env
-uv run ./install-skills-mcps.py --all-mcps --yes
-uv run ./configure-agent-mcps.py
+uv tool install --force .
+agentic-install-skills-mcps --all-mcps --yes
+agentic-configure-agent-mcps
 ```
 
 Current installer behavior:
 
 - installs `lean-ctx` and runs `lean-ctx setup`
 - installs `agentmemory`
-- installs skill packs via `agentic-env/skill-packs.json` by default:
+- installs skill packs via the bundled `agentic_env/skill-packs.json` by default:
   - `DietrichGebert/ponytail`
   - `mattpocock/skills`
 - each skill pack in JSON can include optional `skills` to install a subset by default
@@ -144,7 +145,7 @@ Current installer behavior:
 - leaves existing MCP server and skill entries unchanged
 ### Skill pack JSON format
 
-`agentic-env/skill-packs.json` defines:
+The bundled `agentic_env/skill-packs.json` defines:
 
 - `packs`: list of skill pack descriptors
   - `name`: canonical pack name

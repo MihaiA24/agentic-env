@@ -29,11 +29,20 @@
   - A reusable `SKILL.md` installed in an agent's user-level skills directory so the agent knows when and how to use a tool.
   - _Avoid_: MCP server, project-local skill
 
+- **uv runnable script**
+  - A single-file Python script with inline `uv` metadata that is executed from the checkout with `uv run --script` or `uv run ./script.py`.
+  - _Avoid_: uv tool command, installed CLI
+
+- **uv tool command**
+  - A named CLI entry point installed by `uv tool install` and run from the user's PATH.
+  - _Avoid_: uv runnable script
+
 - **Fresh install**
   - A complete, non-interactive installation from a clean container using:
-    - `install-agents.py --all --yes`
-    - `install-skills-mcps.py --all-mcps --yes`
-    - `configure-agent-mcps.py --yes`
+    - `uv tool install --force .`
+    - `agentic-install-agents --all --yes`
+    - `agentic-install-skills-mcps --all-mcps --yes`
+    - `agentic-configure-agent-mcps --yes`
 
 - **Unattended update**
   - A maintenance run that refreshes installed agent stack components without opening prompts or re-running interactive bootstrap installers.
@@ -52,6 +61,7 @@
 - **Compatibility floor**
   - Base OS/runtime assumptions required by installer scripts, including:
     - GNU libc-compatible runtime for Hermes/OMP/Installer scripts
+    - Python 3.12+ for packaged `agentic-env` commands and script wrappers
     - `curl`, `git`, and `ca-certificates` for network bootstrap + TLS
 
 - **Documentation scope**

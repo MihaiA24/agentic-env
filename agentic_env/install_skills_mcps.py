@@ -13,13 +13,61 @@ import shutil
 
 from . import configure_agent_mcps
 from .common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn, info
-
-
-_SKILLS_CLI_PACKAGE = "skills@latest"
-_AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
-_AGENTMEMORY_PI_INDEX_TS = (
-    "https://raw.githubusercontent.com/rohitg00/agentmemory/main/integrations/pi/index.ts"
+from .remote_install_contract import (
+    REMOTE_KIND_NPM,
+    REMOTE_KIND_RAW_URL,
+    REMOTE_KIND_SCRIPT,
+    validate_remote_contract,
 )
+
+_SKILLS_CLI_PACKAGE = "skills@1.5.16"
+_AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory@0.9.27"
+_AGENTMEMORY_PI_INDEX_TS = (
+    "https://raw.githubusercontent.com/rohitg00/agentmemory/8c9ac98e30b48e63d0a4df39f86ae1cd029f5349/integrations/pi/index.ts"
+)
+_CODEBASE_MEMORY_INSTALL = (
+    "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/14a0d79548d4de8fc2de95c1b94bb0de63a739d3/install.sh"
+)
+_LEAN_CTX_INSTALL_SCRIPT = "https://leanctx.com/install.sh"
+
+_REMOTE_INSTALL_CONTRACT = {
+    "skills_cli": {
+        "label": "skills CLI",
+        "reference": _SKILLS_CLI_PACKAGE,
+        "kind": REMOTE_KIND_NPM,
+        "pinned": True,
+        "reason": "",
+    },
+    "agentmemory_npm": {
+        "label": "agentmemory npm package",
+        "reference": _AGENTMEMORY_NPM_PACKAGE,
+        "kind": REMOTE_KIND_NPM,
+        "pinned": True,
+        "reason": "",
+    },
+    "agentmemory_pi_index": {
+        "label": "agentmemory PI index.ts",
+        "reference": _AGENTMEMORY_PI_INDEX_TS,
+        "kind": REMOTE_KIND_RAW_URL,
+        "pinned": True,
+        "reason": "",
+    },
+    "codebase_memory_script": {
+        "label": "codebase-memory-mcp install script",
+        "reference": _CODEBASE_MEMORY_INSTALL,
+        "kind": REMOTE_KIND_RAW_URL,
+        "pinned": True,
+        "reason": "",
+    },
+    "lean_ctx_script": {
+        "label": "lean-ctx installer",
+        "reference": _LEAN_CTX_INSTALL_SCRIPT,
+        "kind": REMOTE_KIND_SCRIPT,
+        "pinned": False,
+        "reason": "No versioned lean-ctx installer is published.",
+    },
+}
+
 _SKILL_AGENTS: tuple[tuple[str, str, str], ...] = (
     ("hermes", "hermes-agent", "Hermes Agent"),
     ("ohmipy", "pi", "Pi"),  # Pi == ohmipy
@@ -181,6 +229,10 @@ def _skill_pack_label(name: str) -> str:
 def _skill_pack_skills(name: str) -> list[str]:
     return list({name: skills for name, _, _, skills in _SKILL_PACKS}[name])
 
+
+
+def _validate_remote_contract() -> bool:
+    return validate_remote_contract(_REMOTE_INSTALL_CONTRACT, scope="agentic-install-skills-mcps")
 
 
 def _parse_skill_packs(values: list[str] | None) -> tuple[list[str], list[str]]:
@@ -511,9 +563,7 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
         warn("curl is required to install codebase-memory-mcp")
         return False
 
-    base = (
-        "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh"
-    )
+    base = _CODEBASE_MEMORY_INSTALL
     info("Installing codebase-memory-mcp...")
     run_shell(f"curl -fsSL {base} | bash" + (" -s -- --ui" if with_ui else ""))
     ok("codebase-memory-mcp: installed" + (" (with UI)" if with_ui else ""))
@@ -529,7 +579,7 @@ def _install_lean_ctx(non_interactive: bool) -> bool:
         return False
 
     info("Installing lean-ctx...")
-    run_shell("curl -fsSL https://leanctx.com/install.sh | sh")
+    run_shell(f"curl -fsSL {_LEAN_CTX_INSTALL_SCRIPT} | sh")
     ok("lean-ctx: installed")
 
     if cmd_exists("lean-ctx") and ask(
@@ -592,16 +642,30 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         help="Path to JSON skill pack config (packs + profiles).",
     )
     parser.add_argument(
-        "--all-mcps", action="store_true", help="Install all MCPs without prompting"
+        "--all-mcps",
+        action="store_true",
+        help="Install all MCPs without prompting",
     )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
+    parser.add_argument(
+        "--verify-remote-contract",
+        action="store_true",
+        help="Validate remote install contract entries and exit",
+    )
     return parser.parse_args(argv)
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
     set_verbose(args.verbose)
     non_interactive = bool(args.yes)
+
+    if not _validate_remote_contract():
+        return 1
+
+    if args.verify_remote_contract:
+        ok("agentic-install-skills-mcps: remote contract check passed")
+        return 0
 
     if not _load_skill_pack_config(Path(args.skill_config)):
         return 1

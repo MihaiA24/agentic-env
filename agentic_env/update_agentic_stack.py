@@ -5,8 +5,36 @@ import argparse
 import sys
 
 from .common import cmd_exists, info, ok, run, set_verbose, skip, warn
+from .remote_install_contract import REMOTE_KIND_NPM, validate_remote_contract
 
-AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory"
+AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory@0.9.27"
+_OPENAI_CODEX_PACKAGE = "@openai/codex@0.144.1"
+_SKILLS_CLI_PACKAGE = "skills@1.5.16"
+
+_REMOTE_INSTALL_CONTRACT = {
+    "agentmemory_npm": {
+        "label": "agentmemory npm package",
+        "reference": AGENTMEMORY_NPM_PACKAGE,
+        "kind": REMOTE_KIND_NPM,
+        "pinned": True,
+        "reason": "",
+    },
+    "openai_cdx": {
+        "label": "OpenAI Codex npm package",
+        "reference": _OPENAI_CODEX_PACKAGE,
+        "kind": REMOTE_KIND_NPM,
+        "pinned": True,
+        "reason": "",
+    },
+    "skills_cli": {
+        "label": "skills CLI",
+        "reference": _SKILLS_CLI_PACKAGE,
+        "kind": REMOTE_KIND_NPM,
+        "pinned": True,
+        "reason": "",
+    },
+}
+
 UPDATE_STEPS: tuple[tuple[str, str, list[str], str], ...] = (
     (
         "Hermes Agent",
@@ -55,6 +83,7 @@ def _update_if_present(
 
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Update installed agentic tooling")
+    parser.add_argument("--verify-remote-contract", action="store_true", help="Validate remote update references and exit")
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
 
@@ -66,7 +95,7 @@ def _update_codex() -> bool:
     if not cmd_exists("npm"):
         warn("OpenAI Codex CLI: npm not installed")
         return False
-    return _update("OpenAI Codex CLI", ["npm", "update", "-g", "@openai/codex"])
+    return _update("OpenAI Codex CLI", ["npm", "update", "-g", _OPENAI_CODEX_PACKAGE])
 
 
 def _update_agentmemory() -> bool:
@@ -92,15 +121,25 @@ def _update_skills() -> bool:
     if cmd_exists("npm"):
         return _update(
             "skills CLI",
-            ["npx", "--yes", "skills@latest", "update", "-g", "-y"],
+            ["npx", "--yes", _SKILLS_CLI_PACKAGE, "update", "-g", "-y"],
         )
     skip("skills CLI: npm/command missing")
     return True
 
 
+def _validate_remote_contract() -> bool:
+    return validate_remote_contract(_REMOTE_INSTALL_CONTRACT, scope="agentic-update-stack")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
     set_verbose(args.verbose)
+
+    if not _validate_remote_contract():
+        return 1
+    if args.verify_remote_contract:
+        ok("agentic-update-stack: remote contract check passed")
+        return 0
 
     ok_all = True
     for label, binary, command, missing in UPDATE_STEPS:

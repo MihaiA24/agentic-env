@@ -74,7 +74,9 @@ def _install_claude(non_interactive: bool) -> bool:
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Install Hermes/OMP/Codex/Claude")
+    parser = argparse.ArgumentParser(
+        description="Install Hermes/OMP/Codex/Claude. Returns non-zero on any selected-step failure."
+    )
     parser.add_argument("--all", action="store_true", help="Install all tools without prompting")
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
@@ -86,10 +88,14 @@ def main(argv: list[str] | None = None) -> int:
     set_verbose(args.verbose)
     non_interactive = bool(args.yes)
 
-    if args.all or non_interactive:
+    if args.all:
         do_all = True
     else:
-        do_all = ask("Install all agent CLIs", default=True, non_interactive=False)
+        do_all = ask(
+            "Install all agent CLIs",
+            default=not non_interactive,
+            non_interactive=non_interactive,
+        )
 
     if do_all:
         do_hermes = do_omp = do_codex = do_claude = True
@@ -99,27 +105,28 @@ def main(argv: list[str] | None = None) -> int:
         do_codex = ask("Install OpenAI Codex CLI", default=False, non_interactive=non_interactive)
         do_claude = ask("Install Claude Code", default=False, non_interactive=non_interactive)
 
+    ok_all = True
     if do_hermes:
-        _install_hermes(non_interactive)
+        ok_all = _install_hermes(non_interactive) and ok_all
     else:
         skip("Hermes Agent: skipped")
 
     if do_omp:
-        _install_omp(non_interactive)
+        ok_all = _install_omp(non_interactive) and ok_all
     else:
         skip("OMP / Oh My Pi: skipped")
 
     if do_codex:
-        _install_codex(non_interactive)
+        ok_all = _install_codex(non_interactive) and ok_all
     else:
         skip("OpenAI Codex CLI: skipped")
 
     if do_claude:
-        _install_claude(non_interactive)
+        ok_all = _install_claude(non_interactive) and ok_all
     else:
         skip("Claude Code: skipped")
 
-    return 0
+    return 0 if ok_all else 1
 
 
 if __name__ == "__main__":

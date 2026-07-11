@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+import shutil
 
 from . import configure_agent_mcps
 from .common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn, info
@@ -245,10 +247,17 @@ def _select_skill_packs(non_interactive: bool) -> list[str]:
     return selected
 
 
+def _command_path_on_path(binary: str, extra_paths: list[Path] | None = None) -> str | None:
+    extra: list[str] = [str(path) for path in (extra_paths or [])]
+    system_path = os.environ.get("PATH", "")
+    if system_path:
+        extra.append(system_path)
+    search_path = os.pathsep.join(extra) if extra else None
+    return shutil.which(binary, path=search_path)
+
+
 def _command_exists(binary: str) -> bool:
-    if cmd_exists(binary):
-        return True
-    return (Path.home() / ".local" / "bin" / binary).is_file()
+    return _command_path_on_path(binary) is not None
 
 
 def _should_install_mcp(binary: str, label: str, non_interactive: bool) -> bool:
@@ -290,16 +299,35 @@ def _install_agentmemory_user_local(package: str) -> bool:
     except OSError as exc:
         warn(f"agentmemory: failed to write local shim {shim_path}: {exc}")
         return False
+
+    resolved_path = _command_path_on_path("agentmemory", extra_paths=[user_bin_dir])
+    if resolved_path is None:
+        warn("agentmemory: fallback install completed but command is not resolvable")
+        warn("PATH remediation: add ~/.local/bin to PATH and rerun")
+        warn('Example: export PATH="$HOME/.local/bin:$PATH"')
+        return False
+
+    if str(user_bin_dir) not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = (
+            str(user_bin_dir)
+            + (os.pathsep + os.environ.get("PATH", "") if os.environ.get("PATH", "") else "")
+        )
+        skip("PATH updated for this process")
+        skip('Persist with: export PATH="$HOME/.local/bin:$PATH"')
+
     ok(f"agentmemory: installed to user-local npm prefix {local_prefix}")
-    skip(
-        "PATH may not include ~/.local/bin automatically; add it to use the fallback binary"
-    )
+    ok(f"agentmemory command resolved at: {resolved_path}")
+    skip("PATH may not include ~/.local/bin automatically; add it to use the fallback binary")
     return True
 
 
 def _install_npm_global(package: str, label: str) -> bool:
     try:
         run(["npm", "install", "-g", package])
+        if _command_path_on_path(label) is None:
+            warn(f"{label}: install succeeded but command is not resolvable")
+            warn("PATH remediation: ensure npm global bin is on PATH")
+            return False
         ok(f"{label}: installed")
         return True
     except subprocess.CalledProcessError as exc:
@@ -517,7 +545,10 @@ def _install_lean_ctx(non_interactive: bool) -> bool:
 
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Install shared skills and MCP tooling"
+        description=(
+            "Install shared skills and MCP tooling. "
+            "Returns non-zero on any selected-step failure."
+        )
     )
     parser.add_argument(
         "--all-skills", action="store_true", help="Install all skills without prompting"
@@ -551,7 +582,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         metavar="NAME",
         help=(
             "Install packs from this profile in the skill pack config. "
-            "Defaults to 'default' only when selected in non-interactive mode."
+            "No profile is selected by default in non-interactive mode."
         ),
     )
     parser.add_argument(
@@ -605,14 +636,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         selected_skill_packs = profile
     elif non_interactive:
-        selected_skill_packs = _SKILL_PACK_PROFILES.get("default", _all_skill_packs())
+        selected_skill_packs = []
     else:
         selected_skill_packs = []
 
     do_skills = bool(selected_skill_packs)
-    do_codebase = bool(args.all_mcps or non_interactive)
-    do_lean = bool(args.all_mcps or non_interactive)
-    do_agentmemory = bool(args.all_mcps or non_interactive)
+    do_codebase = bool(args.all_mcps)
+    do_lean = bool(args.all_mcps)
+    do_agentmemory = bool(args.all_mcps)
 
     if not do_skills and not do_codebase and not do_lean and not do_agentmemory:
         do_skills = ask(
@@ -637,11 +668,12 @@ def main(argv: list[str] | None = None) -> int:
             non_interactive=non_interactive,
         )
 
+    ok_all = True
     if do_skills:
-        if not _install_skills(
-            selected_skill_packs, requested_skill_names, selected_skill_agents
-        ):
-            warn("Skill installation failed")
+        ok_all = (
+            _install_skills(selected_skill_packs, requested_skill_names, selected_skill_agents)
+            and ok_all
+        )
     else:
         skip("skill packs: skipped")
 
@@ -651,21 +683,21 @@ def main(argv: list[str] | None = None) -> int:
             default=True,
             non_interactive=non_interactive,
         )
-        _install_codebase_memory(with_ui, non_interactive)
+        ok_all = _install_codebase_memory(with_ui, non_interactive) and ok_all
     else:
         skip("codebase-memory-mcp: skipped")
 
     if do_lean:
-        _install_lean_ctx(non_interactive)
+        ok_all = _install_lean_ctx(non_interactive) and ok_all
     else:
         skip("lean-ctx: skipped")
 
     if do_agentmemory:
-        _install_agentmemory(non_interactive)
+        ok_all = _install_agentmemory(non_interactive) and ok_all
     else:
         skip("agentmemory: skipped")
 
-    return 0
+    return 0 if ok_all else 1
 
 
 

@@ -23,10 +23,10 @@ from .remote_install_contract import (
 _SKILLS_CLI_PACKAGE = "skills@1.5.16"
 _AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory@0.9.27"
 _AGENTMEMORY_PI_INDEX_TS = (
-    "https://raw.githubusercontent.com/rohitg00/agentmemory/8c9ac98e30b48e63d0a4df39f86ae1cd029f5349/integrations/pi/index.ts"
+    "https://raw.githubusercontent.com/rohitg00/agentmemory/93ae9bc04f3ab5042f982aaadf11f1e3f5137531/integrations/pi/index.ts"
 )
 _CODEBASE_MEMORY_INSTALL = (
-    "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/14a0d79548d4de8fc2de95c1b94bb0de63a739d3/install.sh"
+    "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/2469ecc3a7a2f80debe296e1f17a1efcfdb9450c/install.sh"
 )
 _LEAN_CTX_INSTALL_SCRIPT = "https://leanctx.com/install.sh"
 

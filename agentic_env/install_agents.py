@@ -51,7 +51,7 @@ def _validate_remote_contract() -> bool:
 def _install_hermes(non_interactive: bool) -> bool:
     if cmd_exists("hermes") and not ask("Reinstall Hermes Agent", default=False, non_interactive=non_interactive):
         skip("Hermes Agent: skipped")
-        return False
+        return True
 
     if not cmd_exists("curl"):
         warn("curl is required to install Hermes Agent")
@@ -70,7 +70,7 @@ def _install_omp(non_interactive: bool) -> bool:
                 "Reinstall OMP / Oh My Pi", default=False, non_interactive=non_interactive
             ):
                 skip("OMP / Oh My Pi: skipped")
-                return False
+                return True
         else:
             warn("OMP / Oh My Pi exists but appears broken; reinstalling")
 
@@ -89,9 +89,11 @@ def _install_codex(non_interactive: bool) -> bool:
         warn("npm is required to install OpenAI Codex CLI")
         return False
 
-    if cmd_exists("codex") and not ask("Reinstall OpenAI Codex CLI", default=False, non_interactive=non_interactive):
+    if cmd_exists("codex") and not ask(
+        "Reinstall OpenAI Codex CLI", default=False, non_interactive=non_interactive
+    ):
         skip("OpenAI Codex CLI: skipped")
-        return False
+        return True
 
     info("Installing OpenAI Codex CLI...")
     run(["npm", "install", "-g", _OPENAI_CODEX_PACKAGE])
@@ -102,7 +104,7 @@ def _install_codex(non_interactive: bool) -> bool:
 def _install_claude(non_interactive: bool) -> bool:
     if cmd_exists("claude") and not ask("Reinstall Claude Code", default=False, non_interactive=non_interactive):
         skip("Claude Code: skipped")
-        return False
+        return True
 
     if not cmd_exists("curl"):
         warn("curl is required to install Claude Code")

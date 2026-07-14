@@ -53,86 +53,48 @@ MCP_SERVERS: dict[str, McpServer] = {
     ),
 }
 
-SKILLS: dict[str, Skill] = {
-    "lean-ctx": Skill(
-        name="lean-ctx",
-        body="""---
-name: lean-ctx
-description: Use when reading files, searching code, listing directories, or running shell commands so context is compressed and cached.
+SKILLS: dict[str, Skill] = {}
+
+_SKILL_BODY_DIR = Path(__file__).with_name("skill_bodies")
+_SKILL_NAMES = ("lean-ctx", "codebase-memory-mcp", "agentmemory", "ponytail")
+_SKILL_BODY_MISSING_TEMPLATE = """---
+name: {name}
+description: Built-in skill descriptor is unavailable; using fallback text.
 ---
 
-# lean-ctx
+# {name}
 
-Use `lean-ctx` as the default local context layer.
+Built-in skill body is unavailable in this package.
+Please add a matching file under `agentic_env/skill_bodies/{name}.md`.
+"""
 
-- Prefer lean-ctx reads/search/tree/shell wrappers over raw file and shell output.
-- Read the smallest useful fidelity first: map/signatures/range before full files.
-- Use cached re-reads and diff mode after edits.
-- Run `lean-ctx doctor` when wiring looks broken.
-- Do not treat lean-ctx cache or session state as the canonical project decision record.
-""",
-    ),
-    "codebase-memory-mcp": Skill(
-        name="codebase-memory-mcp",
-        body="""---
-name: codebase-memory-mcp
-description: Use for structural codebase questions: symbols, callers, callees, architecture, routes, impact, and dead-code candidates.
----
 
-# codebase-memory-mcp
+def _skill_body_path(name: str) -> Path:
+    return _SKILL_BODY_DIR / f"{name}.md"
 
-Use `codebase-memory-mcp` for structural memory.
 
-Ask the graph before scanning files manually when the task is about:
+def _load_skill_body(name: str) -> str:
+    path = _skill_body_path(name)
+    try:
+        payload = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        warn(f"skill descriptor missing for '{name}': {path} ({exc})")
+        return _SKILL_BODY_MISSING_TEMPLATE.format(name=name)
 
-- finding symbols or implementations
-- callers and callees
-- architecture overview
-- route/channel discovery
-- impact analysis before refactors
-- dead or unused candidates
+    if not payload.strip():
+        warn(f"skill descriptor empty for '{name}': {path}")
+        return _SKILL_BODY_MISSING_TEMPLATE.format(name=name)
 
-The graph is rebuildable from code. Do not store rationale or accepted decisions here; promote durable decisions to ADRs.
-""",
-    ),
-    "agentmemory": Skill(
-        name="agentmemory",
-        body="""---
-name: agentmemory
-description: Use for long-term narrative memory: decisions, rationale, project history, user preferences, and cross-session recall.
----
+    return payload
 
-# agentmemory
 
-Use `agentmemory` for narrative memory.
+def _load_builtin_skills() -> dict[str, Skill]:
+    return {
+        name: Skill(name=name, body=_load_skill_body(name)) for name in _SKILL_NAMES
+    }
 
-Good memories:
 
-- decisions and rationale discovered during a session
-- project-specific preferences
-- debugging history likely to matter later
-- context that should survive agent restarts
-
-Important accepted decisions must also be promoted to plain text in `docs/adr/*.md`. `agentmemory` improves recall; it is not the canonical audit record.
-""",
-    ),
-    "ponytail": Skill(
-        name="ponytail",
-        body="""---
-name: ponytail
-description: Use for prompt composition, review framing, and concise implementation habits across languages.
----
-
-# ponytail
-
-Use `ponytail` as a language-agnostic code-quality and prompting companion.
-
-- Apply for reviews, refactors, and implementation guidance with stable heuristics.
-- Keep prompts short, concrete, and test-grounded.
-- Pair with project-specific conventions in `CONTEXT.md` and ADRs.
-""",
-    ),
-}
+SKILLS = _load_builtin_skills()
 
 AGENT_CHOICES = CONFIGURE_AGENT_CHOICES
 OMP_MCP_PATHS = (

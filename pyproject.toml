@@ -19,4 +19,4 @@ agentic-update-stack = "agentic_env.update_agentic_stack:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentic_env"]
-artifacts = ["agentic_env/skill-packs.json"]
+artifacts = ["agentic_env/skill-packs.json", "agentic_env/skill_bodies/*.md"]

@@ -58,6 +58,14 @@ class BootstrapTests(unittest.TestCase):
             ]
         )
 
+    def test_bootstrap_plan_default_has_non_interactive_yes(self) -> None:
+        plan = bootstrap._bootstrap_plan(bootstrap._parse([]))
+        assert plan is not None
+
+        self.assertIn("--yes", plan[0].argv)
+        self.assertIn("--yes", plan[1].argv)
+        self.assertIn("--yes", plan[2].argv)
+
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
@@ -129,6 +137,24 @@ class BootstrapTests(unittest.TestCase):
         agents_main.assert_not_called()
         skills_main.assert_called_once()
         configure_main.assert_called_once()
+
+    @patch("agentic_env.bootstrap.install_agents.main")
+    @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.configure_agent_mcps.main")
+    def test_skip_install_skills_and_configure_omit_those_phases(
+        self,
+        configure_main,
+        skills_main,
+        agents_main,
+    ) -> None:
+        agents_main.return_value = 0
+
+        result = bootstrap.main(["--skip-install-skills", "--skip-configure"])
+
+        self.assertEqual(result, 0)
+        agents_main.assert_called_once()
+        skills_main.assert_not_called()
+        configure_main.assert_not_called()
 
     def test_no_phases_selected_is_noop_success(self) -> None:
         result = bootstrap.main(

@@ -184,70 +184,136 @@ def _select_many(
     return list(dict.fromkeys(selected))
 
 
-def _server_yaml(server: McpServer, indent: str = "  ") -> list[str]:
-    lines = [f"{indent}{server.name}:", f"{indent}  command: {server.command}"]
-    if server.args:
-        lines.append(f"{indent}  args: {json.dumps(list(server.args))}")
-    return lines
+def _parse_yaml_scalar(raw: str, line_no: int) -> object:
+    text = raw.strip()
+    if not text:
+        raise ValueError(f"line {line_no}: malformed YAML scalar")
+
+    if text.startswith("#"):
+        raise ValueError(f"line {line_no}: inline comment without value")
+
+    if text.startswith(("'", '"')) and text.endswith(text[0]):
+        return text[1:-1]
+
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"line {line_no}: invalid YAML list: {exc}") from None
+        if not isinstance(value, list):
+            raise ValueError(f"line {line_no}: list value expected")
+        return value
+
+    if text in {"true", "false", "null", "~"}:
+        return {"true": True, "false": False, "null": None, "~": None}[text]
+
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    try:
+        return float(text)
+    except ValueError:
+        pass
+
+    if (text.startswith("{") and text.endswith("}")) or (
+        text.startswith('"') and text.endswith('"')
+    ):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"line {line_no}: invalid JSON value: {exc}") from None
+
+    return text
 
 
-def _find_yaml_block(lines: list[str], key: str) -> tuple[int, int, int] | None:
-    pattern = re.compile(rf"^(?P<indent>\s*){re.escape(key)}:\s*$")
-    for start, line in enumerate(lines):
-        match = pattern.match(line)
-        if not match:
+def _parse_yaml_config(path: str) -> dict[str, object]:
+    result: dict[str, object] = {}
+    stack: list[tuple[int, dict[str, object]]] = [(-1, result)]
+
+    for line_no, raw_line in enumerate(path.splitlines(), start=1):
+        stripped_line = raw_line.rstrip()
+        if not stripped_line.strip() or stripped_line.lstrip().startswith("#"):
             continue
-        indent = len(match.group("indent"))
-        end = len(lines)
-        for i in range(start + 1, len(lines)):
-            child = lines[i]
-            if child.strip() and len(child) - len(child.lstrip()) <= indent:
-                end = i
-                break
-        return start, end, indent
-    return None
+
+        indent = len(stripped_line) - len(stripped_line.lstrip(" "))
+        indentation = stripped_line[:indent]
+        if "\t" in indentation:
+            raise ValueError(f"line {line_no}: tabs are not supported in Hermes config")
+
+        if ":" not in stripped_line.strip():
+            raise ValueError(f"line {line_no}: malformed key/value pair")
+
+        while indent <= stack[-1][0]:
+            stack.pop()
+        parent_indent, parent = stack[-1]
+
+        raw_key, raw_value = stripped_line.strip().split(":", 1)
+        if not raw_key:
+            raise ValueError(f"line {line_no}: missing key")
+        key = raw_key.strip()
+        if key in parent:
+            raise ValueError(f"line {line_no}: duplicate key '{key}'")
+
+        if not raw_value.strip():
+            value: object = {}
+            parent[key] = value
+            stack.append((indent, value))
+            continue
+
+        parent[key] = _parse_yaml_scalar(raw_value.strip(), line_no)
+
+    return result
 
 
-def _yaml_block_has_key(lines: list[str], start: int, end: int, indent: int, key: str) -> bool:
-    pattern = re.compile(rf"^\s{{{indent + 2}}}{re.escape(key)}:\s*$")
-    return any(pattern.match(line) for line in lines[start + 1 : end])
+def _yaml_scalar(value: object) -> str:
+    if isinstance(value, str):
+        needs_quotes = (
+            not value
+            or value.startswith(" ")
+            or value.endswith(" ")
+            or any(ch.isspace() for ch in value)
+            or any(ch in ":#{}[]@" for ch in value)
+        )
+        return json.dumps(value) if needs_quotes else value
+
+    if isinstance(value, (bool, int, float)) or value is None:
+        return json.dumps(value)
+    if isinstance(value, list):
+        return json.dumps(value)
+
+    return json.dumps(value)
 
 
-def _yaml_block_get_key_value(
-    lines: list[str], start: int, end: int, indent: int, key: str
-) -> str | None:
-    pattern = re.compile(rf"^\s{{{indent + 2}}}{re.escape(key)}:\s*(.*?)\s*$")
-    for line in lines[start + 1 : end]:
-        match = pattern.match(line)
-        if match:
-            return match.group(1).strip().strip('"').strip("'")
-    return None
+def _dump_yaml_config(data: dict[str, object], *, indent: int = 0) -> str:
+    lines: list[str] = []
+    prefix = " " * indent
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            lines.append(f"{prefix}{key}:")
+            if value:
+                lines.append(_dump_yaml_config(value, indent=indent + 2))
+            continue
+
+        lines.append(f"{prefix}{key}: {_yaml_scalar(value)}")
+
+    return "\n".join(lines)
 
 
-def _validate_hermes_config(
-    lines: list[str], servers: list[McpServer], *, required_provider: str | None = None
-) -> bool:
-    block = _find_yaml_block(lines, "mcp_servers")
-    if block is None:
-        return False
-    start, end, indent = block
-    for server in servers:
-        if not _yaml_block_has_key(lines, start, end, indent, server.name):
-            return False
+def _load_json_object(path: Path) -> dict[str, object] | None:
+    if not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        warn(f"{path}: invalid JSON; skipped")
+        return None
+    if not isinstance(value, dict):
+        warn(f"{path}: root JSON value is not an object; skipped")
+        return None
+    return value
 
-    if required_provider is None:
-        return True
-
-    memory_block = _find_yaml_block(lines, "memory")
-    if memory_block is None:
-        return False
-    memory_start, memory_end, memory_indent = memory_block
-    provider = _yaml_block_get_key_value(
-        lines, memory_start, memory_end, memory_indent, "provider"
-    )
-    if provider is None:
-        return False
-    return provider == required_provider
 
 
 def _write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
@@ -290,92 +356,166 @@ def _write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
                 pass
         return False
 
-
-def _read_lines(path: Path) -> list[str]:
-    if not path.exists():
-        return []
-    return path.read_text(encoding="utf-8").splitlines()
-
-
-def _ensure_hermes_memory_provider(
-    lines: list[str], provider: str
-) -> tuple[list[str], bool, bool]:
-    block = _find_yaml_block(lines, "memory")
-    if block is None:
-        return [*lines, "", "memory:", f"  provider: {provider}"], True, False
-
-    start, end, indent = block
-    provider_pattern = re.compile(r"^\s*provider:\s*(.*?)\s*$")
-    for i in range(start + 1, end):
-        match = provider_pattern.match(lines[i])
-        if not match:
-            continue
-        current = match.group(1).strip().strip('"').strip("'")
-        if current == provider:
-            return lines, False, False
-        warn("Hermes config: existing memory.provider is set; skipped changing it")
-        return lines, False, True
-
-    updated = [*lines]
-    updated.insert(start + 1, " " * (indent + 2) + f"provider: {provider}")
-    return updated, True, False
+@dataclass(frozen=True)
+class _ConfigMergeOutcome:
+    config: dict[str, object]
+    changed: bool
+    provider_conflict: bool
+    required_provider: str | None
 
 
-def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
-    path = HERMES_CONFIG_PATH
-    lines = _read_lines(path)
-    changed = False
-    provider_conflict = False
-    required_provider: str | None = None
+@dataclass(frozen=True)
+class _HermesConfigAdapter:
+    path: Path
 
-    block = _find_yaml_block(lines, "mcp_servers")
-    if block is None:
-        if lines and lines[-1].strip():
-            lines.append("")
-        lines.append("mcp_servers:")
-        block = (len(lines) - 1, len(lines), 0)
-        changed = True
+    def _read(self) -> dict[str, object] | None:
+        if not self.path.exists():
+            return {}
 
-    for server in servers:
-        start, end, indent = block
-        if _yaml_block_has_key(lines, start, end, indent, server.name):
-            skip(f"Hermes config: {server.name} MCP already configured")
-        else:
-            lines[end:end] = _server_yaml(server, " " * (indent + 2))
-            block = _find_yaml_block(lines, "mcp_servers") or block
+        raw = self.path.read_text(encoding="utf-8")
+        try:
+            return _parse_yaml_config(raw)
+        except Exception as exc:
+            warn(f"{self.path}: malformed YAML config ({exc})")
+            return None
+
+    def _write(self, data: dict[str, object], *, dry_run: bool) -> bool:
+        content = _dump_yaml_config(data).rstrip()
+        if content:
+            content += "\n"
+        return _write_atomic_text(self.path, content, dry_run=dry_run)
+
+    def add_servers(self, data: dict[str, object], servers: list[McpServer]) -> _ConfigMergeOutcome:
+        mcp_servers = data.get("mcp_servers")
+        changed = False
+        provider_conflict = False
+        required_provider: str | None = None
+
+        if mcp_servers is None:
+            mcp_servers = {}
+            data["mcp_servers"] = mcp_servers
             changed = True
-            ok(f"Hermes config: {server.name} MCP added")
+        elif not isinstance(mcp_servers, dict):
+            raise ValueError("`mcp_servers` block must be an object")
 
-        if server.hermes_memory_provider:
-            lines, provider_changed, conflict = _ensure_hermes_memory_provider(
-                lines, server.hermes_memory_provider
-            )
-            changed = changed or provider_changed
-            provider_conflict = provider_conflict or conflict
-            if provider_changed:
-                required_provider = server.hermes_memory_provider
-            block = _find_yaml_block(lines, "mcp_servers") or block
+        for server in servers:
+            if server.name not in mcp_servers:
+                mcp_servers[server.name] = {
+                    "command": server.command,
+                    **({"args": list(server.args)} if server.args else {}),
+                }
+                ok(f"Hermes config: {server.name} MCP added")
+                changed = True
+            else:
+                skip(f"Hermes config: {server.name} MCP already configured")
 
-    if changed:
-        if not _validate_hermes_config(
-            lines,
-            servers,
-            required_provider=None if provider_conflict else required_provider,
-        ):
-            warn("Hermes config: post-merge validation failed")
+            if server.hermes_memory_provider:
+                memory = data.get("memory")
+                if memory is None:
+                    data["memory"] = {"provider": server.hermes_memory_provider}
+                    required_provider = server.hermes_memory_provider
+                    changed = True
+                    continue
+
+                if not isinstance(memory, dict):
+                    raise ValueError("`memory` block must be an object")
+                current = memory.get("provider")
+                if current is None:
+                    memory["provider"] = server.hermes_memory_provider
+                    required_provider = server.hermes_memory_provider
+                    changed = True
+                elif current != server.hermes_memory_provider:
+                    provider_conflict = True
+                    warn("Hermes config: existing memory.provider is set; skipped changing it")
+
+                if current == server.hermes_memory_provider:
+                    required_provider = server.hermes_memory_provider
+
+        return _ConfigMergeOutcome(
+            config=data,
+            changed=changed,
+            provider_conflict=provider_conflict,
+            required_provider=required_provider,
+        )
+
+    def validate(
+        self,
+        data: dict[str, object],
+        servers: list[McpServer],
+        *,
+        required_provider: str | None = None,
+    ) -> bool:
+        mcp_servers = data.get("mcp_servers")
+        if not isinstance(mcp_servers, dict):
             return False
-        if not _write_atomic_text(path, "\n".join(lines).rstrip() + "\n", dry_run=dry_run):
-            return False
-        if not dry_run:
-            verified = _read_lines(path)
-            if not _validate_hermes_config(
-                verified,
-                servers,
-                required_provider=None if provider_conflict else required_provider,
-            ):
-                warn(f"{path}: write verification failed")
+        for server in servers:
+            if server.name not in mcp_servers:
                 return False
-    return True
+
+        if required_provider is None:
+            return True
+
+        memory = data.get("memory")
+        if not isinstance(memory, dict):
+            return False
+        provider = memory.get("provider")
+        return isinstance(provider, str) and provider == required_provider
+
+
+@dataclass(frozen=True)
+class _OmpConfigAdapter:
+    path: Path
+
+    def _read(self) -> dict[str, object] | None:
+        return _load_json_object(self.path)
+
+    def _write(self, data: dict[str, object], *, dry_run: bool) -> bool:
+        return _write_atomic_text(self.path, json.dumps(data, indent=2) + "\n", dry_run=dry_run)
+
+    def add_servers(self, data: dict[str, object], servers: list[McpServer]) -> bool:
+        mcp_servers = data.get("mcpServers")
+        changed = False
+
+        if mcp_servers is None:
+            mcp_servers = {}
+            data["mcpServers"] = mcp_servers
+            changed = True
+        elif not isinstance(mcp_servers, dict):
+            raise ValueError("`mcpServers` block must be an object")
+
+        for server in servers:
+            if server.name in mcp_servers:
+                skip(f"{self.path}: {server.name} MCP already configured")
+                continue
+
+            mcp_servers[server.name] = _json_entry(server)
+            ok(f"{self.path}: {server.name} MCP added")
+            changed = True
+
+        return changed
+
+    def validate(self, data: dict[str, object], servers: list[McpServer]) -> bool:
+        mcp_servers = data.get("mcpServers")
+        if not isinstance(mcp_servers, dict):
+            return False
+
+        for server in servers:
+            entry = mcp_servers.get(server.name)
+            if not isinstance(entry, dict):
+                return False
+            if entry.get("command") != server.command:
+                return False
+            args = entry.get("args", [])
+            if not server.args and args:
+                return False
+            if server.args and args != list(server.args):
+                return False
+
+        return True
+
+
+_HERMES_CONFIG_ADAPTER = _HermesConfigAdapter(path=HERMES_CONFIG_PATH)
+_OMP_CONFIG_ADAPTERS = [_OmpConfigAdapter(path=path) for path in OMP_MCP_PATHS]
 
 
 def _json_entry(server: McpServer) -> dict[str, object]:
@@ -385,18 +525,78 @@ def _json_entry(server: McpServer) -> dict[str, object]:
     return entry
 
 
-def _load_json_object(path: Path) -> dict[str, object] | None:
-    if not path.exists():
-        return {}
+def _write_json_config_data(
+    adapter: _OmpConfigAdapter,
+    servers: list[McpServer],
+    *,
+    dry_run: bool,
+) -> bool:
+    data = adapter._read()
+    if data is None:
+        return False
+
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        warn(f"{path}: invalid JSON; skipped")
-        return None
-    if not isinstance(value, dict):
-        warn(f"{path}: root JSON value is not an object; skipped")
-        return None
-    return value
+        changed = adapter.add_servers(data, servers)
+    except ValueError as exc:
+        warn(f"{adapter.path}: {exc}")
+        return False
+
+    if not adapter.validate(data, servers):
+        warn(f"{adapter.path}: generated config failed validation")
+        return False
+
+    if not changed:
+        return True
+
+    if not adapter._write(data, dry_run=dry_run):
+        return False
+    if dry_run:
+        return True
+
+    verified = adapter._read()
+    if verified is None or not adapter.validate(verified, servers):
+        warn(f"{adapter.path}: write verification failed")
+        return False
+    return True
+
+
+def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
+    data = _HERMES_CONFIG_ADAPTER._read()
+    if data is None:
+        return False
+
+    try:
+        outcome = _HERMES_CONFIG_ADAPTER.add_servers(data, servers)
+    except ValueError as exc:
+        warn(f"{_HERMES_CONFIG_ADAPTER.path}: {exc}")
+        return False
+
+    required_provider = None if outcome.provider_conflict else outcome.required_provider
+    if not _HERMES_CONFIG_ADAPTER.validate(
+        outcome.config,
+        servers,
+        required_provider=required_provider,
+    ):
+        warn("Hermes config: post-merge validation failed")
+        return False
+
+    if not outcome.changed:
+        return True
+
+    if not _HERMES_CONFIG_ADAPTER._write(outcome.config, dry_run=dry_run):
+        return False
+    if dry_run:
+        return True
+
+    verified = _HERMES_CONFIG_ADAPTER._read()
+    if verified is None or not _HERMES_CONFIG_ADAPTER.validate(
+        verified,
+        servers,
+        required_provider=required_provider,
+    ):
+        warn(f"{_HERMES_CONFIG_ADAPTER.path}: write verification failed")
+        return False
+    return True
 
 
 def _validate_omp_config(data: dict[str, object], servers: list[McpServer]) -> bool:
@@ -410,51 +610,18 @@ def _validate_omp_config(data: dict[str, object], servers: list[McpServer]) -> b
         if entry.get("command") != server.command:
             return False
         args = entry.get("args", [])
-        if not server.args:
-            if args:
-                return False
-        elif args != list(server.args):
+        if not server.args and args:
+            return False
+        if server.args and args != list(server.args):
             return False
     return True
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     ok_all = True
-    for path in OMP_MCP_PATHS:
-        data = _load_json_object(path)
-        if data is None:
+    for adapter in _OMP_CONFIG_ADAPTERS:
+        if not _write_json_config_data(adapter, servers, dry_run=dry_run):
             ok_all = False
-            continue
-        mcp_servers = data.setdefault("mcpServers", {})
-        if not isinstance(mcp_servers, dict):
-            warn(f"{path}: mcpServers is not an object; skipped")
-            ok_all = False
-            continue
-
-        changed = False
-        for server in servers:
-            if server.name in mcp_servers:
-                skip(f"{path}: {server.name} MCP already configured")
-            else:
-                mcp_servers[server.name] = _json_entry(server)
-                changed = True
-                ok(f"{path}: {server.name} MCP added")
-
-        if changed:
-            if not _validate_omp_config(data, servers):
-                warn(f"{path}: generated config failed validation")
-                ok_all = False
-                continue
-            if not _write_atomic_text(
-                path, json.dumps(data, indent=2) + "\n", dry_run=dry_run
-            ):
-                ok_all = False
-                continue
-            if not dry_run:
-                verified = _load_json_object(path)
-                if verified is None or not _validate_omp_config(verified, servers):
-                    warn(f"{path}: write verification failed")
-                    ok_all = False
     return ok_all
 
 

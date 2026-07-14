@@ -12,6 +12,7 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+from dataclasses import dataclass
 
 from . import configure_agent_mcps
 from .common import (
@@ -43,9 +44,208 @@ from .stack_metadata import (
 
 _REMOTE_INSTALL_CONTRACT = SKILLS_INSTALL_REMOTE_CONTRACT
 _SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
-_SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = ()
-_SKILL_PACK_ALIASES: dict[str, str] = {}
-_SKILL_PACK_PROFILES: dict[str, list[str]] = {}
+_SKILL_PACKS: tuple[SkillPack, ...] = ()
+_SKILL_PACK_ALIASES: tuple[SkillPackAlias, ...] = ()
+_SKILL_PACK_PROFILES: tuple[SkillProfile, ...] = ()
+
+
+
+def _collect_unique(values: list[str]) -> tuple[str, ...]:
+    out: list[str] = []
+    for value in values:
+        if value not in out:
+            out.append(value)
+    return tuple(out)
+
+
+@dataclass(frozen=True)
+class SkillPackAlias:
+    alias: str
+    pack_name: str
+
+
+@dataclass(frozen=True)
+class SkillPack:
+    name: str
+    source: str
+    label: str
+    aliases: tuple[str, ...]
+    skills: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SkillProfile:
+    name: str
+    packs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SkillPackSelection:
+    selected: tuple[str, ...]
+    unknown: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SkillNameSelection:
+    selected: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SkillAgentSelection:
+    selected: tuple[str, ...]
+    unknown: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SkillInstallPlan:
+    skill_packs: tuple[str, ...]
+    skill_names: SkillNameSelection
+    skill_agents: SkillAgentSelection
+    do_codebase: bool
+    do_lean_ctx: bool
+    do_agentmemory: bool
+
+
+
+def _split_csv(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+
+    parsed: list[str] = []
+    for raw in values:
+        for item in raw.split(","):
+            value = item.strip()
+            if value:
+                parsed.append(value)
+    return parsed
+
+
+def _parse_skill_pack_config(
+    payload: object, path: Path
+) -> tuple[tuple[SkillPack, ...], tuple[SkillPackAlias, ...], tuple[SkillProfile, ...]] | None:
+    if not isinstance(payload, dict):
+        warn(f"Invalid skill-pack config in {path}: expected object")
+        return None
+
+    packs_payload = payload.get("packs")
+    if not isinstance(packs_payload, list) or not packs_payload:
+        warn(f"Invalid skill-pack config in {path}: 'packs' must be a non-empty list")
+        return None
+
+    packs: list[SkillPack] = []
+    aliases: list[SkillPackAlias] = []
+    profiles: list[SkillProfile] = []
+    pack_names: set[str] = set()
+    alias_lookup: dict[str, str] = {}
+
+    for item in packs_payload:
+        if not isinstance(item, dict):
+            warn(f"Invalid pack entry in {path}: {item!r}")
+            return None
+
+        name = item.get("name")
+        source = item.get("source")
+        label = item.get("label", f"{name} skill")
+
+        if not isinstance(name, str) or not name.strip():
+            warn(f"Invalid pack name in {path}: {name!r}")
+            return None
+        if not isinstance(source, str) or not source.strip():
+            warn(f"Invalid source for pack '{name}' in {path}: {source!r}")
+            return None
+        if not isinstance(label, str) or not label.strip():
+            warn(f"Invalid label for pack '{name}' in {path}: {label!r}")
+            return None
+
+        canonical_name = name.strip().lower()
+        source_value = source.strip()
+        label_value = label.strip()
+
+        if canonical_name in pack_names:
+            warn(f"Duplicate pack '{canonical_name}' in {path}")
+            return None
+        pack_names.add(canonical_name)
+
+        aliases_payload = item.get("aliases", [])
+        if not isinstance(aliases_payload, list):
+            warn(f"Invalid aliases for pack '{name}' in {path}: expected list")
+            return None
+
+        skills_payload = item.get("skills", [])
+        if not isinstance(skills_payload, list):
+            warn(f"Invalid skills filter for pack '{name}' in {path}: expected list")
+            return None
+
+        skill_values: list[str] = []
+        for raw_skill in skills_payload:
+            if not isinstance(raw_skill, str):
+                warn(f"Invalid skill value for pack '{name}' in {path}: {raw_skill!r}")
+                return None
+            skill = raw_skill.strip()
+            if skill and skill not in skill_values:
+                skill_values.append(skill)
+
+        raw_aliases: list[str] = []
+        for raw_alias in aliases_payload:
+            if not isinstance(raw_alias, str):
+                warn(f"Invalid alias for pack '{name}' in {path}: {raw_alias!r}")
+                return None
+            alias = raw_alias.strip().lower()
+            if alias:
+                raw_aliases.append(alias)
+
+        resolved_aliases = [source_value.lower(), *raw_aliases]
+
+        for alias in _collect_unique(resolved_aliases):
+            existing = alias_lookup.get(alias)
+            if existing is None:
+                alias_lookup[alias] = canonical_name
+                aliases.append(SkillPackAlias(alias=alias, pack_name=canonical_name))
+            elif existing != canonical_name:
+                warn(
+                    f"Alias '{alias}' maps to both '{existing}' and '{canonical_name}' in {path}"
+                )
+                return None
+
+        packs.append(
+            SkillPack(
+                name=canonical_name,
+                source=source_value,
+                label=label_value,
+                aliases=tuple(_collect_unique(raw_aliases)),
+                skills=tuple(skill_values),
+            )
+        )
+
+    profiles_payload = payload.get("profiles", {"default": [pack.name for pack in packs]})
+    if not isinstance(profiles_payload, dict):
+        warn(f"Invalid 'profiles' in {path}: expected object")
+        return None
+
+    for profile_name, pack_values in profiles_payload.items():
+        if not isinstance(profile_name, str) or not profile_name.strip():
+            warn(f"Invalid profile name in {path}: {profile_name!r}")
+            return None
+
+        if not isinstance(pack_values, list) or not all(isinstance(item, str) for item in pack_values):
+            warn(f"Invalid profile '{profile_name}' in {path}: expected list of pack names")
+            return None
+
+        selected: list[str] = []
+        for raw_pack in pack_values:
+            canonical_pack = str(raw_pack).strip().lower()
+            if not canonical_pack:
+                warn(f"Profile '{profile_name}' references unknown pack '{raw_pack}' in {path}")
+                return None
+            if canonical_pack not in pack_names:
+                warn(f"Profile '{profile_name}' references unknown pack '{raw_pack}' in {path}")
+                return None
+            if canonical_pack not in selected:
+                selected.append(canonical_pack)
+
+        profiles.append(SkillProfile(name=profile_name.strip(), packs=tuple(selected)))
+
+    return tuple(packs), tuple(aliases), tuple(profiles)
 
 
 def _load_skill_pack_config(path: Path) -> bool:
@@ -64,184 +264,96 @@ def _load_skill_pack_config(path: Path) -> bool:
         warn(f"Cannot read {path}: {exc}")
         return False
 
-    if not isinstance(payload, dict):
-        warn(f"Invalid skill-pack config in {path}: expected object")
+    parsed = _parse_skill_pack_config(payload, path)
+    if parsed is None:
         return False
 
-    packs_payload = payload.get("packs")
-    if not isinstance(packs_payload, list) or not packs_payload:
-        warn(f"Invalid skill-pack config in {path}: 'packs' must be a non-empty list")
-        return False
-
-    packs: list[tuple[str, str, str, tuple[str, ...]]] = []
-    aliases: dict[str, str] = {}
-    pack_names: set[str] = set()
-    for item in packs_payload:
-        if not isinstance(item, dict):
-            warn(f"Invalid pack entry in {path}: {item!r}")
-            return False
-        name = item.get("name")
-        source = item.get("source")
-        label = item.get("label", f"{name} skill")
-        if not isinstance(name, str) or not name.strip():
-            warn(f"Invalid pack name in {path}: {name!r}")
-            return False
-        if not isinstance(source, str) or not source.strip():
-            warn(f"Invalid source for pack '{name}' in {path}: {source!r}")
-            return False
-        if not isinstance(label, str) or not label.strip():
-            warn(f"Invalid label for pack '{name}' in {path}: {label!r}")
-            return False
-
-        aliases_raw = item.get("aliases", [])
-        if not isinstance(aliases_raw, list):
-            warn(f"Invalid aliases for pack '{name}' in {path}: expected list")
-            return False
-
-        skills_raw = item.get("skills", [])
-        if not isinstance(skills_raw, list):
-            warn(f"Invalid skills filter for pack '{name}' in {path}: expected list")
-            return False
-        skills: list[str] = []
-        for raw_skill in skills_raw:
-            if not isinstance(raw_skill, str):
-                warn(f"Invalid skill value for pack '{name}' in {path}: {raw_skill!r}")
-                return False
-            skill = raw_skill.strip()
-            if not skill:
-                continue
-            if skill not in skills:
-                skills.append(skill)
-
-        canonical = name.strip().lower()
-        source = source.strip()
-        label = label.strip()
-        if canonical in pack_names:
-            warn(f"Duplicate pack '{canonical}' in {path}")
-            return False
-        pack_names.add(canonical)
-        packs.append((canonical, source, label, tuple(skills)))
-        source_alias = source.lower()
-        if source_alias in aliases and aliases[source_alias] != canonical:
-            warn(
-                f"Source '{source_alias}' is also an alias for '{aliases[source_alias]}', "
-                f"not '{canonical}', in {path}"
-            )
-            return False
-        aliases[source_alias] = canonical
-        for raw_alias in aliases_raw:
-            if not isinstance(raw_alias, str):
-                warn(f"Invalid alias for pack '{name}' in {path}: {raw_alias!r}")
-                return False
-            alias_key = raw_alias.strip().lower()
-            if not alias_key:
-                continue
-            if alias_key in aliases and aliases[alias_key] != canonical:
-                warn(
-                    f"Alias '{alias_key}' maps to both '{aliases[alias_key]}' and '{canonical}' in {path}"
-                )
-                return False
-            aliases[alias_key] = canonical
-
-    profiles_payload = payload.get("profiles", {"default": [name for name, _, _, _ in packs]})
-    if not isinstance(profiles_payload, dict):
-        warn(f"Invalid 'profiles' in {path}: expected object")
-        return False
-
-    profiles: dict[str, list[str]] = {}
-    for profile_name, pack_values in profiles_payload.items():
-        if not isinstance(profile_name, str) or not profile_name.strip():
-            warn(f"Invalid profile name in {path}: {profile_name!r}")
-            return False
-        if not isinstance(pack_values, list) or not all(isinstance(item, str) for item in pack_values):
-            warn(f"Invalid profile '{profile_name}' in {path}: expected list of pack names")
-            return False
-        normalized: list[str] = []
-        for raw_pack in pack_values:
-            canonical_pack = raw_pack.strip().lower()
-            if canonical_pack not in pack_names:
-                warn(f"Profile '{profile_name}' references unknown pack '{raw_pack}' in {path}")
-                return False
-            if canonical_pack not in normalized:
-                normalized.append(canonical_pack)
-        profiles[profile_name.strip()] = normalized
-
-    _SKILL_PACKS = tuple(packs)
-    _SKILL_PACK_ALIASES = aliases
-    _SKILL_PACK_PROFILES = profiles
+    _SKILL_PACKS, _SKILL_PACK_ALIASES, _SKILL_PACK_PROFILES = parsed
     return True
 
 
+def _pack_aliases() -> dict[str, str]:
+    return {alias.alias: alias.pack_name for alias in _SKILL_PACK_ALIASES}
+
+
+def _pack_profiles() -> dict[str, SkillProfile]:
+    return {profile.name: profile for profile in _SKILL_PACK_PROFILES}
+
+
+def _pack_lookup() -> dict[str, SkillPack]:
+    return {pack.name: pack for pack in _SKILL_PACKS}
+
+
 def _all_skill_packs() -> list[str]:
-    return [name for name, _, _, _ in _SKILL_PACKS]
+    return [pack.name for pack in _SKILL_PACKS]
 
 
 def _all_skill_profiles() -> list[str]:
-    return list(_SKILL_PACK_PROFILES.keys())
+    return [profile.name for profile in _SKILL_PACK_PROFILES]
 
 
 def _skill_pack_source(name: str) -> str:
-    return {name: source for name, source, _, _ in _SKILL_PACKS}[name]
+    return _pack_lookup()[name].source
 
 
 def _skill_pack_label(name: str) -> str:
-    return {name: label for name, _, label, _ in _SKILL_PACKS}[name]
+    return _pack_lookup()[name].label
 
 
 def _skill_pack_skills(name: str) -> list[str]:
-    return list({name: skills for name, _, _, skills in _SKILL_PACKS}[name])
+    return list(_pack_lookup()[name].skills)
 
 
 def _validate_remote_contract() -> bool:
     return validate_remote_contract(_REMOTE_INSTALL_CONTRACT, scope="agentic-install-skills-mcps")
 
 
-def _parse_skill_packs(values: list[str] | None) -> tuple[list[str], list[str]]:
+def _parse_skill_packs(values: list[str] | None) -> SkillPackSelection:
     selected: list[str] = []
     unknown: list[str] = []
-    for raw in values or []:
-        for token in raw.split(","):
-            name = token.strip().lower()
-            if not name:
-                continue
-            canonical = _SKILL_PACK_ALIASES.get(name)
-            if canonical is None:
-                unknown.append(token.strip())
-                continue
-            if canonical not in selected:
-                selected.append(canonical)
-    return selected, unknown
+    aliases = _pack_aliases()
+
+    for raw in _split_csv(values):
+        name = raw.strip().lower()
+        if not name:
+            continue
+        canonical = aliases.get(name)
+        if canonical is None:
+            unknown.append(raw.strip())
+            continue
+        if canonical not in selected:
+            selected.append(canonical)
+
+    return SkillPackSelection(selected=tuple(selected), unknown=tuple(unknown))
 
 
-def _parse_skill_names(values: list[str] | None) -> list[str]:
+def _parse_skill_names(values: list[str] | None) -> SkillNameSelection:
     requested: list[str] = []
-    for raw in values or []:
-        for token in raw.split(","):
-            name = token.strip()
-            if not name:
-                continue
-            if name not in requested:
-                requested.append(name)
-    return requested
+    for name in _split_csv(values):
+        if name not in requested:
+            requested.append(name)
+    return SkillNameSelection(selected=tuple(requested))
 
 
-def _parse_skill_agents(values: list[str] | None) -> tuple[list[str], list[str]]:
+def _parse_skill_agents(values: list[str] | None) -> SkillAgentSelection:
     selected: list[str] = []
     unknown: list[str] = []
-    for raw in values or []:
-        for token in raw.split(","):
-            value = token.strip().lower()
-            if not value:
-                continue
-            if value == "all":
-                return list(_all_skill_agents()), []
-            canonical = SKILL_AGENT_LOOKUP.get(value)
-            if canonical is None:
-                unknown.append(token.strip())
-                continue
-            if canonical not in selected:
-                selected.append(canonical)
-    return selected, unknown
+
+    for raw in _split_csv(values):
+        value = raw.strip().lower()
+        if not value:
+            continue
+        if value == "all":
+            return SkillAgentSelection(selected=tuple(_all_skill_agents()), unknown=())
+
+        canonical = SKILL_AGENT_LOOKUP.get(value)
+        if canonical is None:
+            unknown.append(raw.strip())
+            continue
+        if canonical not in selected:
+            selected.append(canonical)
+
+    return SkillAgentSelection(selected=tuple(selected), unknown=tuple(unknown))
 
 
 def _all_skill_agents() -> list[str]:
@@ -252,9 +364,56 @@ def _skill_agent_label(agent: str) -> str:
     return SKILL_AGENT_CLI_NAMES[agent]
 
 
+def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> SkillInstallPlan | None:
+    pack_selection = _parse_skill_packs(args.skill_pack)
+    if pack_selection.unknown:
+        warn(f"Unknown skill pack(s): {', '.join(sorted(pack_selection.unknown))}")
+        warn(f"Available: {', '.join(_all_skill_packs())}")
+        return None
+
+    selected_skill_agents = _parse_skill_agents(args.skill_agent)
+    if selected_skill_agents.unknown:
+        warn(f"Unknown skill agent(s): {', '.join(sorted(selected_skill_agents.unknown))}")
+        warn(f"Available: {', '.join(_all_skill_agents())}")
+        return None
+
+    skill_names = _parse_skill_names(args.skill)
+
+    if args.all_skills:
+        selected_skill_packs = _all_skill_packs()
+    elif pack_selection.selected:
+        selected_skill_packs = list(pack_selection.selected)
+    elif args.skill_profile:
+        profile_name = args.skill_profile.strip()
+        if not profile_name:
+            warn("Empty --skill-profile value")
+            return None
+
+        profile = _pack_profiles().get(profile_name)
+        if profile is None:
+            warn(f"Unknown skill profile: {profile_name}")
+            warn(f"Available: {', '.join(_all_skill_profiles())}")
+            return None
+
+        selected_skill_packs = list(profile.packs)
+    elif non_interactive:
+        selected_skill_packs = []
+    else:
+        selected_skill_packs = []
+
+    return SkillInstallPlan(
+        skill_packs=tuple(selected_skill_packs),
+        skill_names=skill_names,
+        skill_agents=selected_skill_agents,
+        do_codebase=bool(args.all_mcps),
+        do_lean_ctx=bool(args.all_mcps),
+        do_agentmemory=bool(args.all_mcps),
+    )
+
+
 def _select_skill_packs(non_interactive: bool) -> list[str]:
     selected: list[str] = []
-    for name, _, label, _ in _SKILL_PACKS:
+    for name, _, label, _ in ((pack.name, pack.source, pack.label, pack.skills) for pack in _SKILL_PACKS):
         if ask(f"Install skill pack: {label}?", default=False, non_interactive=non_interactive):
             selected.append(name)
     return selected
@@ -650,44 +809,18 @@ def main(argv: list[str] | None = None) -> int:
     if not _load_skill_pack_config(Path(args.skill_config)):
         return 1
 
-    requested_skill_packs, unknown_skill_packs = _parse_skill_packs(args.skill_pack)
-    if unknown_skill_packs:
-        warn(f"Unknown skill pack(s): {', '.join(sorted(unknown_skill_packs))}")
-        warn(f"Available: {', '.join(_all_skill_packs())}")
+    plan = _build_install_plan(args, non_interactive=non_interactive)
+    if plan is None:
         return 1
 
-    requested_skill_names = _parse_skill_names(args.skill)
-    requested_skill_agents, unknown_skill_agents = _parse_skill_agents(args.skill_agent)
-    if unknown_skill_agents:
-        warn(f"Unknown skill agent(s): {', '.join(sorted(unknown_skill_agents))}")
-        warn(f"Available: {', '.join(_all_skill_agents())}")
-        return 1
-    selected_skill_agents = requested_skill_agents or _all_skill_agents()
-
-    if args.all_skills:
-        selected_skill_packs = _all_skill_packs()
-    elif requested_skill_packs:
-        selected_skill_packs = requested_skill_packs
-    elif args.skill_profile:
-        profile_name = args.skill_profile.strip()
-        if not profile_name:
-            warn("Empty --skill-profile value")
-            return 1
-        profile = _SKILL_PACK_PROFILES.get(profile_name)
-        if profile is None:
-            warn(f"Unknown skill profile: {profile_name}")
-            warn(f"Available: {', '.join(_all_skill_profiles())}")
-            return 1
-        selected_skill_packs = profile
-    elif non_interactive:
-        selected_skill_packs = []
-    else:
-        selected_skill_packs = []
+    selected_skill_packs = list(plan.skill_packs)
+    requested_skill_names = list(plan.skill_names.selected)
+    selected_skill_agents = list(plan.skill_agents.selected) or _all_skill_agents()
 
     do_skills = bool(selected_skill_packs)
-    do_codebase = bool(args.all_mcps)
-    do_lean = bool(args.all_mcps)
-    do_agentmemory = bool(args.all_mcps)
+    do_codebase = plan.do_codebase
+    do_lean = plan.do_lean_ctx
+    do_agentmemory = plan.do_agentmemory
 
     if not do_skills and not do_codebase and not do_lean and not do_agentmemory:
         do_skills = ask(

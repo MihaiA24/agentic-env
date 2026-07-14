@@ -89,20 +89,12 @@ for (const skillsRoot of [
 JS
 
 if [ "$SKIP_INSTALL" != "1" ]; then
-  echo "[1/7] Installing agentic-env tool"
-  run_cmd "uv tool install --force ."
+  echo "[2/7] Running one-shot bootstrap"
+  run_cmd "agentic-bootstrap --yes"
 
-  echo "[2/7] Installing agent CLIs"
-  run_cmd "agentic-install-agents --all --yes"
-
-  echo "[3/7] Installing MCP/tooling"
-  run_cmd "agentic-install-skills-mcps --all-mcps --yes"
-
-  echo "[4/7] Configuring agent MCP servers"
-  run_cmd "agentic-configure-agent-mcps --yes"
-
-  echo "[5/7] Verifying root script wrappers"
-  run_cmd "uv run --with rich python -c 'import agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.configure_agent_mcps, agentic_env.update_agentic_stack'"
+  echo "[3/7] Verifying root script wrappers"
+  run_cmd "uv run --with rich python -c 'import agentic_env.bootstrap, agentic_env.configure_agent_mcps, agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.update_agentic_stack'"
+  run_cmd "uv run --script bootstrap.py --help"
   run_cmd "uv run --script install-agents.py --help"
   run_cmd "uv run --script install-skills-mcps.py --help"
   run_cmd "uv run --script configure-agent-mcps.py --help"
@@ -134,6 +126,7 @@ require_command() {
 }
 
 if [ "$SKIP_INSTALL" != "1" ]; then
+  require_command agentic-bootstrap
   require_command agentic-install-agents
   require_command agentic-install-skills-mcps
   require_command agentic-configure-agent-mcps

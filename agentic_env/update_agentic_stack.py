@@ -5,53 +5,16 @@ import argparse
 import sys
 
 from .common import cmd_exists, info, ok, run, set_verbose, skip, warn
-from .remote_install_contract import REMOTE_KIND_NPM, validate_remote_contract
-
-AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory@0.9.27"
-_OPENAI_CODEX_PACKAGE = "@openai/codex@0.144.1"
-_SKILLS_CLI_PACKAGE = "skills@1.5.16"
-
-_REMOTE_INSTALL_CONTRACT = {
-    "agentmemory_npm": {
-        "label": "agentmemory npm package",
-        "reference": AGENTMEMORY_NPM_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "openai_cdx": {
-        "label": "OpenAI Codex npm package",
-        "reference": _OPENAI_CODEX_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "skills_cli": {
-        "label": "skills CLI",
-        "reference": _SKILLS_CLI_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-}
-
-UPDATE_STEPS: tuple[tuple[str, str, list[str], str], ...] = (
-    (
-        "Hermes Agent",
-        "hermes",
-        ["hermes", "update", "--yes"],
-        "Hermes Agent: not installed",
-    ),
-    ("OMP / Oh My Pi", "omp", ["omp", "update"], "OMP / Oh My Pi: not installed"),
-    ("Claude Code", "claude", ["claude", "update"], "Claude Code: not installed"),
-    (
-        "codebase-memory-mcp",
-        "codebase-memory-mcp",
-        ["codebase-memory-mcp", "update"],
-        "codebase-memory-mcp: not installed",
-    ),
-    ("lean-ctx", "lean-ctx", ["lean-ctx", "update"], "lean-ctx: not installed"),
+from .remote_install_contract import validate_remote_contract
+from .stack_metadata import (
+    AGENTMEMORY_NPM_PACKAGE,
+    OPENAI_CODEX_PACKAGE,
+    SKILLS_CLI_PACKAGE,
+    UPDATE_REMOTE_CONTRACT,
+    UPDATE_STEPS,
 )
+
+_REMOTE_INSTALL_CONTRACT = UPDATE_REMOTE_CONTRACT
 
 
 def _update(label: str, command: list[str]) -> bool:
@@ -95,7 +58,7 @@ def _update_codex() -> bool:
     if not cmd_exists("npm"):
         warn("OpenAI Codex CLI: npm not installed")
         return False
-    return _update("OpenAI Codex CLI", ["npm", "update", "-g", _OPENAI_CODEX_PACKAGE])
+    return _update("OpenAI Codex CLI", ["npm", "update", "-g", OPENAI_CODEX_PACKAGE])
 
 
 def _update_agentmemory() -> bool:
@@ -121,7 +84,7 @@ def _update_skills() -> bool:
     if cmd_exists("npm"):
         return _update(
             "skills CLI",
-            ["npx", "--yes", _SKILLS_CLI_PACKAGE, "update", "-g", "-y"],
+            ["npx", "--yes", SKILLS_CLI_PACKAGE, "update", "-g", "-y"],
         )
     skip("skills CLI: npm/command missing")
     return True

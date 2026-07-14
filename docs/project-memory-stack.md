@@ -120,6 +120,12 @@ From this repo:
 ```bash
 cd agentic-env
 uv tool install --force .
+agentic-bootstrap --yes
+```
+
+Legacy split path:
+
+```bash
 agentic-install-skills-mcps --all-mcps --yes
 agentic-configure-agent-mcps
 ```

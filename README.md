@@ -40,6 +40,20 @@ Docs:
     - `codebase-memory-mcp`
     - `agentmemory`
   - Adds matching global skills for Hermes and OMP when missing.
+- `agentic-bootstrap`
+  - One-shot onboarding in phase order:
+    - installs agent CLIs
+    - installs MCP tooling and matching skills
+    - configures MCP servers and global skills
+  - defaults:
+    - `--skill-profile default`
+    - all install/configure targets
+    - non-interactive execution with phase `--yes` flags
+  - split execution with:
+    - `--skip-install-agents`
+    - `--skip-install-skills`
+    - `--skip-configure`
+    - `--configure-no-skills`
 - `agentic-update-stack`
   - Updates installed components without interactive prompts:
     - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
@@ -55,15 +69,19 @@ Install the command set from this checkout:
 ```bash
 cd /path/to/your/dotfiles/agentic-env
 uv tool install --force .
-agentic-install-agents
-agentic-install-skills-mcps
-agentic-configure-agent-mcps
+agentic-bootstrap --yes
 agentic-update-stack
+
+# Split steps (legacy):
+# agentic-install-agents --all --yes
+# agentic-install-skills-mcps --all-mcps --yes
+# agentic-configure-agent-mcps --yes
 ```
 
 Development compatibility wrappers remain available from the checkout:
 
 ```bash
+uv run --script bootstrap.py
 uv run --script install-agents.py
 uv run --script install-skills-mcps.py
 uv run --script configure-agent-mcps.py
@@ -110,9 +128,7 @@ Inside container:
 cd /workspace
 # Install all components into the container first
 uv tool install --force .
-agentic-install-agents --all --yes
-agentic-install-skills-mcps --all-mcps --yes
-agentic-configure-agent-mcps --yes
+agentic-bootstrap --yes
 
 # Quick runtime checks for each CLI
 hermes --help
@@ -125,7 +141,7 @@ codebase-memory-mcp --version
 You can also run all steps in one command:
 
 ```bash
-docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-install-agents --all --yes && agentic-install-skills-mcps --all-mcps --yes && agentic-configure-agent-mcps --yes && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
+docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-bootstrap --yes && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
 ```
 
 ### 3) Host-side install + configure smoke (no docker)
@@ -135,9 +151,7 @@ If you need to run on the host machine directly:
 ```bash
 cd /path/to/your/dotfiles/agentic-env
 uv tool install --force .
-agentic-install-agents --all --yes
-agentic-install-skills-mcps --all-mcps --yes
-agentic-configure-agent-mcps --yes
+agentic-bootstrap --yes
 lean-ctx doctor
 agentmemory doctor
 codebase-memory-mcp --version
@@ -245,13 +259,11 @@ docker run --rm -v "$PWD":/workspace agentic-env-fresh-install /bin/sh ./docker-
 ### Current smoke contract
 The run is successful only if all checks pass:
 1. `uv tool install --force .` succeeds.
-2. `agentic-install-agents --all --yes` succeeds.
-3. `agentic-install-skills-mcps --all-mcps --yes` succeeds.
-4. `agentic-configure-agent-mcps --yes` succeeds.
-5. Root script wrappers load and expose help through `uv run --script`.
-6. Binary checks pass for:
+2. `agentic-bootstrap --yes` succeeds.
+3. Root script wrappers load and expose help through `uv run --script`.
+4. Binary checks pass for:
    - `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory`
-7. Hermes and OMP config checks pass:
+5. Hermes and OMP config checks pass:
    - `~/.hermes/config.yaml` contains `lean-ctx`, `codebase-memory-mcp`, and `agentmemory` MCP entries
    - `~/.pi/agent/settings.json` includes the `agentmemory` extension
    - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain the selected MCP entries

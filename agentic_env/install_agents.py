@@ -4,44 +4,31 @@ from __future__ import annotations
 import argparse
 import sys
 
-from .common import ask, cmd_exists, cmd_works, run, run_shell, ok, set_verbose, skip, warn, info
-from .remote_install_contract import REMOTE_KIND_NPM, REMOTE_KIND_SCRIPT, validate_remote_contract
+from .common import (
+    ask,
+    cmd_exists,
+    cmd_works,
+    info,
+    ok,
+    run,
+    run_remote_script,
+    set_verbose,
+    skip,
+    warn,
+)
+from .remote_install_contract import validate_remote_contract
+from .stack_metadata import (
+    AGENTS_INSTALL_REMOTE_CONTRACT,
+    CLAUDE_INSTALL_SHA256,
+    CLAUDE_INSTALL_URL,
+    HERMES_INSTALL_SHA256,
+    HERMES_INSTALL_URL,
+    OMP_INSTALL_SHA256,
+    OMP_INSTALL_URL,
+    OPENAI_CODEX_PACKAGE,
+)
 
-_HERMES_INSTALL_URL = "https://hermes-agent.nousresearch.com/install.sh"
-_OMP_INSTALL_URL = "https://omp.sh/install"
-_CLAUDE_INSTALL_URL = "https://claude.ai/install.sh"
-_OPENAI_CODEX_PACKAGE = "@openai/codex@0.144.1"
-
-_REMOTE_INSTALL_CONTRACT = {
-    "hermes": {
-        "label": "Hermes installer script",
-        "reference": _HERMES_INSTALL_URL,
-        "kind": REMOTE_KIND_SCRIPT,
-        "pinned": False,
-        "reason": "No versioned hermes bootstrap script is published.",
-    },
-    "omp": {
-        "label": "OMP / Oh My Pi installer script",
-        "reference": _OMP_INSTALL_URL,
-        "kind": REMOTE_KIND_SCRIPT,
-        "pinned": False,
-        "reason": "No versioned omp installer script is published.",
-    },
-    "codex": {
-        "label": "OpenAI Codex npm package",
-        "reference": _OPENAI_CODEX_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "claude": {
-        "label": "Claude installer script",
-        "reference": _CLAUDE_INSTALL_URL,
-        "kind": REMOTE_KIND_SCRIPT,
-        "pinned": False,
-        "reason": "No versioned Claude installer script is published.",
-    },
-}
+_REMOTE_INSTALL_CONTRACT = AGENTS_INSTALL_REMOTE_CONTRACT
 
 
 def _validate_remote_contract() -> bool:
@@ -49,16 +36,20 @@ def _validate_remote_contract() -> bool:
 
 
 def _install_hermes(non_interactive: bool) -> bool:
-    if cmd_exists("hermes") and not ask("Reinstall Hermes Agent", default=False, non_interactive=non_interactive):
+    if cmd_exists("hermes") and not ask(
+        "Reinstall Hermes Agent", default=False, non_interactive=non_interactive
+    ):
         skip("Hermes Agent: skipped")
         return True
 
-    if not cmd_exists("curl"):
-        warn("curl is required to install Hermes Agent")
-        return False
-
     info("Installing Hermes...")
-    run_shell(f"curl -fsSL {_HERMES_INSTALL_URL} | bash")
+    if not run_remote_script(
+        label="Hermes installer",
+        url=HERMES_INSTALL_URL,
+        expected_sha256=HERMES_INSTALL_SHA256,
+        interpreter="bash",
+    ):
+        return False
     ok("Hermes Agent: installed")
     return True
 
@@ -74,12 +65,14 @@ def _install_omp(non_interactive: bool) -> bool:
         else:
             warn("OMP / Oh My Pi exists but appears broken; reinstalling")
 
-    if not cmd_exists("curl"):
-        warn("curl is required to install OMP / Oh My Pi")
-        return False
-
     info("Installing OMP / Oh My Pi...")
-    run_shell(f"curl -fsSL {_OMP_INSTALL_URL} | sh")
+    if not run_remote_script(
+        label="OMP installer",
+        url=OMP_INSTALL_URL,
+        expected_sha256=OMP_INSTALL_SHA256,
+        interpreter="sh",
+    ):
+        return False
     ok("OMP / Oh My Pi: installed")
     return True
 
@@ -96,22 +89,26 @@ def _install_codex(non_interactive: bool) -> bool:
         return True
 
     info("Installing OpenAI Codex CLI...")
-    run(["npm", "install", "-g", _OPENAI_CODEX_PACKAGE])
+    run(["npm", "install", "-g", OPENAI_CODEX_PACKAGE])
     ok("OpenAI Codex CLI: installed")
     return True
 
 
 def _install_claude(non_interactive: bool) -> bool:
-    if cmd_exists("claude") and not ask("Reinstall Claude Code", default=False, non_interactive=non_interactive):
+    if cmd_exists("claude") and not ask(
+        "Reinstall Claude Code", default=False, non_interactive=non_interactive
+    ):
         skip("Claude Code: skipped")
         return True
 
-    if not cmd_exists("curl"):
-        warn("curl is required to install Claude Code")
-        return False
-
     info("Installing Claude Code...")
-    run_shell(f"curl -fsSL {_CLAUDE_INSTALL_URL} | bash")
+    if not run_remote_script(
+        label="Claude installer",
+        url=CLAUDE_INSTALL_URL,
+        expected_sha256=CLAUDE_INSTALL_SHA256,
+        interpreter="bash",
+    ):
+        return False
     ok("Claude Code: installed")
     return True
 

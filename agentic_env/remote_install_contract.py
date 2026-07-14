@@ -1,16 +1,12 @@
-"""Remote-install reproducibility contract helpers for agentic-env scripts.
-
-The contract is intentionally explicit: each remote reference is declared once with either
-`pinned=True` (must include a concrete version/ref) or `pinned=False` with a rationale
-for allowed floating behavior.
-"""
-
 from __future__ import annotations
+
+import hashlib
 
 from urllib.parse import urlparse
 from typing import Mapping
 
 from .common import warn
+
 
 REMOTE_KIND_NPM = "npm"
 REMOTE_KIND_RAW_URL = "raw-url"
@@ -38,10 +34,29 @@ def _is_pinned_raw_url(raw_url: str) -> bool:
     return ref.lower() not in {"main", "master", "develop", "trunk", "latest", "head"}
 
 
-def validate_remote_contract_reference(*, label: str, reference: str, kind: str, pinned: bool, reason: str | None = None, scope: str) -> bool:
+def _is_sha256(value: str | None) -> bool:
+    if not value:
+        return False
+    return len(value) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in value)
+
+
+def validate_remote_contract_reference(
+    *,
+    label: str,
+    reference: str,
+    kind: str,
+    pinned: bool,
+    reason: str | None = None,
+    expected_sha256: str | None = None,
+    scope: str,
+) -> bool:
     """Validate one contract entry and emit actionable diagnostics."""
     if not label or not reference:
         warn(f"[{scope}] invalid remote contract entry for {label!r} in {scope}")
+        return False
+
+    if kind not in {REMOTE_KIND_NPM, REMOTE_KIND_RAW_URL, REMOTE_KIND_SCRIPT}:
+        warn(f"[{scope}] {label}: unsupported remote kind '{kind}'")
         return False
 
     if pinned:
@@ -59,8 +74,11 @@ def validate_remote_contract_reference(*, label: str, reference: str, kind: str,
             )
             return False
 
-        if kind not in {REMOTE_KIND_NPM, REMOTE_KIND_RAW_URL}:
-            warn(f"[{scope}] {label}: unsupported remote kind '{kind}'")
+        if kind == REMOTE_KIND_SCRIPT and not _is_sha256(expected_sha256):
+            warn(
+                f"[{scope}] {label}: pinned script requires a 64-char hex sha256 checksum, "
+                f"found '{expected_sha256}'."
+            )
             return False
 
         return True
@@ -72,7 +90,9 @@ def validate_remote_contract_reference(*, label: str, reference: str, kind: str,
 
 
 def validate_remote_contract(
-    entries: Mapping[str, Mapping[str, str | bool]], *, scope: str
+    entries: Mapping[str, Mapping[str, str | bool]],
+    *,
+    scope: str,
 ) -> bool:
     """Validate all configured remote contract entries for a script."""
     ok_all = True
@@ -82,6 +102,7 @@ def validate_remote_contract(
         kind = str(entry.get("kind", ""))
         pinned = bool(entry.get("pinned", False))
         reason = str(entry.get("reason", "")) or None
+        expected_sha256 = str(entry.get("sha256", "")) or None
 
         ok_all = (
             validate_remote_contract_reference(
@@ -90,6 +111,7 @@ def validate_remote_contract(
                 kind=kind,
                 pinned=pinned,
                 reason=reason,
+                expected_sha256=expected_sha256,
                 scope=scope,
             )
             and ok_all

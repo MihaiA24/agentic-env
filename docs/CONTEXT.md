@@ -40,9 +40,11 @@
 - **Fresh install**
   - A complete, non-interactive installation from a clean container using:
     - `uv tool install --force .`
-    - `agentic-install-agents --all --yes`
-    - `agentic-install-skills-mcps --all-mcps --yes`
-    - `agentic-configure-agent-mcps --yes`
+    - `agentic-bootstrap --yes`
+    - legacy split path:
+      - `agentic-install-agents --all --yes`
+      - `agentic-install-skills-mcps --all-mcps --yes`
+      - `agentic-configure-agent-mcps --yes`
 
 - **Unattended update**
   - A maintenance run that refreshes installed agent stack components without opening prompts or re-running interactive bootstrap installers.

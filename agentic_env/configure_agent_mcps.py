@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from rich.prompt import Prompt
 
 from .common import cmd_exists, console, ok, set_verbose, skip, warn
+from .stack_metadata import CONFIGURE_AGENT_CHOICES
 
 
 @dataclass(frozen=True)
@@ -130,7 +134,7 @@ Use `ponytail` as a language-agnostic code-quality and prompting companion.
     ),
 }
 
-AGENT_CHOICES = ("hermes", "omp")
+AGENT_CHOICES = CONFIGURE_AGENT_CHOICES
 OMP_MCP_PATHS = (
     Path.home() / ".omp" / "agent" / "mcp.json",
     Path.home() / ".pi" / "agent" / "mcp.json",
@@ -141,6 +145,7 @@ OMP_SKILL_ROOTS = (
 )
 HERMES_CONFIG_PATH = Path.home() / ".hermes" / "config.yaml"
 HERMES_SKILL_ROOT = Path.home() / ".hermes" / "skills"
+_BACKUP_SUFFIX = ".agentic-env.bak"
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -246,10 +251,96 @@ def _yaml_block_has_key(lines: list[str], start: int, end: int, indent: int, key
     return any(pattern.match(line) for line in lines[start + 1 : end])
 
 
-def _ensure_hermes_memory_provider(lines: list[str], provider: str) -> tuple[list[str], bool]:
+def _yaml_block_get_key_value(
+    lines: list[str], start: int, end: int, indent: int, key: str
+) -> str | None:
+    pattern = re.compile(rf"^\s{{{indent + 2}}}{re.escape(key)}:\s*(.*?)\s*$")
+    for line in lines[start + 1 : end]:
+        match = pattern.match(line)
+        if match:
+            return match.group(1).strip().strip('"').strip("'")
+    return None
+
+
+def _validate_hermes_config(
+    lines: list[str], servers: list[McpServer], *, required_provider: str | None = None
+) -> bool:
+    block = _find_yaml_block(lines, "mcp_servers")
+    if block is None:
+        return False
+    start, end, indent = block
+    for server in servers:
+        if not _yaml_block_has_key(lines, start, end, indent, server.name):
+            return False
+
+    if required_provider is None:
+        return True
+
+    memory_block = _find_yaml_block(lines, "memory")
+    if memory_block is None:
+        return False
+    memory_start, memory_end, memory_indent = memory_block
+    provider = _yaml_block_get_key_value(
+        lines, memory_start, memory_end, memory_indent, "provider"
+    )
+    if provider is None:
+        return False
+    return provider == required_provider
+
+
+def _write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
+    if dry_run:
+        skip(f"dry-run: would write {path}")
+        return True
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    backup_path = path.with_suffix(path.suffix + _BACKUP_SUFFIX)
+    if path.exists():
+        if backup_path.exists():
+            try:
+                backup_path.unlink()
+            except OSError as exc:
+                warn(f"{path}: failed to clear stale backup {backup_path}: {exc}")
+                return False
+        try:
+            shutil.copy2(path, backup_path)
+        except OSError as exc:
+            warn(f"{path}: failed to create backup {backup_path}: {exc}")
+            return False
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=path.parent, delete=False
+        ) as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+            temp_path = Path(stream.name)
+        os.replace(temp_path, path)
+        return True
+    except Exception as exc:
+        warn(f"{path}: atomic write failed: {exc}")
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        return False
+
+
+def _read_lines(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    return path.read_text(encoding="utf-8").splitlines()
+
+
+def _ensure_hermes_memory_provider(
+    lines: list[str], provider: str
+) -> tuple[list[str], bool, bool]:
     block = _find_yaml_block(lines, "memory")
     if block is None:
-        return [*lines, "", "memory:", f"  provider: {provider}"], True
+        return [*lines, "", "memory:", f"  provider: {provider}"], True, False
 
     start, end, indent = block
     provider_pattern = re.compile(r"^\s*provider:\s*(.*?)\s*$")
@@ -257,21 +348,23 @@ def _ensure_hermes_memory_provider(lines: list[str], provider: str) -> tuple[lis
         match = provider_pattern.match(lines[i])
         if not match:
             continue
-        current = match.group(1)
+        current = match.group(1).strip().strip('"').strip("'")
         if current == provider:
-            return lines, False
+            return lines, False, False
         warn("Hermes config: existing memory.provider is set; skipped changing it")
-        return lines, False
+        return lines, False, True
 
     updated = [*lines]
     updated.insert(start + 1, " " * (indent + 2) + f"provider: {provider}")
-    return updated, True
+    return updated, True, False
 
 
 def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
     path = HERMES_CONFIG_PATH
-    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    lines = _read_lines(path)
     changed = False
+    provider_conflict = False
+    required_provider: str | None = None
 
     block = _find_yaml_block(lines, "mcp_servers")
     if block is None:
@@ -292,18 +385,34 @@ def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
             ok(f"Hermes config: {server.name} MCP added")
 
         if server.hermes_memory_provider:
-            lines, provider_changed = _ensure_hermes_memory_provider(
+            lines, provider_changed, conflict = _ensure_hermes_memory_provider(
                 lines, server.hermes_memory_provider
             )
             changed = changed or provider_changed
+            provider_conflict = provider_conflict or conflict
+            if provider_changed:
+                required_provider = server.hermes_memory_provider
             block = _find_yaml_block(lines, "mcp_servers") or block
 
     if changed:
-        if dry_run:
-            skip(f"dry-run: would write {path}")
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+        if not _validate_hermes_config(
+            lines,
+            servers,
+            required_provider=None if provider_conflict else required_provider,
+        ):
+            warn("Hermes config: post-merge validation failed")
+            return False
+        if not _write_atomic_text(path, "\n".join(lines).rstrip() + "\n", dry_run=dry_run):
+            return False
+        if not dry_run:
+            verified = _read_lines(path)
+            if not _validate_hermes_config(
+                verified,
+                servers,
+                required_provider=None if provider_conflict else required_provider,
+            ):
+                warn(f"{path}: write verification failed")
+                return False
     return True
 
 
@@ -326,6 +435,25 @@ def _load_json_object(path: Path) -> dict[str, object] | None:
         warn(f"{path}: root JSON value is not an object; skipped")
         return None
     return value
+
+
+def _validate_omp_config(data: dict[str, object], servers: list[McpServer]) -> bool:
+    mcp_servers = data.get("mcpServers")
+    if not isinstance(mcp_servers, dict):
+        return False
+    for server in servers:
+        entry = mcp_servers.get(server.name)
+        if not isinstance(entry, dict):
+            return False
+        if entry.get("command") != server.command:
+            return False
+        args = entry.get("args", [])
+        if not server.args:
+            if args:
+                return False
+        elif args != list(server.args):
+            return False
+    return True
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
@@ -351,11 +479,20 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
                 ok(f"{path}: {server.name} MCP added")
 
         if changed:
-            if dry_run:
-                skip(f"dry-run: would write {path}")
-            else:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            if not _validate_omp_config(data, servers):
+                warn(f"{path}: generated config failed validation")
+                ok_all = False
+                continue
+            if not _write_atomic_text(
+                path, json.dumps(data, indent=2) + "\n", dry_run=dry_run
+            ):
+                ok_all = False
+                continue
+            if not dry_run:
+                verified = _load_json_object(path)
+                if verified is None or not _validate_omp_config(verified, servers):
+                    warn(f"{path}: write verification failed")
+                    ok_all = False
     return ok_all
 
 
@@ -364,12 +501,17 @@ def _install_skill(root: Path, skill: Skill, *, dry_run: bool) -> bool:
     if skill_path.exists():
         skip(f"{skill_path}: skill already present")
         return True
+
+    content = skill.body.rstrip() + "\n"
+    if not _write_atomic_text(skill_path, content, dry_run=dry_run):
+        return False
     if dry_run:
-        skip(f"dry-run: would write {skill_path}")
         return True
-    skill_path.parent.mkdir(parents=True, exist_ok=True)
-    skill_path.write_text(skill.body.rstrip() + "\n", encoding="utf-8")
-    ok(f"{skill_path}: skill added")
+
+    if skill_path.read_text(encoding="utf-8") != content:
+        warn(f"{skill_path}: write verification failed")
+        return False
+    ok(f"{skill_path}: skill written")
     return True
 
 

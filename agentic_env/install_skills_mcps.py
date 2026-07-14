@@ -1,85 +1,47 @@
+
 from __future__ import annotations
 
 """Install agent skills and MCP tooling."""
 
 import argparse
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import urllib.request
 from pathlib import Path
-import shutil
 
 from . import configure_agent_mcps
-from .common import ask, cmd_exists, ok, run, run_shell, set_verbose, skip, warn, info
-from .remote_install_contract import (
-    REMOTE_KIND_NPM,
-    REMOTE_KIND_RAW_URL,
-    REMOTE_KIND_SCRIPT,
-    validate_remote_contract,
+from .common import (
+    ask,
+    cmd_exists,
+    info,
+    ok,
+    run,
+    run_remote_script,
+    set_verbose,
+    skip,
+    warn,
+)
+from .remote_install_contract import validate_remote_contract
+from .stack_metadata import (
+    AGENTMEMORY_NPM_PACKAGE,
+    AGENTMEMORY_PI_INDEX_SHA256,
+    AGENTMEMORY_PI_INDEX_TS,
+    CODEBASE_MEMORY_INSTALL,
+    CODEBASE_MEMORY_INSTALL_SHA256,
+    LEAN_CTX_INSTALL_SCRIPT,
+    LEAN_CTX_INSTALL_SHA256,
+    SKILL_AGENTS,
+    SKILL_AGENT_CLI_NAMES,
+    SKILL_AGENT_LOOKUP,
+    SKILLS_CLI_PACKAGE,
+    SKILLS_INSTALL_REMOTE_CONTRACT,
 )
 
-_SKILLS_CLI_PACKAGE = "skills@1.5.16"
-_AGENTMEMORY_NPM_PACKAGE = "@agentmemory/agentmemory@0.9.27"
-_AGENTMEMORY_PI_INDEX_TS = (
-    "https://raw.githubusercontent.com/rohitg00/agentmemory/93ae9bc04f3ab5042f982aaadf11f1e3f5137531/integrations/pi/index.ts"
-)
-_CODEBASE_MEMORY_INSTALL = (
-    "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/2469ecc3a7a2f80debe296e1f17a1efcfdb9450c/install.sh"
-)
-_LEAN_CTX_INSTALL_SCRIPT = "https://leanctx.com/install.sh"
-
-_REMOTE_INSTALL_CONTRACT = {
-    "skills_cli": {
-        "label": "skills CLI",
-        "reference": _SKILLS_CLI_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "agentmemory_npm": {
-        "label": "agentmemory npm package",
-        "reference": _AGENTMEMORY_NPM_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "agentmemory_pi_index": {
-        "label": "agentmemory PI index.ts",
-        "reference": _AGENTMEMORY_PI_INDEX_TS,
-        "kind": REMOTE_KIND_RAW_URL,
-        "pinned": True,
-        "reason": "",
-    },
-    "codebase_memory_script": {
-        "label": "codebase-memory-mcp install script",
-        "reference": _CODEBASE_MEMORY_INSTALL,
-        "kind": REMOTE_KIND_RAW_URL,
-        "pinned": True,
-        "reason": "",
-    },
-    "lean_ctx_script": {
-        "label": "lean-ctx installer",
-        "reference": _LEAN_CTX_INSTALL_SCRIPT,
-        "kind": REMOTE_KIND_SCRIPT,
-        "pinned": False,
-        "reason": "No versioned lean-ctx installer is published.",
-    },
-}
-
-_SKILL_AGENTS: tuple[tuple[str, str, str], ...] = (
-    ("hermes", "hermes-agent", "Hermes Agent"),
-    ("ohmipy", "pi", "Pi"),  # Pi == ohmipy
-    ("claude", "claude-code", "Claude Code"),
-    ("codex", "codex", "Codex"),
-)
-_SKILL_AGENT_CLI_NAMES = {agent: cli_name for agent, cli_name, _ in _SKILL_AGENTS}
-_SKILL_AGENT_LOOKUP = {
-    **{agent: agent for agent, _, _ in _SKILL_AGENTS},
-    **{cli_name: agent for agent, cli_name, _ in _SKILL_AGENTS},
-    **{label.lower(): agent for agent, _, label in _SKILL_AGENTS},
-}
+_REMOTE_INSTALL_CONTRACT = SKILLS_INSTALL_REMOTE_CONTRACT
 _SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
 _SKILL_PACKS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = ()
 _SKILL_PACK_ALIASES: dict[str, str] = {}
@@ -230,7 +192,6 @@ def _skill_pack_skills(name: str) -> list[str]:
     return list({name: skills for name, _, _, skills in _SKILL_PACKS}[name])
 
 
-
 def _validate_remote_contract() -> bool:
     return validate_remote_contract(_REMOTE_INSTALL_CONTRACT, scope="agentic-install-skills-mcps")
 
@@ -274,7 +235,7 @@ def _parse_skill_agents(values: list[str] | None) -> tuple[list[str], list[str]]
                 continue
             if value == "all":
                 return list(_all_skill_agents()), []
-            canonical = _SKILL_AGENT_LOOKUP.get(value)
+            canonical = SKILL_AGENT_LOOKUP.get(value)
             if canonical is None:
                 unknown.append(token.strip())
                 continue
@@ -284,11 +245,11 @@ def _parse_skill_agents(values: list[str] | None) -> tuple[list[str], list[str]]
 
 
 def _all_skill_agents() -> list[str]:
-    return [agent for agent, _, _ in _SKILL_AGENTS]
+    return [agent for agent, _, _ in SKILL_AGENTS]
 
 
 def _skill_agent_label(agent: str) -> str:
-    return _SKILL_AGENT_CLI_NAMES[agent]
+    return SKILL_AGENT_CLI_NAMES[agent]
 
 
 def _select_skill_packs(non_interactive: bool) -> list[str]:
@@ -390,12 +351,27 @@ def _install_npm_global(package: str, label: str) -> bool:
         return _install_agentmemory_user_local(package)
 
 
-def _download_text(url: str) -> str | None:
+def _download_text(url: str, expected_sha256: str | None = None) -> str | None:
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
-            return response.read().decode("utf-8")
+            payload = response.read()
     except Exception as exc:
         warn(f"agentmemory setup: failed to download {url}: {exc}")
+        return None
+
+    if expected_sha256 is not None:
+        actual = hashlib.sha256(payload).hexdigest()
+        if actual.lower() != expected_sha256.lower():
+            warn(
+                f"agentmemory setup: sha mismatch for {url}. "
+                f"expected={expected_sha256}, got={actual}"
+            )
+            return None
+
+    try:
+        return payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        warn(f"agentmemory setup: downloaded content for {url} is not UTF-8: {exc}")
         return None
 
 
@@ -423,7 +399,7 @@ def _configure_pi_agentmemory() -> bool:
     settings_path = Path.home() / ".pi" / "agent" / "settings.json"
 
     if not index_path.exists():
-        integration = _download_text(_AGENTMEMORY_PI_INDEX_TS)
+        integration = _download_text(AGENTMEMORY_PI_INDEX_TS, AGENTMEMORY_PI_INDEX_SHA256)
         if integration is None:
             return False
         extension_dir.mkdir(parents=True, exist_ok=True)
@@ -527,8 +503,10 @@ def _install_skill_package(
         info(f"Installing skills: {', '.join(skills)} from {source}...")
     else:
         info(f"Installing skill pack: {source}...")
-    run(["npx", "--yes", _SKILLS_CLI_PACKAGE, *command])
+    run(["npx", "--yes", SKILLS_CLI_PACKAGE, *command])
     return True
+
+
 def _install_agentmemory(non_interactive: bool) -> bool:
     if not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
         return True
@@ -538,17 +516,12 @@ def _install_agentmemory(non_interactive: bool) -> bool:
         return False
 
     info("Installing agentmemory...")
-    if not _install_npm_global(_AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
+    if not _install_npm_global(AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
         return False
 
     pi_ok = _configure_pi_agentmemory()
     hermes_ok = _configure_hermes_agentmemory()
     return hermes_ok and pi_ok
-
-
-
-
-
 
 
 def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
@@ -559,13 +532,17 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     ):
         return True
 
-    if not cmd_exists("curl"):
-        warn("curl is required to install codebase-memory-mcp")
+    info("Installing codebase-memory-mcp...")
+    script_args = ["-s", "--", "--ui"] if with_ui else None
+    if not run_remote_script(
+        label="codebase-memory-mcp installer",
+        url=CODEBASE_MEMORY_INSTALL,
+        expected_sha256=CODEBASE_MEMORY_INSTALL_SHA256,
+        interpreter="bash",
+        interpreter_args=script_args,
+    ):
         return False
 
-    base = _CODEBASE_MEMORY_INSTALL
-    info("Installing codebase-memory-mcp...")
-    run_shell(f"curl -fsSL {base} | bash" + (" -s -- --ui" if with_ui else ""))
     ok("codebase-memory-mcp: installed" + (" (with UI)" if with_ui else ""))
     return True
 
@@ -574,12 +551,15 @@ def _install_lean_ctx(non_interactive: bool) -> bool:
     if not _should_install_mcp("lean-ctx", "lean-ctx", non_interactive):
         return True
 
-    if not cmd_exists("curl"):
-        warn("curl is required to install lean-ctx")
+    info("Installing lean-ctx...")
+    if not run_remote_script(
+        label="lean-ctx installer",
+        url=LEAN_CTX_INSTALL_SCRIPT,
+        expected_sha256=LEAN_CTX_INSTALL_SHA256,
+        interpreter="sh",
+    ):
         return False
 
-    info("Installing lean-ctx...")
-    run_shell(f"curl -fsSL {_LEAN_CTX_INSTALL_SCRIPT} | sh")
     ok("lean-ctx: installed")
 
     if cmd_exists("lean-ctx") and ask(

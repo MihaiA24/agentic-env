@@ -1,12 +1,12 @@
+"""Install agent skills and MCP tooling."""
 
 from __future__ import annotations
-
-"""Install agent skills and MCP tooling."""
 
 import argparse
 import hashlib
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -18,10 +18,11 @@ from . import configure_agent_mcps
 from .common import (
     ask,
     cmd_exists,
+    cmd_version_matches,
+    install_pinned_binary_archive,
     info,
     ok,
     run,
-    run_remote_script,
     set_verbose,
     skip,
     warn,
@@ -31,14 +32,15 @@ from .stack_metadata import (
     AGENTMEMORY_NPM_PACKAGE,
     AGENTMEMORY_PI_INDEX_SHA256,
     AGENTMEMORY_PI_INDEX_TS,
-    CODEBASE_MEMORY_INSTALL,
-    CODEBASE_MEMORY_INSTALL_SHA256,
-    LEAN_CTX_INSTALL_SCRIPT,
-    LEAN_CTX_INSTALL_SHA256,
+    CODEBASE_MEMORY_ARCHIVES,
+    CODEBASE_MEMORY_RELEASE_BASE,
+    LEAN_CTX_ARCHIVES,
+    LEAN_CTX_RELEASE_BASE,
     SKILL_AGENTS,
     SKILL_AGENT_CLI_NAMES,
     SKILL_AGENT_LOOKUP,
     SKILLS_CLI_PACKAGE,
+    STACK_VERSION_FRAGMENTS,
     SKILLS_INSTALL_REMOTE_CONTRACT,
 )
 
@@ -305,7 +307,9 @@ def _skill_pack_skills(name: str) -> list[str]:
 
 
 def _validate_remote_contract() -> bool:
-    return validate_remote_contract(_REMOTE_INSTALL_CONTRACT, scope="agentic-install-skills-mcps")
+    return validate_remote_contract(
+        _REMOTE_INSTALL_CONTRACT, scope="agentic-install-skills-mcps"
+    )
 
 
 def _parse_skill_packs(values: list[str] | None) -> SkillPackSelection:
@@ -413,13 +417,19 @@ def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> S
 
 def _select_skill_packs(non_interactive: bool) -> list[str]:
     selected: list[str] = []
-    for name, _, label, _ in ((pack.name, pack.source, pack.label, pack.skills) for pack in _SKILL_PACKS):
-        if ask(f"Install skill pack: {label}?", default=False, non_interactive=non_interactive):
-            selected.append(name)
+    for pack in _SKILL_PACKS:
+        if ask(
+            f"Install skill pack: {pack.label}?",
+            default=False,
+            non_interactive=non_interactive,
+        ):
+            selected.append(pack.name)
     return selected
 
 
-def _command_path_on_path(binary: str, extra_paths: list[Path] | None = None) -> str | None:
+def _command_path_on_path(
+    binary: str, extra_paths: list[Path] | None = None
+) -> str | None:
     extra: list[str] = [str(path) for path in (extra_paths or [])]
     system_path = os.environ.get("PATH", "")
     if system_path:
@@ -433,12 +443,30 @@ def _command_exists(binary: str) -> bool:
 
 
 def _should_install_mcp(binary: str, label: str, non_interactive: bool) -> bool:
-    if _command_exists(binary):
-        if not ask(f"Reinstall {label}", default=False, non_interactive=non_interactive):
-            skip(f"{label}: already installed")
+    if cmd_version_matches(binary, STACK_VERSION_FRAGMENTS[binary]):
+        if not ask(
+            f"Reinstall {label}", default=False, non_interactive=non_interactive
+        ):
+            skip(f"{label}: curated version already installed")
             return False
+    elif _command_exists(binary):
+        warn(f"{label}: installed version differs; converging")
     return True
 
+
+def _platform_key() -> tuple[str, str] | None:
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    architecture = {
+        "x86_64": "amd64",
+        "amd64": "amd64",
+        "arm64": "arm64",
+        "aarch64": "arm64",
+    }.get(machine)
+    if system not in {"darwin", "linux"} or architecture is None:
+        warn(f"Unsupported platform: {system}/{machine}")
+        return None
+    return system, architecture
 
 
 def _is_npm_permission_error(exc: subprocess.CalledProcessError) -> bool:
@@ -456,7 +484,9 @@ def _install_agentmemory_user_local(package: str) -> bool:
         return False
     binary_path = local_prefix / "bin" / "agentmemory"
     if not binary_path.exists():
-        warn(f"agentmemory fallback install succeeded but binary missing: {binary_path}")
+        warn(
+            f"agentmemory fallback install succeeded but binary missing: {binary_path}"
+        )
         return False
 
     user_bin_dir = Path.home() / ".local" / "bin"
@@ -480,16 +510,19 @@ def _install_agentmemory_user_local(package: str) -> bool:
         return False
 
     if str(user_bin_dir) not in os.environ.get("PATH", "").split(os.pathsep):
-        os.environ["PATH"] = (
-            str(user_bin_dir)
-            + (os.pathsep + os.environ.get("PATH", "") if os.environ.get("PATH", "") else "")
+        os.environ["PATH"] = str(user_bin_dir) + (
+            os.pathsep + os.environ.get("PATH", "")
+            if os.environ.get("PATH", "")
+            else ""
         )
         skip("PATH updated for this process")
         skip('Persist with: export PATH="$HOME/.local/bin:$PATH"')
 
     ok(f"agentmemory: installed to user-local npm prefix {local_prefix}")
     ok(f"agentmemory command resolved at: {resolved_path}")
-    skip("PATH may not include ~/.local/bin automatically; add it to use the fallback binary")
+    skip(
+        "PATH may not include ~/.local/bin automatically; add it to use the fallback binary"
+    )
     return True
 
 
@@ -558,7 +591,9 @@ def _configure_pi_agentmemory() -> bool:
     settings_path = Path.home() / ".pi" / "agent" / "settings.json"
 
     if not index_path.exists():
-        integration = _download_text(AGENTMEMORY_PI_INDEX_TS, AGENTMEMORY_PI_INDEX_SHA256)
+        integration = _download_text(
+            AGENTMEMORY_PI_INDEX_TS, AGENTMEMORY_PI_INDEX_SHA256
+        )
         if integration is None:
             return False
         extension_dir.mkdir(parents=True, exist_ok=True)
@@ -646,22 +681,18 @@ def _install_skill_package(
         command.extend(["--skill", skill])
     for skill_agent in skill_agents:
         command.extend(["--agent", _skill_agent_label(skill_agent)])
-    if cmd_exists("skills"):
-        if skills:
-            info(f"Installing skills: {', '.join(skills)} from {source}...")
-        else:
-            info(f"Installing skill pack: {source}...")
-        run(["skills", *command])
-        return True
-
-    if not cmd_exists("npm"):
-        warn("npm is required to install skills via npx")
-        return False
 
     if skills:
         info(f"Installing skills: {', '.join(skills)} from {source}...")
     else:
         info(f"Installing skill pack: {source}...")
+
+    if cmd_version_matches("skills", STACK_VERSION_FRAGMENTS["skills"]):
+        run(["skills", *command])
+        return True
+    if not cmd_exists("npm"):
+        warn("The curated skills CLI requires npm")
+        return False
     run(["npx", "--yes", SKILLS_CLI_PACKAGE, *command])
     return True
 
@@ -669,13 +700,15 @@ def _install_skill_package(
 def _install_agentmemory(non_interactive: bool) -> bool:
     if not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
         return True
-
     if not cmd_exists("npm"):
         warn("npm is required to install agentmemory")
         return False
 
     info("Installing agentmemory...")
     if not _install_npm_global(AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
+        return False
+    if not cmd_version_matches("agentmemory", STACK_VERSION_FRAGMENTS["agentmemory"]):
+        warn("agentmemory: installed version does not match curated release")
         return False
 
     pi_ok = _configure_pi_agentmemory()
@@ -685,23 +718,26 @@ def _install_agentmemory(non_interactive: bool) -> bool:
 
 def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     if not _should_install_mcp(
-        "codebase-memory-mcp",
-        "codebase-memory-mcp",
-        non_interactive,
+        "codebase-memory-mcp", "codebase-memory-mcp", non_interactive
     ):
         return True
+    platform_key = _platform_key()
+    if platform_key is None:
+        return False
+    archive_name, checksum = CODEBASE_MEMORY_ARCHIVES[(*platform_key, with_ui)]
 
     info("Installing codebase-memory-mcp...")
-    script_args = ["-s", "--", "--ui"] if with_ui else None
-    if not run_remote_script(
-        label="codebase-memory-mcp installer",
-        url=CODEBASE_MEMORY_INSTALL,
-        expected_sha256=CODEBASE_MEMORY_INSTALL_SHA256,
-        interpreter="bash",
-        interpreter_args=script_args,
+    if not install_pinned_binary_archive(
+        label="codebase-memory-mcp",
+        binary="codebase-memory-mcp",
+        url=f"{CODEBASE_MEMORY_RELEASE_BASE}/{archive_name}",
+        expected_sha256=checksum,
     ):
         return False
-
+    binary = str(Path.home() / ".local" / "bin" / "codebase-memory-mcp")
+    if not cmd_version_matches(binary, STACK_VERSION_FRAGMENTS["codebase-memory-mcp"]):
+        warn("codebase-memory-mcp: installed version does not match curated release")
+        return False
     ok("codebase-memory-mcp: installed" + (" (with UI)" if with_ui else ""))
     return True
 
@@ -709,26 +745,37 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
 def _install_lean_ctx(non_interactive: bool) -> bool:
     if not _should_install_mcp("lean-ctx", "lean-ctx", non_interactive):
         return True
+    platform_key = _platform_key()
+    if platform_key is None:
+        return False
+    archive_name, checksum = LEAN_CTX_ARCHIVES[platform_key]
 
     info("Installing lean-ctx...")
-    if not run_remote_script(
-        label="lean-ctx installer",
-        url=LEAN_CTX_INSTALL_SCRIPT,
-        expected_sha256=LEAN_CTX_INSTALL_SHA256,
-        interpreter="sh",
+    if cmd_exists("lean-ctx"):
+        subprocess.run(
+            ["lean-ctx", "stop"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    if not install_pinned_binary_archive(
+        label="lean-ctx",
+        binary="lean-ctx",
+        url=f"{LEAN_CTX_RELEASE_BASE}/{archive_name}",
+        expected_sha256=checksum,
     ):
         return False
-
+    binary = str(Path.home() / ".local" / "bin" / "lean-ctx")
+    if not cmd_version_matches(binary, STACK_VERSION_FRAGMENTS["lean-ctx"]):
+        warn("lean-ctx: installed version does not match curated release")
+        return False
     ok("lean-ctx: installed")
 
-    if cmd_exists("lean-ctx") and ask(
-        "Run lean-ctx setup now", default=True, non_interactive=non_interactive
-    ):
-        run(["lean-ctx", "setup"])
+    if ask("Run lean-ctx setup now", default=True, non_interactive=non_interactive):
+        run([binary, "setup"])
         ok("lean-ctx setup: run")
     else:
         skip("lean-ctx setup: skipped")
-
     return True
 
 
@@ -786,13 +833,16 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         help="Install all MCPs without prompting",
     )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
-    parser.add_argument("--verbose", action="store_true", help="Show full command output")
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show full command output"
+    )
     parser.add_argument(
         "--verify-remote-contract",
         action="store_true",
         help="Validate remote install contract entries and exit",
     )
     return parser.parse_args(argv)
+
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv or sys.argv[1:])
@@ -848,7 +898,9 @@ def main(argv: list[str] | None = None) -> int:
     ok_all = True
     if do_skills:
         ok_all = (
-            _install_skills(selected_skill_packs, requested_skill_names, selected_skill_agents)
+            _install_skills(
+                selected_skill_packs, requested_skill_names, selected_skill_agents
+            )
             and ok_all
         )
     else:
@@ -875,8 +927,6 @@ def main(argv: list[str] | None = None) -> int:
         skip("agentmemory: skipped")
 
     return 0 if ok_all else 1
-
-
 
 
 if __name__ == "__main__":

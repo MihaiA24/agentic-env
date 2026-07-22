@@ -55,8 +55,8 @@ Docs:
     - `--skip-configure`
     - `--configure-no-skills`
 - `agentic-update-stack`
-  - Updates installed components without interactive prompts:
-    - `hermes`, `omp`, `codex`, `claude`, `skills`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
+  - Converges installed components to the reviewed versions in `agentic_env/stack_metadata.py` without interactive prompts:
+    - `hermes`, `omp`, `codex`, `claude`, `skills` CLI, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
   - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
 - Root `*.py` files remain `uv run --script` compatibility wrappers for development and smoke checks.
 - `setup_helpers.sh`
@@ -90,11 +90,13 @@ uv run --script update-agentic-stack.py
 
 ### Update policy
 
-`agentic-update-stack` is an unattended maintenance command.
+`agentic-update-stack` is an unattended convergence command, not a latest-version updater.
 
-- Use each tool's native updater when it supports one (`hermes update --yes`, `omp update`, `claude update`).
-- Update npm-installed CLIs through npm (`codex`, `agentmemory`) instead of re-running curl installers.
-- Do not call `agentmemory upgrade` here. That command prompts to re-run the pinned `iii-engine` installer and can mutate the current workspace when `package.json` is present. Run it manually when intentionally refreshing the `iii-engine` runtime.
+- Install and update use the same immutable commit, release, or npm package pins from `agentic_env/stack_metadata.py`.
+- Every changed component is checked with its version command; a mismatch fails the run.
+- Upgrading the curated stack requires a reviewed metadata, installer checksum, and release-asset checksum change.
+- `skills` refers to the pinned CLI only; installed skill-pack contents are not advanced to floating upstream revisions.
+- Do not call `agentmemory upgrade` here. That command prompts to re-run the `iii-engine` installer and can mutate the current workspace when `package.json` is present. Run it manually when intentionally refreshing the `iii-engine` runtime.
 
 
 ## Runbooks

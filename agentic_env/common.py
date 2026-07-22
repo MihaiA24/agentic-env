@@ -3,11 +3,15 @@
 
 import contextlib
 import hashlib
+import io
 import os
 import shutil
+import tarfile
 import subprocess
 import tempfile
 import urllib.request
+from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Iterable
 
 from rich.console import Console
@@ -50,7 +54,9 @@ def cmd_exists(name: str) -> bool:
     return shutil.which(name) is not None
 
 
-def cmd_works(name: str, args: Iterable[str] = ("--help",), timeout_sec: int = 2) -> bool:
+def cmd_works(
+    name: str, args: Iterable[str] = ("--help",), timeout_sec: int = 2
+) -> bool:
     try:
         subprocess.run(
             [name, *args],
@@ -62,6 +68,23 @@ def cmd_works(name: str, args: Iterable[str] = ("--help",), timeout_sec: int = 2
         return True
     except Exception:
         return False
+
+
+def cmd_version_matches(
+    name: str, fragments: Iterable[str], args: Iterable[str] = ("--version",)
+) -> bool:
+    try:
+        result = subprocess.run(
+            [name, *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception:
+        return False
+    output = result.stdout + result.stderr
+    return all(fragment in output for fragment in fragments)
 
 
 def ask(prompt: str, *, default: bool, non_interactive: bool) -> bool:
@@ -134,6 +157,63 @@ def run_remote_script(
     return True
 
 
+def install_pinned_binary_archive(
+    *, label: str, binary: str, url: str, expected_sha256: str, timeout_sec: int = 60
+) -> bool:
+    """Install one checksum-pinned binary from a release tarball."""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout_sec) as response:
+            payload = response.read()
+    except Exception as exc:
+        warn(f"{label}: failed to download release: {exc}")
+        return False
+
+    actual = hashlib.sha256(payload).hexdigest()
+    if (
+        not _is_valid_sha256(expected_sha256)
+        or actual.lower() != expected_sha256.lower()
+    ):
+        warn(f"{label}: release checksum mismatch for {url}")
+        warn(f"{label}: expected {expected_sha256}, got {actual}")
+        return False
+
+    install_dir = Path.home() / ".local" / "bin"
+    install_dir.mkdir(parents=True, exist_ok=True)
+    destination = install_dir / binary
+    temporary: str | None = None
+    try:
+        with tarfile.open(fileobj=io.BytesIO(payload), mode="r:gz") as archive:
+            members = [
+                member
+                for member in archive.getmembers()
+                if member.isfile() and PurePosixPath(member.name).name == binary
+            ]
+            if len(members) != 1:
+                warn(
+                    f"{label}: release archive must contain exactly one {binary} binary"
+                )
+                return False
+            source = archive.extractfile(members[0])
+            if source is None:
+                warn(f"{label}: cannot read {binary} from release archive")
+                return False
+            fd, temporary = tempfile.mkstemp(prefix=f".{binary}.", dir=install_dir)
+            with os.fdopen(fd, "wb") as target:
+                shutil.copyfileobj(source, target)
+        os.chmod(temporary, 0o755)
+        os.replace(temporary, destination)
+        temporary = None
+    except Exception as exc:
+        warn(f"{label}: failed to install release: {exc}")
+        return False
+    finally:
+        if temporary is not None:
+            with contextlib.suppress(OSError):
+                os.remove(temporary)
+
+    return True
+
+
 def info(message: str) -> None:
     console.print(f"[blue]•[/] {message}")
 
@@ -148,4 +228,3 @@ def skip(message: str) -> None:
 
 def warn(message: str) -> None:
     console.print(f"[red]![/] {message}")
-

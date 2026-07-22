@@ -1,97 +1,117 @@
 """Update already installed agent tooling."""
+
 from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 
-from .common import cmd_exists, info, ok, run, set_verbose, skip, warn
+from . import install_agents, install_skills_mcps
+from .common import (
+    cmd_exists,
+    cmd_version_matches,
+    info,
+    ok,
+    run,
+    set_verbose,
+    skip,
+    warn,
+)
 from .remote_install_contract import validate_remote_contract
 from .stack_metadata import (
     AGENTMEMORY_NPM_PACKAGE,
-    OPENAI_CODEX_PACKAGE,
     SKILLS_CLI_PACKAGE,
+    STACK_VERSION_FRAGMENTS,
     UPDATE_REMOTE_CONTRACT,
-    UPDATE_STEPS,
 )
 
 _REMOTE_INSTALL_CONTRACT = UPDATE_REMOTE_CONTRACT
 
 
-def _update(label: str, command: list[str]) -> bool:
-    info(f"Updating {label}...")
+def _update(label: str, installer: Callable[[], bool]) -> bool:
+    info(f"Converging {label}...")
     try:
-        run(command)
-    except FileNotFoundError:
-        warn(f"{label}: required tool missing")
-        return False
+        if not installer():
+            warn(f"{label}: convergence failed")
+            return False
     except Exception:
-        warn(f"{label}: update failed")
+        warn(f"{label}: convergence failed")
         return False
-    ok(f"{label}: updated")
+    ok(f"{label}: curated version installed")
     return True
 
 
-def _update_if_present(
-    label: str,
-    dependency: str,
-    command: list[str],
-    *,
-    missing_message: str,
-) -> bool:
-    if not cmd_exists(dependency):
-        skip(missing_message)
+def _update_if_present(label: str, binary: str, installer: Callable[[], bool]) -> bool:
+    if not cmd_exists(binary):
+        skip(f"{label}: not installed")
         return True
-    return _update(label, command)
+    return _update(label, installer)
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Update installed agentic tooling")
-    parser.add_argument("--verify-remote-contract", action="store_true", help="Validate remote update references and exit")
-    parser.add_argument("--verbose", action="store_true", help="Show full command output")
+    parser.add_argument(
+        "--verify-remote-contract",
+        action="store_true",
+        help="Validate remote update references and exit",
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show full command output"
+    )
     return parser.parse_args(argv)
 
 
 def _update_codex() -> bool:
-    if not cmd_exists("codex"):
-        skip("OpenAI Codex CLI: not installed")
-        return True
-    if not cmd_exists("npm"):
-        warn("OpenAI Codex CLI: npm not installed")
-        return False
-    return _update("OpenAI Codex CLI", ["npm", "update", "-g", OPENAI_CODEX_PACKAGE])
+    return _update_if_present(
+        "OpenAI Codex CLI", "codex", lambda: install_agents._install_codex(True)
+    )
 
 
 def _update_agentmemory() -> bool:
     if not cmd_exists("agentmemory"):
         skip("agentmemory: not installed")
         return True
+    if cmd_version_matches("agentmemory", STACK_VERSION_FRAGMENTS["agentmemory"]):
+        skip("agentmemory CLI: curated version already installed")
+        return True
     if not cmd_exists("npm"):
         warn("agentmemory: npm not installed")
         return False
 
-    # agentmemory's own `upgrade` command prompts to re-run the pinned
-    # iii-engine installer and can mutate the current workspace. The stack
-    # updater only refreshes the globally installed CLI package.
-    return _update(
-        "agentmemory CLI",
-        ["npm", "update", "-g", AGENTMEMORY_NPM_PACKAGE],
-    )
+    def install() -> bool:
+        if not install_skills_mcps._install_npm_global(
+            AGENTMEMORY_NPM_PACKAGE, "agentmemory"
+        ):
+            return False
+        return cmd_version_matches(
+            "agentmemory", STACK_VERSION_FRAGMENTS["agentmemory"]
+        )
+
+    return _update("agentmemory CLI", install)
 
 
 def _update_skills() -> bool:
-    if cmd_exists("skills"):
-        return _update("skills CLI", ["skills", "update", "-g", "-y"])
-    if cmd_exists("npm"):
-        return _update(
-            "skills CLI",
-            ["npx", "--yes", SKILLS_CLI_PACKAGE, "update", "-g", "-y"],
-        )
-    skip("skills CLI: npm/command missing")
-    return True
+    if not cmd_exists("skills"):
+        skip("skills CLI: not installed")
+        return True
+    if cmd_version_matches("skills", STACK_VERSION_FRAGMENTS["skills"]):
+        skip("skills CLI: curated version already installed")
+        return True
+    if not cmd_exists("npm"):
+        warn("skills CLI: npm not installed")
+        return False
+
+    def install() -> bool:
+        run(["npm", "install", "-g", SKILLS_CLI_PACKAGE])
+        return cmd_version_matches("skills", STACK_VERSION_FRAGMENTS["skills"])
+
+    return _update("skills CLI", install)
 
 
 def _validate_remote_contract() -> bool:
-    return validate_remote_contract(_REMOTE_INSTALL_CONTRACT, scope="agentic-update-stack")
+    return validate_remote_contract(
+        _REMOTE_INSTALL_CONTRACT, scope="agentic-update-stack"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -104,13 +124,20 @@ def main(argv: list[str] | None = None) -> int:
         ok("agentic-update-stack: remote contract check passed")
         return 0
 
+    steps: tuple[tuple[str, str, Callable[[], bool]], ...] = (
+        ("Hermes Agent", "hermes", lambda: install_agents._install_hermes(True)),
+        ("OMP / Oh My Pi", "omp", lambda: install_agents._install_omp(True)),
+        ("Claude Code", "claude", lambda: install_agents._install_claude(True)),
+        (
+            "codebase-memory-mcp",
+            "codebase-memory-mcp",
+            lambda: install_skills_mcps._install_codebase_memory(True, True),
+        ),
+        ("lean-ctx", "lean-ctx", lambda: install_skills_mcps._install_lean_ctx(True)),
+    )
     ok_all = True
-    for label, binary, command, missing in UPDATE_STEPS:
-        ok_all = (
-            _update_if_present(label, binary, command, missing_message=missing)
-            and ok_all
-        )
-
+    for label, binary, installer in steps:
+        ok_all = _update_if_present(label, binary, installer) and ok_all
     ok_all = _update_codex() and ok_all
     ok_all = _update_agentmemory() and ok_all
     ok_all = _update_skills() and ok_all

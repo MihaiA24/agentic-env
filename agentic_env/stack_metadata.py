@@ -8,12 +8,26 @@ from __future__ import annotations
 
 from typing import Final
 
-from .remote_install_contract import REMOTE_KIND_NPM, REMOTE_KIND_RAW_URL, REMOTE_KIND_SCRIPT
+from .remote_install_contract import (
+    REMOTE_KIND_NPM,
+    REMOTE_KIND_RAW_URL,
+    REMOTE_KIND_SCRIPT,
+)
 
-# Tool versions and installer sources (pinned where applicable)
-OPENAI_CODEX_PACKAGE: Final[str] = "@openai/codex@0.144.1"
-SKILLS_CLI_PACKAGE: Final[str] = "skills@1.5.16"
-AGENTMEMORY_NPM_PACKAGE: Final[str] = "@agentmemory/agentmemory@0.9.27"
+# Reviewed stack release. Install and update must converge to these identities.
+HERMES_VERSION: Final[str] = "0.18.2"
+HERMES_COMMIT: Final[str] = "36f2a966c7f9f69987494b867c3dcf96b69a5766"
+OMP_VERSION: Final[str] = "17.0.5"
+OMP_REF: Final[str] = f"v{OMP_VERSION}"
+OPENAI_CODEX_VERSION: Final[str] = "0.144.1"
+OPENAI_CODEX_PACKAGE: Final[str] = f"@openai/codex@{OPENAI_CODEX_VERSION}"
+CLAUDE_VERSION: Final[str] = "2.1.210"
+CODEBASE_MEMORY_VERSION: Final[str] = "0.9.0"
+LEAN_CTX_VERSION: Final[str] = "3.9.11"
+SKILLS_CLI_VERSION: Final[str] = "1.5.16"
+SKILLS_CLI_PACKAGE: Final[str] = f"skills@{SKILLS_CLI_VERSION}"
+AGENTMEMORY_VERSION: Final[str] = "0.9.27"
+AGENTMEMORY_NPM_PACKAGE: Final[str] = f"@agentmemory/agentmemory@{AGENTMEMORY_VERSION}"
 
 HERMES_INSTALL_URL: Final[str] = "https://hermes-agent.nousresearch.com/install.sh"
 HERMES_INSTALL_SHA256: Final[str] = (
@@ -34,17 +48,76 @@ AGENTMEMORY_PI_INDEX_TS: Final[str] = (
 AGENTMEMORY_PI_INDEX_SHA256: Final[str] = (
     "1e978990097ece72036b30eb0d24b3a26022a0d8276ea645fb47380c691d5f31"
 )
-CODEBASE_MEMORY_INSTALL: Final[str] = (
-    "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/2469ecc3a7a2f80debe296e1f17a1efcfdb9450c/"
-    "install.sh"
+
+CODEBASE_MEMORY_RELEASE_BASE: Final[str] = (
+    f"https://github.com/DeusData/codebase-memory-mcp/releases/download/v{CODEBASE_MEMORY_VERSION}"
 )
-CODEBASE_MEMORY_INSTALL_SHA256: Final[str] = (
-    "90ef82a3da3336ddc2c3851ad56822067b161856f24cd88cbd405fe423af6a66"
+CODEBASE_MEMORY_ARCHIVES: Final[dict[tuple[str, str, bool], tuple[str, str]]] = {
+    ("darwin", "amd64", False): (
+        "codebase-memory-mcp-darwin-amd64.tar.gz",
+        "6af3d02a27f589901fa763d3971089337bc8c9838bbed5d0cf543ca9f1a9e543",
+    ),
+    ("darwin", "arm64", False): (
+        "codebase-memory-mcp-darwin-arm64.tar.gz",
+        "faa02f0404230c451a9812230394481948f80183801fa5bf67044b41c2f25ed4",
+    ),
+    ("linux", "amd64", False): (
+        "codebase-memory-mcp-linux-amd64-portable.tar.gz",
+        "8459d5c9d1457f2c82de3de307ffc7641ecbba2dde893427be1e62eca8ef9b25",
+    ),
+    ("linux", "arm64", False): (
+        "codebase-memory-mcp-linux-arm64-portable.tar.gz",
+        "b0a43fdaf534073c16707d72726b73b149d4c1212034b281ee8b7b2dac755107",
+    ),
+    ("darwin", "amd64", True): (
+        "codebase-memory-mcp-ui-darwin-amd64.tar.gz",
+        "1fddbebbc4442b423e967fa730856e8f49c023fcdf8622cebe5b3c99f12219fc",
+    ),
+    ("darwin", "arm64", True): (
+        "codebase-memory-mcp-ui-darwin-arm64.tar.gz",
+        "592f84e44d5e8eab9ae7134e99b1540ce3c28e84b684204f8f39cde51620d0ee",
+    ),
+    ("linux", "amd64", True): (
+        "codebase-memory-mcp-ui-linux-amd64-portable.tar.gz",
+        "bb836df7cc84536bd501d1ff98d49f566cfbbaba421ea54780149e0b83c121fd",
+    ),
+    ("linux", "arm64", True): (
+        "codebase-memory-mcp-ui-linux-arm64-portable.tar.gz",
+        "67ef134e3fb490093b64156a88437c7ed1424c16e45440670d972346ea25271b",
+    ),
+}
+LEAN_CTX_RELEASE_BASE: Final[str] = (
+    f"https://github.com/yvgude/lean-ctx/releases/download/v{LEAN_CTX_VERSION}"
 )
-LEAN_CTX_INSTALL_SCRIPT: Final[str] = "https://leanctx.com/install.sh"
-LEAN_CTX_INSTALL_SHA256: Final[str] = (
-    "f689c9667cd7d96b5a2bedd701cdb93b7d1ec8cd993fa5fcd591cd8ca76b96bb"
-)
+LEAN_CTX_ARCHIVES: Final[dict[tuple[str, str], tuple[str, str]]] = {
+    ("darwin", "amd64"): (
+        "lean-ctx-x86_64-apple-darwin.tar.gz",
+        "1bfa42f5ec4c45398ba6687ec3e860678fd704d837110f926b48bbaa9bb773e0",
+    ),
+    ("darwin", "arm64"): (
+        "lean-ctx-aarch64-apple-darwin.tar.gz",
+        "8f7735e2df93b99056d89d0d4d406f5d1d795968f49372018ac46b511e4c228c",
+    ),
+    ("linux", "amd64"): (
+        "lean-ctx-x86_64-unknown-linux-gnu.tar.gz",
+        "69f48a29d9dbeddbb9bf087a304153b00588f2a67efa0bee282ae0381cb70f69",
+    ),
+    ("linux", "arm64"): (
+        "lean-ctx-aarch64-unknown-linux-gnu.tar.gz",
+        "f8cb2a769ae00a22756bb60451d209fd52c6b7ba4859afb979d9afaad285d127",
+    ),
+}
+
+STACK_VERSION_FRAGMENTS: Final[dict[str, tuple[str, ...]]] = {
+    "hermes": (f"Hermes Agent v{HERMES_VERSION}", f"upstream {HERMES_COMMIT[:8]}"),
+    "omp": (f"omp/{OMP_VERSION}",),
+    "codex": (f"codex-cli {OPENAI_CODEX_VERSION}",),
+    "claude": (CLAUDE_VERSION,),
+    "codebase-memory-mcp": (f"codebase-memory-mcp {CODEBASE_MEMORY_VERSION}",),
+    "lean-ctx": (f"lean-ctx {LEAN_CTX_VERSION}",),
+    "agentmemory": (AGENTMEMORY_VERSION,),
+    "skills": (SKILLS_CLI_VERSION,),
+}
 # Shared agent/skill identities used by install_skills and configuration flows.
 SKILL_AGENTS: Final[tuple[tuple[str, str, str], ...]] = (
     ("hermes", "hermes-agent", "Hermes Agent"),
@@ -121,68 +194,15 @@ SKILLS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "sha256": AGENTMEMORY_PI_INDEX_SHA256,
         "reason": "",
     },
-    "codebase_memory_script": {
-        "label": "codebase-memory-mcp install script",
-        "reference": CODEBASE_MEMORY_INSTALL,
-        "kind": REMOTE_KIND_RAW_URL,
-        "pinned": True,
-        "sha256": CODEBASE_MEMORY_INSTALL_SHA256,
-        "reason": "",
-    },
-    "lean_ctx_script": {
-        "label": "lean-ctx installer",
-        "reference": LEAN_CTX_INSTALL_SCRIPT,
-        "kind": REMOTE_KIND_SCRIPT,
-        "pinned": True,
-        "sha256": LEAN_CTX_INSTALL_SHA256,
-        "reason": "Floating script endpoint is hash-pinned for reproducibility.",
-    },
 }
 
 UPDATE_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
-    "agentmemory_npm": {
-        "label": "agentmemory npm package",
-        "reference": AGENTMEMORY_NPM_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "openai_cdx": {
-        "label": "OpenAI Codex npm package",
-        "reference": OPENAI_CODEX_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
-    "skills_cli": {
-        "label": "skills CLI",
-        "reference": SKILLS_CLI_PACKAGE,
-        "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
-    },
+    **AGENTS_INSTALL_REMOTE_CONTRACT,
+    **SKILLS_INSTALL_REMOTE_CONTRACT,
 }
 
-# Canonical update command targets.
-UPDATE_STEPS: Final[
-    tuple[tuple[str, str, list[str], str], ...]
-] = (
-    (
-        "Hermes Agent",
-        "hermes",
-        ["hermes", "update", "--yes"],
-        "Hermes Agent: not installed",
-    ),
-    ("OMP / Oh My Pi", "omp", ["omp", "update"], "OMP / Oh My Pi: not installed"),
-    ("Claude Code", "claude", ["claude", "update"], "Claude Code: not installed"),
-    (
-        "codebase-memory-mcp",
-        "codebase-memory-mcp",
-        ["codebase-memory-mcp", "update"],
-        "codebase-memory-mcp: not installed",
-    ),
-    ("lean-ctx", "lean-ctx", ["lean-ctx", "update"], "lean-ctx: not installed"),
-)
+# Update execution deliberately reuses the canonical install paths; native latest-only
+# updater commands cannot satisfy the curated stack contract.
 
 # Agents supported by configure-agent-mcps.
 CONFIGURE_AGENT_CHOICES: Final[tuple[str, ...]] = ("hermes", "omp")

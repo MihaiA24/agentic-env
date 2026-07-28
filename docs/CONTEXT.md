@@ -5,16 +5,20 @@
 - **Agent stack**
   - The canonical local tooling set managed in this folder: `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory`.
 
+- **Primary harness**
+  - The agent the stack is chosen for and validated against: `omp`. Secondary agents still receive installs and MCP configuration, but they do not drive tool selection.
+  - _Avoid_: Default agent, main CLI, preferred agent
+
 - **Supported agent**
   - An agent whose CLI, global skills, project-memory MCP configuration, and health checks are all managed by `agentic-env`. Authentication and credentials remain user-owned. The supported agents are Hermes, OMP, Claude Code, and Codex.
   - _Avoid_: Installed agent, partially supported agent, authenticated agent
 
 - **Machine provisioning**
-  - The product boundary of `agentic-env`: install, configure, update, and diagnose the user-level agent stack. Repository initialization, indexing, project-memory maintenance, uninstall, and rollback remain outside the product boundary.
+  - The product boundary of `agentic-env`: install, configure, update, and diagnose the user-level agent stack. Repository initialization, indexing, project-memory maintenance, uninstall, and rollback remain outside the product boundary. Agent hook files are diagnosed but never written; the tools that install them own them.
   - _Avoid_: Project onboarding, project lifecycle management
 
 - **Project memory stack**
-  - The three-tool project context layer used by agents: `lean-ctx` for efficient local context access, `codebase-memory-mcp` for structural code graph queries, and `agentmemory` for narrative and decision memory.
+  - The project context layer used by agents. On the primary harness: OMP core owns context I/O, `codebase-memory-mcp` answers structural code-graph queries, and Mnemopi holds narrative memory, with `lean-ctx` gated to the tools the host has no equivalent for. Secondary agents keep the earlier three-tool wiring — `lean-ctx`, `codebase-memory-mcp`, `agentmemory` — until that is revisited.
   - _Avoid_: Memory MCP stack, AI context stack
 
 - **Agentmemory integration**
@@ -40,6 +44,10 @@
 - **Managed MCP entry**
   - A user-level MCP configuration entry named `lean-ctx`, `codebase-memory-mcp`, or `agentmemory` that `agentic-env` owns and converges to its curated definition while preserving unrelated agent settings. Malformed configuration is rejected without modification.
   - _Avoid_: Any MCP entry, user-owned configuration
+
+- **Read-interception policy**
+  - A hook or instruction block that gates or redirects an agent's file reads and searches toward a query-first tool. Scoped per supported agent, counted across every configuration file that agent loads rather than the files in its own directory. At most one may be active for a given agent.
+  - _Avoid_: Query-before-read hook, discovery gate, read redirect
 
 - **Agent global skill**
   - A reusable `SKILL.md` installed in an agent's user-level skills directory so the agent knows when and how to use a tool.
@@ -89,7 +97,7 @@
   - _Avoid_: Line coverage, mocked installer success
 
 - **Stack doctor**
-  - A read-only host diagnostic that reports agent-stack command availability, versions, MCP registrations, and global skills for every supported agent; it exits unsuccessfully with corrective commands when the machine does not satisfy the smoke contract.
+  - A read-only host diagnostic that reports agent-stack command availability, versions, MCP registrations, global skills, duplicate hook registrations, and conflicting read-interception policies for every supported agent; it exits unsuccessfully with corrective commands when the machine does not satisfy the smoke contract.
   - _Avoid_: Smoke test, automatic repair
 
 - **Supported host**

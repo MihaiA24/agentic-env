@@ -18,7 +18,7 @@
   - _Avoid_: Project onboarding, project lifecycle management
 
 - **Project memory stack**
-  - The project context layer used by agents. On the primary harness: OMP core owns context I/O, `codebase-memory-mcp` answers structural code-graph queries, and Mnemopi holds narrative memory, with `lean-ctx` gated to the tools the host has no equivalent for. Secondary agents keep the earlier three-tool wiring — `lean-ctx`, `codebase-memory-mcp`, `agentmemory` — until that is revisited.
+  - The project context layer used by agents. On the primary harness: OMP core owns context I/O, `codebase-memory-mcp` answers structural code-graph queries, and Mnemopi holds narrative memory, with `lean-ctx` gated to semantic code search only (ADR-0008). Secondary agents keep the earlier three-tool wiring — `lean-ctx`, `codebase-memory-mcp`, `agentmemory` — until that is revisited.
   - _Avoid_: Memory MCP stack, AI context stack
 
 - **Agentmemory integration**
@@ -26,7 +26,7 @@
   - _Avoid_: iii-engine lifecycle management
 
 - **Structural memory**
-  - The indexed code graph used to answer questions about code shape, symbols, routes, callers, dependencies, and impact.
+  - The indexed code graph used to answer questions about code shape, symbols, routes, callers, dependencies, and impact. On the primary harness it is enabled on demand for cross-repo, whole-graph, or architecture questions, not default-mounted.
   - _Avoid_: Narrative memory, decision memory
 
 - **Narrative memory**
@@ -54,7 +54,7 @@
   - _Avoid_: MCP server, project-local skill
 
 - **Curated skill default**
-  - The small reviewed set of skill packs installed by default for the supported agent workflow; custom skill-pack configuration is the extension point for user-specific packs.
+  - The small reviewed set of skills installed by default for the supported agent workflow, selected per pack in the skill-pack manifest and installed to a single skill root shared by all supported agents; custom skill-pack configuration is the extension point for user-specific packs. Prompt exposure follows installation — there is no separate allowlist layer.
   - _Avoid_: Comprehensive skill catalog, skill marketplace
 
 - **uv runnable script**

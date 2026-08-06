@@ -97,13 +97,13 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             self.assertEqual(pack_selection.unknown, ("missing",))
 
             agent_selection = install_skills_mcps._parse_skill_agents([
-                "hermes,ohmipy,ghost"
+                "hermes,claude,ghost"
             ])
-            self.assertEqual(agent_selection.selected, ("hermes", "ohmipy"))
+            self.assertEqual(agent_selection.selected, ("hermes", "claude"))
             self.assertEqual(agent_selection.unknown, ("ghost",))
 
-            skill_names = install_skills_mcps._parse_skill_names(["ask,tdd", "ask"])
-            self.assertEqual(skill_names.selected, ("ask", "tdd"))
+            skill_names = install_skills_mcps._parse_skill_names(["tdd,wayfinder", "tdd"])
+            self.assertEqual(skill_names.selected, ("tdd", "wayfinder"))
 
     @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
     @patch("agentic_env.install_skills_mcps._install_skills")

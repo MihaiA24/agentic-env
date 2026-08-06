@@ -654,6 +654,10 @@ def install_skills(agents: list[str], server_names: list[str], *, dry_run: bool)
     ok_all = True
     for root in roots:
         for server_name in server_names:
+            if server_name == "agentmemory" and root in OMP_SKILL_ROOTS:
+                # ADR-0006: Mnemopi owns narrative memory on OMP; no agentmemory skill there.
+                skip(f"{root / server_name}: agentmemory skill not installed on OMP (ADR-0006)")
+                continue
             ok_all = _install_skill(root, SKILLS[server_name], dry_run=dry_run) and ok_all
     return ok_all
 

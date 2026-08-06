@@ -121,7 +121,6 @@ STACK_VERSION_FRAGMENTS: Final[dict[str, tuple[str, ...]]] = {
 # Shared agent/skill identities used by install_skills and configuration flows.
 SKILL_AGENTS: Final[tuple[tuple[str, str, str], ...]] = (
     ("hermes", "hermes-agent", "Hermes Agent"),
-    ("ohmipy", "pi", "Pi"),
     ("claude", "claude-code", "Claude Code"),
     ("codex", "codex", "Codex"),
 )

@@ -9,8 +9,32 @@
         "mattpocock/skills"
       ],
       "skills": [
-        "ask",
-        "tdd"
+        "wayfinder",
+        "grill-with-docs",
+        "grilling",
+        "domain-modeling",
+        "research",
+        "prototype",
+        "to-spec",
+        "to-tickets",
+        "implement",
+        "tdd",
+        "code-review",
+        "teach",
+        "handoff"
+      ]
+    },
+    {
+      "name": "caveman",
+      "source": "JuliusBrussee/caveman",
+      "label": "caveman skills",
+      "aliases": [
+        "caveman",
+        "juliusbrussee/caveman"
+      ],
+      "skills": [
+        "caveman",
+        "caveman-commit"
       ]
     },
     {
@@ -24,7 +48,7 @@
     }
   ],
   "profiles": {
-    "default": ["mattpocock", "ponytail"],
+    "default": ["mattpocock", "caveman", "ponytail"],
     "minimal": ["mattpocock"],
     "agentic-only": ["ponytail"]
   }

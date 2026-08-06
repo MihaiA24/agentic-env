@@ -35,8 +35,6 @@ class BootstrapTests(unittest.TestCase):
                 "--skill-agent",
                 "hermes",
                 "--skill-agent",
-                "ohmipy",
-                "--skill-agent",
                 "claude",
                 "--skill-agent",
                 "codex",

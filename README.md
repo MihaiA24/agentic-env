@@ -25,12 +25,12 @@ Docs:
   - Supported options:
     - `--skill-pack` (comma-separated, repeated) to choose packs.
     - `--skill` (comma-separated, repeated; filters each selected pack).
-    - `--skill-agent` (comma-separated, repeated; defaults to `hermes,ohmipy,claude,codex`).
+    - `--skill-agent` (comma-separated, repeated; defaults to `hermes,claude,codex`).
     - `--skill-profile` (for example: `default`, `minimal`, `agentic-only`).
     - `--skill-config PATH` to use a custom skill-pack config.
     - `--all-skills` to install every configured pack.
   - Example:
-    - `agentic-install-skills-mcps --all-skills --skill-agent hermes,ohmipy,claude,codex --yes`
+    - `agentic-install-skills-mcps --all-skills --skill-agent hermes,claude,codex --yes`
   - Skill config JSON keeps the same shape as the bundled default.
     - Packs without `skills` install full pack contents by default.
     - When `skills` exists and you pass `--skill`, installs the intersection of both lists.

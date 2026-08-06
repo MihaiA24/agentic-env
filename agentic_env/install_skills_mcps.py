@@ -809,7 +809,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         "--skill-agent",
         action="append",
         help=(
-            "Install to specific agents (for example: hermes, ohmipy, claude, codex). "
+            "Install to specific agents (for example: hermes, claude, codex). "
             "Repeat or use commas. Defaults to all configured targets."
         ),
     )

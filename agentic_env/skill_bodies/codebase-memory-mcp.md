@@ -1,19 +1,18 @@
 ---
 name: codebase-memory-mcp
-description: Use for structural codebase questions: symbols, callers, callees, architecture, routes, impact, and dead-code candidates.
+description: Structural code-graph queries — symbols, callers, architecture, impact. Disabled by default; enable per session when the litmus passes.
 ---
 
 # codebase-memory-mcp
 
-Use `codebase-memory-mcp` for structural memory.
+Disabled by default on the primary harness (`disabledServers` denylist). Enable it for a session only when the litmus passes:
 
-Ask the graph before scanning files manually when the task is about:
+- the question would need more than ~10 native read/grep calls, or
+- it crosses repository boundaries, or
+- it aggregates over the whole graph (architecture overview, dead code, impact analysis).
 
-- finding symbols or implementations
-- callers and callees
-- architecture overview
-- route/channel discovery
-- impact analysis before refactors
-- dead or unused candidates
+At enable time, run a `fast` reindex — the graph is not maintained between uses.
+
+Promotion trigger: if the litmus fires roughly weekly in a project, make the server default-on for that project scope and re-measure answer quality there.
 
 The graph is rebuildable from code. Do not store rationale or accepted decisions here; promote durable decisions to ADRs.

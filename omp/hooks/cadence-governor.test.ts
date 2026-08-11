@@ -34,6 +34,26 @@ test("cadence nudge fires at threshold, re-arms, and resets on verification", ()
 	expect(state.callsSinceVerify).toBe(0);
 });
 
+test("cadence nudge goes silent after three unheeded fires and re-arms on verification", () => {
+	const state = createState();
+	const texts: string[] = [];
+	for (let i = 0; i < 150; i++) {
+		const text = onToolResult(state, { toolName: "read", content: [] })?.content?.at(-1)?.text;
+		if (text) texts.push(text);
+	}
+	// Fires at 25, 50, 75 — then silence, however long the session runs.
+	expect(texts).toHaveLength(3);
+	expect(texts[2]).toContain("75 tool calls");
+
+	// A verification run re-arms the governor from zero.
+	onToolResult(state, { toolName: "bash", input: { command: "pnpm run lint" }, content: [] });
+	let lastText: string | undefined;
+	for (let i = 0; i < 25; i++) {
+		lastText = onToolResult(state, { toolName: "read", content: [] })?.content?.at(-1)?.text;
+	}
+	expect(lastText).toContain("25 tool calls");
+});
+
 test("write nudge fires only for pre-existing files of real size", () => {
 	const dir = mkdtempSync(join(tmpdir(), "governor-"));
 	const big = join(dir, "big.ts");

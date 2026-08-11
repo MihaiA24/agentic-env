@@ -23,6 +23,10 @@ import { classify } from "./verification-recorder.ts";
 // ponytail: constants over config — revisit only if the recorder shows the nudges misfiring.
 // Hermes median cadence ~18, OMP ~37; 25 targets the midpoint (doc Q-C).
 const CADENCE_THRESHOLD = 25;
+// Round-3 read-out 2026-08-11: nudges past the third are never heeded (continuation
+// 41%→65%→70%+, tails to N=1600 in sessions with nothing classifiable to verify);
+// 60% of all fired nudges were spam beyond N=75. Silent after 3; verification re-arms.
+const MAX_UNHEEDED_NUDGES = 3;
 // Below 1 KiB a full rewrite is as cheap as an edit; only steer on files with real content.
 const EXISTING_FILE_MIN_BYTES = 1024;
 
@@ -112,7 +116,8 @@ export function onToolResult(
 
 	if (
 		state.callsSinceVerify >= CADENCE_THRESHOLD &&
-		state.callsSinceVerify - state.lastNudgeAt >= CADENCE_THRESHOLD
+		state.callsSinceVerify - state.lastNudgeAt >= CADENCE_THRESHOLD &&
+		state.callsSinceVerify <= CADENCE_THRESHOLD * MAX_UNHEEDED_NUDGES
 	) {
 		state.lastNudgeAt = state.callsSinceVerify;
 		nudges.push(

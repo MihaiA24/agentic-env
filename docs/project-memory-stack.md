@@ -4,16 +4,20 @@ This guide defines the first project template for agent-readable project context
 
 ## Roles
 
-Use three tools with hard boundaries:
+Roles differ by harness:
 
-| Layer | Tool | Job | Canonical? |
+| Layer | Owner/tool | Job | Canonical? |
 | --- | --- | --- | --- |
-| Context access | `lean-ctx` | Compressed reads, cached re-reads, shell-output compression, local context routing | No |
+| OMP context access | OMP core | Native reads, search, shell, evaluation, and anchored edits | No |
+| OMP narrative memory | Mnemopi | Per-project transcript recall | No; retrieval layer |
 | Structural memory | `codebase-memory-mcp` | Code graph queries: symbols, callers, callees, routes, architecture, impact, dead-code candidates | No; rebuildable cache |
-| Narrative memory | `agentmemory` | Session history, rationale recall, preferences, discoveries, replayable work history | No; retrieval layer |
+| Secondary-agent context access | `lean-ctx` | Context routing for Hermes, Claude Code, and Codex | No |
+| Secondary-agent narrative memory | `agentmemory` | Session history and rationale recall for Hermes, Claude Code, and Codex | No; retrieval layer |
 | Plain-text project record | `CONTEXT.md` + `docs/adr/*.md` | Canonical domain language and accepted decisions | Yes |
 
 Rule: if losing the generated store would lose project truth, the fact belongs in plain text too.
+
+On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). The ADR-0008 pre-registered fallback was executed on 2026-08-11 after one semantic-search call since 2026-07-28, below the fixed threshold of five, so `lean-ctx` is dropped from OMP entirely. `codebase-memory-mcp` remains available there, but its use is gated behind the codebase-memory litmus.
 
 ## Repository template
 
@@ -78,7 +82,7 @@ Examples:
 
 ### `agentmemory`
 
-Use for narrative recall:
+Use on Hermes, Claude Code, and Codex for narrative recall:
 
 - why a session changed direction
 - discoveries that may matter later
@@ -86,7 +90,7 @@ Use for narrative recall:
 - debugging history
 - partial reasoning that should help future agents
 
-Do not use it as the only source for accepted decisions. Important decisions get promoted into ADRs.
+Do not use it as the only source for accepted decisions. Important decisions get promoted into ADRs. Do not mount it on OMP; Mnemopi is the sole narrative-memory owner there under ADR-0006.
 
 ### `codebase-memory-mcp`
 
@@ -103,7 +107,7 @@ Do not store rationale here. The graph is derived from code and can be rebuilt.
 
 ### `lean-ctx`
 
-Use as the default local context layer:
+Use on secondary agents for their local context layer:
 
 - file reads with the smallest useful fidelity
 - cached re-reads
@@ -111,7 +115,7 @@ Use as the default local context layer:
 - directory maps
 - session/context savings visibility
 
-Do not treat lean-ctx memory as the project decision record.
+Do not treat lean-ctx memory as the project decision record. Do not mount or install its skill on OMP; the ADR-0008 fallback dropped it there on 2026-08-11.
 
 ## Install and configure
 
@@ -141,13 +145,13 @@ Current installer behavior:
 - if `--skill` is passed, each selected pack is filtered by intersection with requested skills
 - installs to target agents in `--skill-agent` (default: `hermes,claude,codex`)
 - `--skill-config` can point to an alternate JSON profile
-- keeps a modern global-skill baseline for Hermes/OMP when configured
+- keeps a per-harness global-skill baseline when configured
 - installs `codebase-memory-mcp` with UI by default
 
 - prompts with checkbox-style selections for `lean-ctx`, `codebase-memory-mcp`, and `agentmemory`
 - adds selected MCP servers to `~/.hermes/config.yaml` under `mcp_servers`
-- adds selected MCP servers to OMP MCP config files under `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json`
-- adds matching global skills under `~/.hermes/skills`, `~/.omp/agent/skills`, and `~/.pi/agent/skills` when missing
+- writes only `codebase-memory-mcp` to OMP MCP config files under `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json`
+- adds matching global skills, excluding `lean-ctx` and `agentmemory` from the OMP skill roots
 - leaves existing MCP server and skill entries unchanged
 ### Skill pack JSON format
 
@@ -225,26 +229,21 @@ Prefer the tools' installers and `lean-ctx setup` before hand-editing config.
 
 ## Oh My Pi / OMP target config
 
-The MCP configuration script writes selected servers to OMP MCP config files:
+OMP core owns context I/O, and Mnemopi owns narrative memory under ADR-0006. The ADR-0008 fallback executed on 2026-08-11 dropped `lean-ctx` from OMP after the semantic-search count came in at one, below the threshold of five. The MCP configuration script therefore writes neither `agentmemory` nor `lean-ctx` to OMP-family config.
+
+`codebase-memory-mcp` remains configured as the structural-memory option:
 
 ```json
 {
   "mcpServers": {
-    "lean-ctx": {
-      "command": "lean-ctx"
-    },
     "codebase-memory-mcp": {
       "command": "codebase-memory-mcp"
-    },
-    "agentmemory": {
-      "command": "npx",
-      "args": ["-y", "@agentmemory/mcp"]
     }
   }
 }
 ```
 
-It writes both `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` for current OMP and legacy Pi agent paths. Existing entries are preserved.
+It writes both `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` for current OMP and legacy Pi agent paths. Existing entries are preserved. Use `codebase-memory-mcp` only after the session's codebase-memory litmus passes.
 
 ## Per-project startup checklist
 
@@ -252,12 +251,11 @@ Run this when opening a repo for agent work:
 
 1. Ensure `CONTEXT.md` exists.
 2. Ensure `docs/adr/` exists or create it on first ADR.
-3. Start or verify `agentmemory`.
-4. Run `lean-ctx doctor`.
-5. Index the repo with `codebase-memory-mcp` or enable auto-index.
-6. Ask structural questions through `codebase-memory-mcp` before scanning files manually.
-7. During `grill-with-docs`, update `CONTEXT.md` immediately when a term is settled.
-8. Create an ADR only when the ADR threshold is met.
+3. On OMP, use native context I/O and Mnemopi; on a secondary agent, verify its `agentmemory` and `lean-ctx` wiring.
+4. If the codebase-memory litmus passes, index the repo with `codebase-memory-mcp` or enable auto-index.
+5. Ask structural questions through `codebase-memory-mcp` only after that litmus passes.
+6. During `grill-with-docs`, update `CONTEXT.md` immediately when a term is settled.
+7. Create an ADR only when the ADR threshold is met.
 
 ## Smoke checks
 
@@ -287,8 +285,8 @@ For a project that adopts this template, check:
 - `docs/adr/` exists or the project documents that no ADR has been created yet.
 - `lean-ctx`, `codebase-memory-mcp`, and `agentmemory` are callable, or warnings are emitted.
 - Hermes config contains required MCP entries for the adopted tools.
-- OMP config contains required extensions/MCP entries for the adopted tools.
-- One smoke command per tool works where possible:
+- OMP MCP config contains `codebase-memory-mcp` and excludes `agentmemory` and `lean-ctx`.
+- One smoke command per installed CLI works where possible:
   - `lean-ctx doctor`
   - `codebase-memory-mcp --version`
   - `agentmemory doctor`
@@ -308,6 +306,7 @@ Use these first for codebase navigation:
 
 - `CONTEXT.md`: keep only current canonical language.
 - ADRs: keep forever; supersede with a new ADR when direction changes.
-- `agentmemory`: keep project sessions and let its lifecycle/decay manage recall quality.
+- `agentmemory`: keep project sessions for secondary agents and let its lifecycle/decay manage recall quality.
+- Mnemopi: OMP's sole narrative-memory owner; treat it as transcript recall, not the canonical record.
 - `codebase-memory-mcp`: disposable/rebuildable index; optionally commit its shared graph artifact only after the team wants shared bootstrap speed.
-- `lean-ctx`: local cache/session layer; not a project record.
+- `lean-ctx`: secondary-agent local cache/session layer; not a project record and not mounted on OMP.

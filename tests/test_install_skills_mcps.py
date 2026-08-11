@@ -147,6 +147,23 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         mock_install_lean_ctx.assert_not_called()
         mock_install_agentmemory.assert_not_called()
 
+    @patch("agentic_env.install_skills_mcps._configure_hermes_agentmemory", return_value=True)
+    @patch("agentic_env.install_skills_mcps.cmd_version_matches")
+    @patch("agentic_env.install_skills_mcps._install_npm_global", return_value=True)
+    @patch("agentic_env.install_skills_mcps.cmd_exists", return_value=True)
+    def test_install_agentmemory_only_configures_hermes(
+        self,
+        _mock_cmd_exists,
+        _mock_install_npm_global,
+        _mock_version_matches,
+        mock_configure_hermes,
+    ) -> None:
+        _mock_version_matches.side_effect = [False, True]
+        self.assertTrue(install_skills_mcps._install_agentmemory(non_interactive=True))
+
+        mock_configure_hermes.assert_called_once_with()
+
+
 
 if __name__ == "__main__":
     unittest.main()

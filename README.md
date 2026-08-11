@@ -17,7 +17,7 @@ Docs:
     - ponytail skill bundle (global, agent-dispatch)
     - `codebase-memory-mcp` (UI install supported)
     - `lean-ctx`
-    - `agentmemory` (CLI + Hermes MCP + OMP extension config)
+    - `agentmemory` (CLI + Hermes MCP config)
   - Skill packs are driven by the bundled `agentic_env/skill-packs.json` default with:
     - `packs` entries that can define optional `skills` (array of specific skill names)
       to install only those from that pack by default.
@@ -35,11 +35,10 @@ Docs:
     - Packs without `skills` install full pack contents by default.
     - When `skills` exists and you pass `--skill`, installs the intersection of both lists.
 - `agentic-configure-agent-mcps`
-  - Adds selected project-memory MCP servers to Hermes and OMP global config when missing:
-    - `lean-ctx`
-    - `codebase-memory-mcp`
-    - `agentmemory`
-  - Adds matching global skills for Hermes and OMP when missing.
+  - Adds selected project-memory MCP servers when missing:
+    - Hermes: `lean-ctx`, `codebase-memory-mcp`, and `agentmemory`
+    - OMP: `codebase-memory-mcp` only; `agentmemory` and `lean-ctx` are deliberately not written (ADR-0006/ADR-0008)
+  - Adds matching global skills, with the same OMP exclusions.
 - `agentic-bootstrap`
   - One-shot onboarding in phase order:
     - installs agent CLIs
@@ -112,7 +111,7 @@ docker compose up --build --exit-code-from fresh-install
 What this runbook validates:
 - installs from clean container
 - verifies `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory` are callable
-- verifies Hermes/OMP MCP artifacts and global skills are present
+- verifies Hermes MCP/skill artifacts are present and OMP has `codebase-memory-mcp` without `agentmemory` or `lean-ctx` wiring
 
 ### 2) Interactive container validation (same checkbook, inspectable)
 
@@ -267,9 +266,9 @@ The run is successful only if all checks pass:
    - `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory`
 5. Hermes and OMP config checks pass:
    - `~/.hermes/config.yaml` contains `lean-ctx`, `codebase-memory-mcp`, and `agentmemory` MCP entries
-   - `~/.pi/agent/settings.json` includes the `agentmemory` extension
-   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain the selected MCP entries
-   - global skill files exist under Hermes and OMP skill roots
+   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`
+   - those OMP-family MCP files contain neither `agentmemory` nor `lean-ctx`
+   - Hermes has all matching global skills; OMP skill roots have `codebase-memory-mcp` and `ponytail`
 
 ## Design and tradeoffs
 - **Chosen base image:** `node:20-bullseye-slim`

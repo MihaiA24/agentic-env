@@ -35,26 +35,6 @@ if (!/^\s*provider:\s*agentmemory\s*$/m.test(text)) {
   throw new Error('~/.hermes/config.yaml missing memory.provider=agentmemory');
 }
 
-const settings = path.join(home, '.pi', 'agent', 'settings.json');
-if (!fs.existsSync(settings)) {
-  throw new Error('missing ~/.pi/agent/settings.json');
-}
-
-const obj = JSON.parse(fs.readFileSync(settings, 'utf8'));
-const extensions = obj && obj.extensions;
-if (!Array.isArray(extensions)) {
-  throw new Error('~/.pi/agent/settings.json extensions is not a list');
-}
-const extRefTilde = '~/.pi/agent/extensions/agentmemory';
-const extRefAbs = path.join(home, '.pi', 'agent', 'extensions', 'agentmemory');
-if (!extensions.includes(extRefTilde) && !extensions.includes(extRefAbs)) {
-  throw new Error('~/.pi/agent/settings.json missing agentmemory extension');
-}
-
-const extPath = path.join(home, '.pi', 'agent', 'extensions', 'agentmemory', 'index.ts');
-if (!fs.existsSync(extPath)) {
-  throw new Error('missing OMP agentmemory extension index.ts');
-}
 
 for (const mcpPath of [
   path.join(home, '.omp', 'agent', 'mcp.json'),
@@ -67,19 +47,22 @@ for (const mcpPath of [
   if (!mcp || typeof mcp.mcpServers !== 'object' || Array.isArray(mcp.mcpServers)) {
     throw new Error(`${mcpPath} missing mcpServers object`);
   }
-  for (const name of ['lean-ctx', 'codebase-memory-mcp', 'agentmemory']) {
-    if (!mcp.mcpServers[name]) {
-      throw new Error(`${mcpPath} missing ${name} MCP entry`);
+  if (!mcp.mcpServers['codebase-memory-mcp']) {
+    throw new Error(`${mcpPath} missing codebase-memory-mcp MCP entry`);
+  }
+  for (const name of ['agentmemory', 'lean-ctx']) {
+    if (mcp.mcpServers[name]) {
+      throw new Error(`${mcpPath} unexpectedly contains ${name} MCP entry`);
     }
   }
 }
 
-for (const skillsRoot of [
-  path.join(home, '.hermes', 'skills'),
-  path.join(home, '.omp', 'agent', 'skills'),
-  path.join(home, '.pi', 'agent', 'skills'),
+for (const [skillsRoot, names] of [
+  [path.join(home, '.hermes', 'skills'), ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']],
+  [path.join(home, '.omp', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']],
+  [path.join(home, '.pi', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']],
 ]) {
-  for (const name of ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']) {
+  for (const name of names) {
     const skillPath = path.join(skillsRoot, name, 'SKILL.md');
     if (!fs.existsSync(skillPath)) {
       throw new Error(`missing skill ${skillPath}`);

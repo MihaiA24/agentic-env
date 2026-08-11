@@ -618,9 +618,18 @@ def _validate_omp_config(data: dict[str, object], servers: list[McpServer]) -> b
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
+    omp_servers: list[McpServer] = []
+    for server in servers:
+        if server.name == "agentmemory":
+            skip("OMP config: agentmemory MCP not written (ADR-0006)")
+        elif server.name == "lean-ctx":
+            skip("OMP config: lean-ctx MCP not written (ADR-0008 fallback)")
+        else:
+            omp_servers.append(server)
+
     ok_all = True
     for adapter in _OMP_CONFIG_ADAPTERS:
-        if not _write_json_config_data(adapter, servers, dry_run=dry_run):
+        if not _write_json_config_data(adapter, omp_servers, dry_run=dry_run):
             ok_all = False
     return ok_all
 
@@ -654,9 +663,13 @@ def install_skills(agents: list[str], server_names: list[str], *, dry_run: bool)
     ok_all = True
     for root in roots:
         for server_name in server_names:
-            if server_name == "agentmemory" and root in OMP_SKILL_ROOTS:
-                # ADR-0006: Mnemopi owns narrative memory on OMP; no agentmemory skill there.
-                skip(f"{root / server_name}: agentmemory skill not installed on OMP (ADR-0006)")
+            if root in OMP_SKILL_ROOTS and server_name == "agentmemory":
+                # ADR-0006: Mnemopi owns narrative memory on OMP.
+                skip(f"{root / server_name}: skill not installed on OMP (ADR-0006)")
+                continue
+            if root in OMP_SKILL_ROOTS and server_name == "lean-ctx":
+                # ADR-0008 fallback: lean-ctx was dropped from OMP.
+                skip(f"{root / server_name}: skill not installed on OMP (ADR-0008 fallback)")
                 continue
             ok_all = _install_skill(root, SKILLS[server_name], dry_run=dry_run) and ok_all
     return ok_all

@@ -148,7 +148,7 @@ memory:
                 )
             self.assertEqual(path.read_text(encoding="utf-8"), original)
 
-    def test_configure_omp_adds_missing_servers(self) -> None:
+    def test_configure_omp_only_adds_codebase_memory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "mcp.json"
             path.write_text("{}", encoding="utf-8")
@@ -159,15 +159,34 @@ memory:
                 assert configure_agent_mcps.configure_omp(
                     [
                         configure_agent_mcps.MCP_SERVERS["lean-ctx"],
+                        configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"],
                         configure_agent_mcps.MCP_SERVERS["agentmemory"],
                     ],
                     dry_run=False,
                 )
             parsed = json.loads(path.read_text(encoding="utf-8"))
-            self.assertIn("mcpServers", parsed)
-            self.assertEqual(parsed["mcpServers"]["lean-ctx"]["command"], "lean-ctx")
-            self.assertEqual(parsed["mcpServers"]["agentmemory"]["command"], "npx")
-            self.assertIn("args", parsed["mcpServers"]["agentmemory"])
+            self.assertEqual(
+                parsed["mcpServers"],
+                {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}},
+            )
+
+    def test_install_skills_omits_lean_ctx_and_agentmemory_on_omp(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "skills"
+            with patch(
+                "agentic_env.configure_agent_mcps.OMP_SKILL_ROOTS",
+                (root,),
+            ):
+                assert configure_agent_mcps.install_skills(
+                    ["omp"],
+                    ["lean-ctx", "codebase-memory-mcp", "agentmemory", "ponytail"],
+                    dry_run=False,
+                )
+
+            self.assertFalse((root / "lean-ctx").exists())
+            self.assertFalse((root / "agentmemory").exists())
+            self.assertTrue((root / "codebase-memory-mcp" / "SKILL.md").is_file())
+            self.assertTrue((root / "ponytail" / "SKILL.md").is_file())
 
     def test_configure_omp_rejects_non_object_root_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

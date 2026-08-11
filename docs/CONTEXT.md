@@ -18,8 +18,36 @@
   - _Avoid_: Project onboarding, project lifecycle management
 
 - **Project memory stack**
-  - The project context layer used by agents. On the primary harness: OMP core owns context I/O, `codebase-memory-mcp` answers structural code-graph queries, and Mnemopi holds narrative memory, with `lean-ctx` gated to semantic code search only (ADR-0008). Secondary agents keep the earlier three-tool wiring — `lean-ctx`, `codebase-memory-mcp`, `agentmemory` — until that is revisited.
+  - The project context layer used by agents. On the primary harness: OMP core owns context I/O and search, Mnemopi holds narrative memory, and `codebase-memory-mcp` answers structural code-graph queries when its enable litmus fires; `lean-ctx` is not mounted (ADR-0008 pre-registered fallback, executed 2026-08-11). Secondary agents keep the earlier three-tool wiring — `lean-ctx`, `codebase-memory-mcp`, `agentmemory` — until that is revisited.
   - _Avoid_: Memory MCP stack, AI context stack
+
+## Stack lifecycle states
+
+Every tracked tool or process is in exactly one state; the state names the bar for reopening its decision.
+
+- **Adopted**
+  - A component wired and on by default on the primary harness.
+  - _Avoid_: Selected, installed (installation alone does not adopt)
+
+- **Gated**
+  - A component kept wired but off until a pre-registered trigger or litmus fires.
+  - _Avoid_: Disabled, blocked
+
+- **Parked**
+  - A decision explicitly deferred with a named revisit condition or owner.
+  - _Avoid_: Backlog, someday
+
+- **Rejected**
+  - A component evaluated and declined on graded evidence; reopening requires new external evidence.
+  - _Avoid_: Discarded, deprecated
+
+- **Dormant**
+  - A component known or installed but never evaluated; reopening requires only a stated reason.
+  - _Avoid_: Discarded, rejected
+
+- **Retired**
+  - A process or source no longer operated because its measured yield did not justify it. Applies to workflows, not components.
+  - _Avoid_: Rejected, abandoned
 
 - **Agentmemory integration**
   - The managed agentmemory CLI and MCP registration used for narrative memory. The interactive `iii-engine` runtime is outside machine provisioning because its upgrade can mutate the current repository.

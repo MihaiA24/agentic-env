@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import platform
 import shutil
 import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -30,8 +28,6 @@ from .common import (
 from .remote_install_contract import validate_remote_contract
 from .stack_metadata import (
     AGENTMEMORY_NPM_PACKAGE,
-    AGENTMEMORY_PI_INDEX_SHA256,
-    AGENTMEMORY_PI_INDEX_TS,
     CODEBASE_MEMORY_ARCHIVES,
     CODEBASE_MEMORY_RELEASE_BASE,
     LEAN_CTX_ARCHIVES,
@@ -543,29 +539,6 @@ def _install_npm_global(package: str, label: str) -> bool:
         return _install_agentmemory_user_local(package)
 
 
-def _download_text(url: str, expected_sha256: str | None = None) -> str | None:
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            payload = response.read()
-    except Exception as exc:
-        warn(f"agentmemory setup: failed to download {url}: {exc}")
-        return None
-
-    if expected_sha256 is not None:
-        actual = hashlib.sha256(payload).hexdigest()
-        if actual.lower() != expected_sha256.lower():
-            warn(
-                f"agentmemory setup: sha mismatch for {url}. "
-                f"expected={expected_sha256}, got={actual}"
-            )
-            return None
-
-    try:
-        return payload.decode("utf-8")
-    except UnicodeDecodeError as exc:
-        warn(f"agentmemory setup: downloaded content for {url} is not UTF-8: {exc}")
-        return None
-
 
 def _configure_hermes_agentmemory() -> bool:
     return (
@@ -583,58 +556,6 @@ def _configure_hermes_agentmemory() -> bool:
     )
 
 
-def _configure_pi_agentmemory() -> bool:
-    extension_dir = Path.home() / ".pi" / "agent" / "extensions" / "agentmemory"
-    index_path = extension_dir / "index.ts"
-    extension_ref_tilde = "~/.pi/agent/extensions/agentmemory"
-    extension_ref_abs = str(extension_dir)
-    settings_path = Path.home() / ".pi" / "agent" / "settings.json"
-
-    if not index_path.exists():
-        integration = _download_text(
-            AGENTMEMORY_PI_INDEX_TS, AGENTMEMORY_PI_INDEX_SHA256
-        )
-        if integration is None:
-            return False
-        extension_dir.mkdir(parents=True, exist_ok=True)
-        index_path.write_text(integration, encoding="utf-8")
-        ok("ohmipi/omp config: copied agentmemory extension index.ts")
-    else:
-        skip("ohmipi/omp config: extension already present")
-
-    if settings_path.exists():
-        try:
-            settings = json.loads(settings_path.read_text(encoding="utf-8"))
-            extensions = settings.get("extensions")
-            if not isinstance(extensions, list):
-                warn("ohmipi/omp settings.json: extensions is not a list; skipped")
-                return True
-            if (
-                extension_ref_tilde not in extensions
-                and extension_ref_abs not in extensions
-            ):
-                extensions.append(extension_ref_tilde)
-                settings_path.write_text(
-                    json.dumps(settings, indent=2) + "\n",
-                    encoding="utf-8",
-                )
-                ok("ohmipi/omp config: enabled agentmemory extension in settings.json")
-            else:
-                skip(
-                    "ohmipi/omp config: settings already includes agentmemory extension"
-                )
-        except json.JSONDecodeError:
-            warn("ohmipi/omp settings.json: invalid JSON; skipped")
-            return True
-    else:
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(
-            json.dumps({"extensions": [extension_ref_tilde]}, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        ok("ohmipi/omp config: created settings.json with agentmemory extension")
-
-    return True
 
 
 def _install_skills(
@@ -711,9 +632,7 @@ def _install_agentmemory(non_interactive: bool) -> bool:
         warn("agentmemory: installed version does not match curated release")
         return False
 
-    pi_ok = _configure_pi_agentmemory()
-    hermes_ok = _configure_hermes_agentmemory()
-    return hermes_ok and pi_ok
+    return _configure_hermes_agentmemory()
 
 
 def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:

@@ -46,24 +46,18 @@ class SmokeContractTests(unittest.TestCase):
             "if (!/^\\s*provider:\\s*agentmemory\\s*$/m.test(text)) {",
             script,
         )
-        self.assertIn("const settings = path.join(home, '.pi', 'agent', 'settings.json');", script)
-        self.assertIn("if (!Array.isArray(extensions)) {", script)
-        self.assertIn("if (!extensions.includes(extRefTilde) && !extensions.includes(extRefAbs)) {", script)
-        self.assertIn(
-            "const extPath = path.join(home, '.pi', 'agent', 'extensions', 'agentmemory', 'index.ts');",
-            script,
-        )
+        self.assertNotIn("const settings = path.join(home, '.pi', 'agent', 'settings.json');", script)
+        self.assertNotIn("extensions/agentmemory", script)
+        self.assertNotIn("missing OMP agentmemory extension index.ts", script)
         self.assertIn("for (const mcpPath of [", script)
         self.assertIn("path.join(home, '.omp', 'agent', 'mcp.json'),", script)
         self.assertIn("path.join(home, '.pi', 'agent', 'mcp.json'),", script)
-        self.assertIn("for (const skillsRoot of [", script)
-        self.assertIn("path.join(home, '.hermes', 'skills'),", script)
-        self.assertIn("path.join(home, '.omp', 'agent', 'skills'),", script)
-        self.assertIn("path.join(home, '.pi', 'agent', 'skills'),", script)
-        self.assertIn(
-            "for (const name of ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']) {",
-            script,
-        )
+        self.assertIn("if (!mcp.mcpServers['codebase-memory-mcp']) {", script)
+        self.assertIn("for (const name of ['agentmemory', 'lean-ctx']) {", script)
+        self.assertIn("if (mcp.mcpServers[name]) {", script)
+        self.assertIn("path.join(home, '.hermes', 'skills'), ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']", script)
+        self.assertIn("path.join(home, '.omp', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']", script)
+        self.assertIn("path.join(home, '.pi', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']", script)
 
     def test_readme_smoke_contract_stays_explicit(self) -> None:
         readme = self._readme_path().read_text(encoding="utf-8")

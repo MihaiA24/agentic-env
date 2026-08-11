@@ -70,10 +70,6 @@ class StackMetadataTests(unittest.TestCase):
             == stack_metadata.AGENTMEMORY_NPM_PACKAGE
         )
         assert (
-            install_skills_mcps.AGENTMEMORY_PI_INDEX_TS
-            == stack_metadata.AGENTMEMORY_PI_INDEX_TS
-        )
-        assert (
             install_skills_mcps.CODEBASE_MEMORY_ARCHIVES
             is stack_metadata.CODEBASE_MEMORY_ARCHIVES
         )

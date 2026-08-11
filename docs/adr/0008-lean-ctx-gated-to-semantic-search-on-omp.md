@@ -3,6 +3,8 @@
 ## Status
 Accepted 2026-08-05. Amends ADR-0007's retained-tool list. Supersedes ADR-0002's three-tool wiring on the primary harness only; secondary agents are untouched (their fate is parked with Q-F(a)).
 
+**Fallback executed 2026-08-11**, on the pre-registered date: semantic-search calls since 2026-07-28 = 1 (one `ctx_search(action=semantic)` call, 08-10T18:32Z; the 08-10 sweep of all 54 sessions counted 0 before it) — below the fixed threshold of 5. `lean-ctx` is dropped from OMP entirely: the native `mcpServers.lean-ctx` entry removed from `~/.omp/agent/mcp.json` and `"lean-ctx"` added to `disabledServers` so the `~/.claude.json` import cannot resurface it (backup: `~/.omp/agent/mcp.json.bak-leanctx-drop`). Exploratory search falls back to `grep` + LSP + scout subagents. Re-shop for a semantic-search tool only when that path visibly fails on a real task. Secondary agents remain untouched.
+
 ## Context
 ADR-0007 retained `lean-ctx` tools by measured call share: `ctx_shell` (1,729), `ctx_read` (1,263), `ctx_search` (475), `ctx_execute` (387). Grilled 2026-08-05, that criterion does not hold: **call share is usage, not benefit.** Every retained tool except semantic search has an OMP-native equivalent that absorbs its traffic — `read` (files, URLs, PDFs, directories), `bash`, `grep`, `glob`, `eval`, LSP, `edit`. The natives are prompt-cache-stable and feed OMP's own anchor snapshot store; the intercepted versions are neither.
 

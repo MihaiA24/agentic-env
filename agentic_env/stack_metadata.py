@@ -10,7 +10,6 @@ from typing import Final
 
 from .remote_install_contract import (
     REMOTE_KIND_NPM,
-    REMOTE_KIND_RAW_URL,
     REMOTE_KIND_SCRIPT,
 )
 
@@ -42,12 +41,6 @@ CLAUDE_INSTALL_SHA256: Final[str] = (
     "b3f79015b54c751440a6488f07b1b64f9088742b9052bc1bd356d13108320d2a"
 )
 
-AGENTMEMORY_PI_INDEX_TS: Final[str] = (
-    "https://raw.githubusercontent.com/rohitg00/agentmemory/93ae9bc04f3ab5042f982aaadf11f1e3f5137531/integrations/pi/index.ts"
-)
-AGENTMEMORY_PI_INDEX_SHA256: Final[str] = (
-    "1e978990097ece72036b30eb0d24b3a26022a0d8276ea645fb47380c691d5f31"
-)
 
 CODEBASE_MEMORY_RELEASE_BASE: Final[str] = (
     f"https://github.com/DeusData/codebase-memory-mcp/releases/download/v{CODEBASE_MEMORY_VERSION}"
@@ -183,14 +176,6 @@ SKILLS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "reference": AGENTMEMORY_NPM_PACKAGE,
         "kind": REMOTE_KIND_NPM,
         "pinned": True,
-        "reason": "",
-    },
-    "agentmemory_pi_index": {
-        "label": "agentmemory PI index.ts",
-        "reference": AGENTMEMORY_PI_INDEX_TS,
-        "kind": REMOTE_KIND_RAW_URL,
-        "pinned": True,
-        "sha256": AGENTMEMORY_PI_INDEX_SHA256,
         "reason": "",
     },
 }

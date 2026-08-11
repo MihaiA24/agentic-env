@@ -63,4 +63,27 @@ Multi-project in the wild: the only documented cases are **negative** (agentmemo
 
 Pre-registered endpoints (before any trial data): the 4 failed decision-recall probes replayed on both arms; cross-project leakage probes (unrelated project must NOT surface; tagged sibling MUST); billed cost per successful probe (Hindsight retain-LLM + 1,024-tok recalls vs Mnemopi zero-infra); success-adjusted verdict, not token counts. Guard rails from field evidence: end-to-end retain→recall health probe (silent no-memory modes are real), pin core AND integration versions, explicit stable bank/tag IDs — never inferred from cwd/git root.
 
+## Bake-off Stage 1 executed (2026-08-11, local)
+
+**Amendment before trial data:** no OpenAI-compatible API key on this machine → arms staged cheapest-first. Stage 1 = Hindsight **zero-LLM mode** (`retain_extraction_mode: chunks`, observations+consolidation off, dummy key satisfies the boot check; embeddings/reranker local in-container). Rationale: if zero-LLM passes at $0 retain cost, retain-LLM cannot beat it on billed cost per successful probe; if it fails, Stage 2 (retain-LLM) needs a real key. Stage 2 NOT run.
+
+**Setup (guard rails honored):** image pinned `ghcr.io/vectorize-io/hindsight:0.9.0` (4.22 GB); explicit bank IDs `bakeoff-dotfiles`/`bakeoff-shared` (never cwd-derived); retain→recall canary green before ingest; no silent no-memory mode observed — engine fails LOUD without a key (contra hermes#7718 class). Corpus: the 20 OMP `-.dotfiles` session transcripts (2026-06-17→08-11, 302K chars, user+assistant turns only) — the same source material Mnemopi's bank was built from. Contamination controls: current session excluded; the 08-10 probe session truncated at the first probe call (16:00:38Z). Ground truth for every probe verified present in 5–6 corpus sessions before running. Ingest: 20/20 docs in 13.8 s, **0 LLM tokens** (ledger: 3 errored calls, 0 tokens billed).
+
+**Decision-recall probes** (same 4 that failed 4/4 on Mnemopi, graded by the same standard — the decision must surface, not era-adjacent sludge):
+
+| Probe | Mnemopi (08-10) | Hindsight @1,024 (OMP-wired cap) | Hindsight @4,096 |
+|---|---|---|---|
+| P1 lean-ctx decision | FAIL (teaching-workspace sludge) | **PASS** — gate+kill-threshold+read-out verbatim | PASS (6 results incl. executed drop) |
+| P2 memory owner | FAIL (superseded June wiring) | FAIL — surfaces 07-28 pre-decision two-owner state | **PASS** — "deliberately set" backend + one-owner rule (assembled from 2 results) |
+| P3 compaction settings | FAIL (nothing relevant) | FAIL — doc-edit meta-chatter | PARTIAL — all 3 knobs + timing surface as *proposal*; applied 150K value only adjacent |
+| P4 reflect (combined) | FAIL | FAIL by construction — reflect requires LLM (500/401) | same |
+| **Total** | **0/4** | **1/4** | **2/4 + 1 partial** |
+
+**Cross-project leakage probes: 4/4 PASS.** `any_strict` union `[alpha,beta]` returned both tagged projects and never the unrelated `gamma` — including under a gamma-baited query; single-tag recall stayed single-project; bank boundary held (dotfiles corpus invisible from the shared bank). The multi-project machinery that shortlisted Hindsight works as documented.
+
+**Endpoint (billed cost per successful probe):** Hindsight zero-LLM = **$0.00 / 1 success** (@OMP-wired 1,024) vs Mnemopi = 0 successes at any cost → Hindsight wins the endpoint as registered. Honest limits: 1/4 absolute is weak; the binding constraint is OMP's 1,024-tok recall cap ≈ exactly one 3,000-char chunk in chunks mode — raising `hindsight.recallMaxTokens` to 4,096 doubles successes at zero LLM cost but injects up to ~3K more tokens per recall into the prompt (cache-read economics apply). Extraction quality (retain-LLM), reflect, and observations remain unmeasured → Stage 2, needs a real key.
+
+**Infra cost:** container 1.4 GiB RAM idle, 4.22 GB image, one `docker` dependency — vs Mnemopi zero-infra. Container stopped after the run; image + `hindsight-bakeoff` volume kept for Stage 2 (re-ingest is 14 s anyway).
+
+
 *Full agent reports (session artifacts): `history://MemoryScopingLibrarian`, `history://MemoryFieldReviewsLibrarian`.*

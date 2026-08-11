@@ -54,7 +54,7 @@ Multi-project in the wild: the only documented cases are **negative** (agentmemo
 
 ## Local findings (this machine, 2026-08-11)
 
-- `dotfiles` bank `memory_embeddings` = 38 rows → **#3054 (arm64 zero-embeddings) is NOT our failure mode**; the 4/4 decision-recall failure stands as genuine recall quality. Coverage partial: 38 embeddings vs 88 memory rows.
+- `dotfiles` bank `memory_embeddings` populated → **#3054 (arm64 zero-embeddings) is NOT our failure mode**. ~~The 4/4 failure stands as genuine recall quality~~ — **corrected by probe forensics (below): it is a retention gap, not a ranking failure.**
 - 160+ `omp__*` benchmark-residue banks confirmed under `~/.omp/agent/memories/mnemopi/banks/` (the parked 458 MB sweep).
 
 ## Decision
@@ -80,6 +80,8 @@ Pre-registered endpoints (before any trial data): the 4 failed decision-recall p
 | **Total** | **0/4** | **1/4** | **2/4 + 1 partial** |
 
 **Cross-project leakage probes: 4/4 PASS.** `any_strict` union `[alpha,beta]` returned both tagged projects and never the unrelated `gamma` — including under a gamma-baited query; single-tag recall stayed single-project; bank boundary held (dotfiles corpus invisible from the shared bank). The multi-project machinery that shortlisted Hindsight works as documented.
+
+**Probe forensics (post-hoc, 2026-08-11 — corrects the "recall quality" reading):** at probe time (08-10 16:00Z) the dotfiles bank held **7 working rows + 16 facts, ALL from 2026-06-19→07-13**. Zero retains landed during 07-13→08-11 — the exact window when every probed decision was made and discussed in dotfiles sessions (ground truth verified present in the same transcripts Hindsight ingested). No sibling dotfiles bank exists (drift #2412 ruled out; 17 non-benchmark banks checked) → the era is simply absent from the store. So Mnemopi's 0/4 measures **silent retention failure** (#2320/#2322 class — the field-evidence failure mode, reproduced locally), not recall ranking: P1's "teaching-workspace sludge" (07-08 row) and P2's "superseded June wiring" (06-19/21 agentmemory rows) were literally the nearest neighbors available. Hindsight's @1,024 failures have the opposite mechanism: ground truth WAS stored (raw chunks), but the 1,024-tok cap admits exactly one chunk and discussion/proposal text outranks the single decision statement (P2 pre-decision two-owner chunk; P3 doc-edit meta-chatter) — a budget+ranking limit, relieved at 4,096. P4 fails by construction (reflect needs the LLM). Verdict unchanged; interpretation sharpened: the arms failed for different reasons — Mnemopi couldn't retain, Hindsight couldn't fit.
 
 **Endpoint (billed cost per successful probe):** Hindsight zero-LLM = **$0.00 / 1 success** (@OMP-wired 1,024) vs Mnemopi = 0 successes at any cost → Hindsight wins the endpoint as registered. Honest limits: 1/4 absolute is weak; the binding constraint is OMP's 1,024-tok recall cap ≈ exactly one 3,000-char chunk in chunks mode — raising `hindsight.recallMaxTokens` to 4,096 doubles successes at zero LLM cost but injects up to ~3K more tokens per recall into the prompt (cache-read economics apply). Extraction quality (retain-LLM), reflect, and observations remain unmeasured → Stage 2, needs a real key.
 

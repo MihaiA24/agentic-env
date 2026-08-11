@@ -30,7 +30,7 @@
 
 ## Open
 
-- **Memory bake-off DUE** — Mnemopi failed 4/4 decision-recall probes (flip trigger fired 08-11). Arms: Hindsight 0.9.0 self-hosted (PG/pgvector; cap the 4,096-tok default recall) vs mem0 OSS 2.0.17 (Qdrant+SQLite; 94.4% headline is managed-only per its own README) vs Mnemopi as control. Challengers are external stacks, not OMP-native, with vendor-published chat-memory numbers — switch only if one beats Mnemopi on pre-registered local endpoints (decision-recall probes, injected tokens/query, infra cost).
+- **Memory bake-off DUE — arms narrowed by deep research 08-11** (`agentic-env/docs/memory-backend-research.md`): **Hindsight 0.9.0 vs Mnemopi control.** Hindsight is the only candidate expressing multi-project scoping (banks + tag unions `any_strict`) and has a native `memory.backend=hindsight` (OMP caps recall at 1,024 tok). Eliminated: mem0 OSS (no OMP backend, official MCP is hosted-platform, 97.8%-junk production report mem0#4573); agentmemory (shipped integration recalls globally — project tag never passed on search; "95.2%" is retrieval-only R@5, "92% tokens" is one 240-observation example). No independent benchmark exists for ANY memory tool — all 1P. Endpoints pre-registered: replay the 4 failed decision-recall probes + cross-project leakage probes + billed cost per successful probe. Local check: dotfiles bank has 38 embeddings — arm64 zero-embeddings bug (omp#3054) is not our failure mode.
 - Re-shop context I/O only when grep+LSP+scouts visibly fail on a real task.
 - Paired OMP/Hermes benchmark only if OMP-primary ever needs to be definitive.
 - User decision open: merge/push `feat/agent-stack-measured-cleanup`.

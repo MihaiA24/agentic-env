@@ -38,7 +38,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Backlog, someday
 
 - **Rejected**
-  - A component evaluated and declined on graded evidence; reopening requires new external evidence.
+  - A component evaluated and declined on graded evidence, including decline by its own pre-registered threshold; reopening requires new external evidence.
   - _Avoid_: Discarded, deprecated
 
 - **Dormant**

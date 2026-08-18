@@ -1,11 +1,11 @@
 # Agent Stack — Operative Context
 
-> Distilled 2026-08-11 from `AI_CONTEXT_TOOLING_COMPARISON.md` (deprecated, frozen — full evidence, grades, and methods in its git history). Binding ADRs: `agentic-env/docs/adr/0006`–`0008`.
+> Distilled 2026-08-11 from `AI_CONTEXT_TOOLING_COMPARISON.md` (deprecated, frozen — full evidence, grades, and methods in its git history). Binding ADRs: `agentic-env/docs/adr/0006`–`0008`. Simple reads: `AGENT_STACK.md` (decided stack + alternatives + review triggers) · `TOOLS_RESEARCH.md` (tool catalog with verdicts).
 
 ## Live wiring (this machine)
 
 - OMP: compaction `handoff` @ 150K, idle on, handoff-to-disk (bak `~/.omp/agent/config.yml.bak-tuning`)
-- Hooks: `omp/hooks/verification-recorder.ts` + `cadence-governor.ts` (N=25; silent after 3 unheeded nudges)
+- Hooks: `omp/hooks/verification-recorder.ts` + `cadence-governor.ts` (N=25; silent after 3 unheeded nudges) + `retention-canary.ts` (memory staleness tripwire)
 - MCP: `mcpServers: {}` · `disabledServers: [agentmemory, node_repl, codebase-memory-mcp, lean-ctx]` (bak `mcp.json.bak-leanctx-drop`)
 - Memory: `backend: mnemopi`, `polyphonicRecall: false` — single memory owner (ADR-0006)
 - MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances

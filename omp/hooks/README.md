@@ -1,5 +1,7 @@
 # OMP hooks
 
+Two hooks, registered in `~/.omp/agent/config.yml` under `extensions`.
+
 ## verification-recorder
 
 Records verification outcomes (test / lint / typecheck / build) from OMP sessions into
@@ -7,21 +9,16 @@ Records verification outcomes (test / lint / typecheck / build) from OMP session
 
 ### Why
 
-Hermes keeps a quality feedback loop — `~/.hermes/verification_evidence.db` held 248 events at a
-83.9% pass rate, plus structured per-patch outcomes giving a measurable 12.9% patch failure rate.
-OMP records none of this: tool output spills to per-call logs (`*.bash.log`) with no outcome, so
-across 152 sessions no pass rate, edit-failure rate, or regression signal can be computed.
-
-That gap is not just a reporting inconvenience. It blocks the paired harness benchmark described in
-`AI_CONTEXT_TOOLING_COMPARISON.md` under "Open for grilling": one arm would be measured and the
-other unmeasurable. This hook is the prerequisite.
-
-The schema deliberately mirrors Hermes' so the two harnesses are directly comparable.
+OMP spills tool output to per-call logs (`*.bash.log`) with no outcome attached — natively, no pass
+rate, edit-failure rate, or regression signal can be computed. This DB is the data source for the
+stack's pre-registered revisit triggers (e.g. compaction: end-green < 88% → revert) and for
+pass-rate read-outs. The schema mirrors Hermes' (`~/.hermes/verification_evidence.db`: 248 events,
+83.9% pass rate) so cross-harness comparison stays possible if ever needed.
 
 ### Install
 
 ```bash
-omp config set extensions '["/Users/mihai/.dotfiles/omp/hooks/verification-recorder.ts","/Users/mihai/.dotfiles/omp/hooks/cadence-governor.ts","/Users/mihai/.dotfiles/omp/hooks/retention-canary.ts"]'
+omp config set extensions '["/Users/mihai/.dotfiles/omp/hooks/verification-recorder.ts","/Users/mihai/.dotfiles/omp/hooks/retention-canary.ts"]'
 ```
 
 Verify:
@@ -69,7 +66,9 @@ Warns in-session when Mnemopi silently stops retaining for the current project.
 The dotfiles bank took zero retains 07-19→08-10 while 11 sibling banks retained fine on the same
 days and omp versions — project-local, no errors, self-healed (forensics in
 `agentic-env/docs/memory-backend-research.md`). Nothing inside the pipeline reports retention
-death, so external detection is the only defense (`DECISIONS_AI_TOOLING.md`, Memory bullets).
+death, so external detection is the only defense (`DECISIONS_AI_TOOLING.md`, Memory section).
+Upstream ask for retain-attempt telemetry — which would retire this hook:
+https://github.com/can1357/oh-my-pi/issues/8940
 
 ### Behaviour
 
@@ -92,3 +91,9 @@ bun test omp/hooks/retention-canary.test.ts
 
 Smoke-tested 08-18 against the live dotfiles bank (quiet) and the `agentic-env` bank stale since
 06-29 (fires: "49 days before the latest session, 17 sessions ran since").
+
+## Removed
+
+- **cadence-governor** (2026-08-19): rejected on measured non-adherence — nudge follow-through
+  16.4% ≈ chance, declining on repeats. Numbers and reopen bar in `DECISIONS_AI_TOOLING.md`;
+  code in git history.

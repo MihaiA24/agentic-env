@@ -50,6 +50,9 @@ for (const mcpPath of [
   if (!mcp.mcpServers['codebase-memory-mcp']) {
     throw new Error(`${mcpPath} missing codebase-memory-mcp MCP entry`);
   }
+  if (!Array.isArray(mcp.disabledServers) || !mcp.disabledServers.includes('codebase-memory-mcp')) {
+    throw new Error(`${mcpPath} codebase-memory-mcp entry is not gated in disabledServers`);
+  }
   for (const name of ['agentmemory', 'lean-ctx']) {
     if (mcp.mcpServers[name]) {
       throw new Error(`${mcpPath} unexpectedly contains ${name} MCP entry`);

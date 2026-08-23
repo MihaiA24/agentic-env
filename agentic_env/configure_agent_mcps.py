@@ -506,6 +506,23 @@ class _OmpConfigAdapter:
                 changed = True
         return changed
 
+    def gate_servers(self, data: dict[str, object], names: tuple[str, ...]) -> bool:
+        if not names:
+            return False
+        disabled = data.get("disabledServers")
+        if disabled is None:
+            disabled = []
+            data["disabledServers"] = disabled
+        elif not isinstance(disabled, list):
+            raise ValueError("`disabledServers` block must be a list")
+        changed = False
+        for name in names:
+            if name not in disabled:
+                disabled.append(name)
+                ok(f"{self.path}: {name} MCP gated off (disabledServers)")
+                changed = True
+        return changed
+
     def validate(self, data: dict[str, object], servers: list[McpServer]) -> bool:
         mcp_servers = data.get("mcpServers")
         if not isinstance(mcp_servers, dict):
@@ -542,6 +559,7 @@ def _write_json_config_data(
     servers: list[McpServer],
     *,
     remove: tuple[str, ...] = (),
+    gate: tuple[str, ...] = (),
     dry_run: bool,
 ) -> bool:
     data = adapter._read()
@@ -550,6 +568,7 @@ def _write_json_config_data(
 
     try:
         changed = adapter.add_servers(data, servers)
+        changed = adapter.gate_servers(data, gate) or changed
     except ValueError as exc:
         warn(f"{adapter.path}: {exc}")
         return False
@@ -619,6 +638,10 @@ OMP_EXCLUDED_SERVERS = {
     "lean-ctx": "ADR-0008 fallback: lean-ctx was dropped from OMP",
 }
 
+# Servers wired on OMP but default-off ("Gated" in DECISIONS_AI_TOOLING.md); the installer
+# keeps them in `disabledServers` so a fresh machine never mounts them silently.
+OMP_GATED_SERVERS = ("codebase-memory-mcp",)
+
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     omp_servers: list[McpServer] = []
@@ -630,9 +653,12 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
             omp_servers.append(server)
 
     excluded = tuple(OMP_EXCLUDED_SERVERS)
+    gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS)
     ok_all = True
     for adapter in _OMP_CONFIG_ADAPTERS:
-        if not _write_json_config_data(adapter, omp_servers, remove=excluded, dry_run=dry_run):
+        if not _write_json_config_data(
+            adapter, omp_servers, remove=excluded, gate=gated, dry_run=dry_run
+        ):
             ok_all = False
     return ok_all
 

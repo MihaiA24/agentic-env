@@ -202,6 +202,29 @@ memory:
                 },
             )
 
+    def test_configure_omp_gates_default_off_servers(self) -> None:
+        for existing, expected_disabled in (
+            ({}, ["codebase-memory-mcp"]),
+            (
+                {"disabledServers": ["node_repl"]},
+                ["node_repl", "codebase-memory-mcp"],
+            ),
+        ):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir) / "mcp.json"
+                path.write_text(json.dumps(existing), encoding="utf-8")
+                with patch(
+                    "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
+                    [configure_agent_mcps._OmpConfigAdapter(path=path)],
+                ):
+                    assert configure_agent_mcps.configure_omp(
+                        [configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]],
+                        dry_run=False,
+                    )
+                parsed = json.loads(path.read_text(encoding="utf-8"))
+                self.assertIn("codebase-memory-mcp", parsed["mcpServers"])
+                self.assertEqual(parsed["disabledServers"], expected_disabled)
+
     def test_install_skills_omits_lean_ctx_and_agentmemory_on_omp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "skills"

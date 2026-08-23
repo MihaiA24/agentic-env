@@ -37,7 +37,7 @@ Docs:
 - `agentic-configure-agent-mcps`
   - Adds selected project-memory MCP servers when missing:
     - Hermes: `lean-ctx`, `codebase-memory-mcp`, and `agentmemory`
-    - OMP: `codebase-memory-mcp` only; `agentmemory` and `lean-ctx` are deliberately not written (ADR-0006/ADR-0008)
+    - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are deliberately not written and stale entries are removed (ADR-0006/ADR-0008)
   - Adds matching global skills, with the same OMP exclusions.
 - `agentic-bootstrap`
   - One-shot onboarding in phase order:
@@ -266,7 +266,7 @@ The run is successful only if all checks pass:
    - `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory`
 5. Hermes and OMP config checks pass:
    - `~/.hermes/config.yaml` contains `lean-ctx`, `codebase-memory-mcp`, and `agentmemory` MCP entries
-   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`
+   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`, gated in `disabledServers`
    - those OMP-family MCP files contain neither `agentmemory` nor `lean-ctx`
    - Hermes has all matching global skills; OMP skill roots have `codebase-memory-mcp` and `ponytail`
 

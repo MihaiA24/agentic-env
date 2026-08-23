@@ -32,7 +32,7 @@
 5. Wiring routes tools; prose doesn't (3×-repeated prompt mandate → 15.6% adherence; cadence-governor nudges 16.4% ≈ chance).
 6. Vendor claims measure at 1/8–1/3 of advertised, or negative — adopt only on locally measured, pre-registered endpoints.
 7. Decisions live in committed docs; memory is convenience.
-8. Skills are adopted on workflow fit (user judgment); usage audits are diagnostic — they flag stale or duplicate skills for re-review, never gate adoption. Rule 6 governs tools only. Usage units are canonical in `CONTEXT.md`: user-invoked ≠ model-invoked ≠ string-scan.
+8. Skills are adopted on workflow fit (user judgment); usage audits are diagnostic — they flag stale or duplicate skills for re-review, never gate adoption. Rule 6 governs tools only. Usage units are canonical in `docs/CONTEXT.md`: user-invoked ≠ model-invoked ≠ string-scan.
 
 ## Verdicts
 
@@ -54,9 +54,9 @@
 
 ## Skills (settled 2026-08-22)
 
-Criterion: workflow fit, judged by the user. The 2026-08-20 fit audits (`pocock-skills-fit-report.html`, `pstack-skills-audit.html`) are diagnostic input; both kept on disk uncommitted, with adjudication addenda.
+Criterion: workflow fit, judged by the user. The 2026-08-20 fit audits (`docs/pocock-skills-fit-report.html`, `docs/pstack-skills-audit.html`) are diagnostic input, committed with adjudication addenda.
 
-**Audit adjudication (08-22, raw DBs):** both reports honest, units systematically mixed. 567 OMP "sessions" = 226 main + 341 subagent. grill-with-docs: 74 OMP session files / 215 Hermes sessions user-invoked (413 = registry loads). tdd/code-review: 0 user-invoked vs 108/320 model-invoked — the model reaches for them, the user never does; don't force slash commands. Only verification DBs reproduced exactly (OMP 527 @ 87.3% pass, Hermes 248): dedicated event tables beat string scans. Glossary of counting units: `CONTEXT.md`.
+**Audit adjudication (08-22, raw DBs):** both reports honest, units systematically mixed. 567 OMP "sessions" = 226 main + 341 subagent. grill-with-docs: 74 OMP session files / 215 Hermes sessions user-invoked (413 = registry loads). tdd/code-review: 0 user-invoked vs 108/320 model-invoked — the model reaches for them, the user never does; don't force slash commands. Only verification DBs reproduced exactly (OMP 527 @ 87.3% pass, Hermes 248): dedicated event tables beat string scans. Glossary of counting units: `docs/CONTEXT.md`.
 
 **Adopted 08-22 (vanilla first; adapt only after real friction):**
 - `resolving-merge-conflicts`, `diagnosing-bugs` (Pocock) — sat on measured pains (merge churn: 64+ merges with conflict fallout; repeat-diagnosis loops) while structurally unavailable in OMP (recovery store only, `enableAgentsUser: false`). Their low use was availability, not misfit.

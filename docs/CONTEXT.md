@@ -137,5 +137,40 @@ Every tracked tool or process is in exactly one state; the state names the bar f
 
 - **Documentation scope**
   - `agentic-env/README.md`: runbook and operating instructions.
+  - `agentic-env/DECISIONS_AI_TOOLING.md`: operative agent-stack decisions (tools, skills, hooks, memory).
   - `agentic-env/docs/CONTEXT.md`: canonical vocabulary and invariants.
   - `agentic-env/docs/adr/*.md`: irreversible design decisions.
+
+## Skill lifecycle
+
+Skill-specific states, distinct from the component lifecycle states above: a component adopts when wired on by default; a skill adopts on fit.
+
+- **Installed (skill)**
+  - Present in some skill store on this machine. Says nothing about whether it can fire or ever has.
+  - _Avoid_: Available, active
+
+- **Wired (skill)**
+  - Has a mechanical trigger — forced injection, hook, or model-invocable frontmatter — that fires without the user remembering to invoke it.
+  - _Avoid_: Enabled, configured
+
+- **Adopted (skill)**
+  - Kept in the curated skill default because it fits the user's workflows: a fit judgment by the user, never a usage-count threshold. Usage audits are diagnostic — they flag stale or duplicate skills for re-review.
+  - _Avoid_: Proven, validated
+
+- **Recovery store**
+  - `~/.agents/skills` — holds everything ever installed; invisible to harnesses (`enableAgentsUser: false`). Not part of the stack.
+  - _Avoid_: Backup, archive
+
+## Skill usage measurement
+
+- **User-invoked**
+  - A skill activation explicitly requested by the user (slash command or named request), counted per top-level session.
+  - _Avoid_: Explicit use, activation (unqualified)
+
+- **Model-invoked**
+  - A skill loaded by the model on its own judgment (registry `use_count`). Answers "does the model reach for it" — a different question than user-invoked.
+  - _Avoid_: Registry use, load count
+
+- **String-scan count**
+  - Transcript matches on a skill name; overstates use by counting injected skill bodies, tool results, and discussion. Never a verdict input.
+  - _Avoid_: Usage count (unqualified)

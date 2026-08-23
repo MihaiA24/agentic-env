@@ -66,7 +66,7 @@ Warns in-session when Mnemopi silently stops retaining for the current project.
 The dotfiles bank took zero retains 07-19→08-10 while 11 sibling banks retained fine on the same
 days and omp versions — project-local, no errors, self-healed (forensics in
 `agentic-env/docs/memory-backend-research.md`). Nothing inside the pipeline reports retention
-death, so external detection is the only defense (`DECISIONS_AI_TOOLING.md`, Memory section).
+death, so external detection is the only defense (`agentic-env/DECISIONS_AI_TOOLING.md`, Memory section).
 Upstream ask for retain-attempt telemetry — which would retire this hook:
 https://github.com/can1357/oh-my-pi/issues/8940
 
@@ -95,5 +95,5 @@ Smoke-tested 08-18 against the live dotfiles bank (quiet) and the `agentic-env` 
 ## Removed
 
 - **cadence-governor** (2026-08-19): rejected on measured non-adherence — nudge follow-through
-  16.4% ≈ chance, declining on repeats. Numbers and reopen bar in `DECISIONS_AI_TOOLING.md`;
+  16.4% ≈ chance, declining on repeats. Numbers and reopen bar in `agentic-env/DECISIONS_AI_TOOLING.md`;
   code in git history.

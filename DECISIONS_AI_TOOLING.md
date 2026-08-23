@@ -11,7 +11,7 @@
 | Compaction | handoff @ 150K, idle on, save-to-disk | −43–50% tokens, quality held | 120K threshold | End-green < 88% → revert |
 | Memory | Mnemopi + retention-canary hook | Recall good, keyless, zero infra; canary covers silent-loss defect | Hindsight (sole challenger), mem0, agentmemory, Letta, Zep | Cross-project memory sharing needed → Hindsight |
 | Code graph | codebase-memory-mcp gated off | Costs quality, 10× tokens | GitNexus, GraphRAG, Serena, etc. | Litmus fires weekly |
-| Skills | Ponytail forced, Caveman + Graphify on demand; curated roster | Only measured savers | Full 53-skill store | Measured harm |
+| Skills | Fit-curated roster (see Skills section): Pocock spine + Ponytail forced + Caveman/Graphify on demand + 4 pstack picks | Fit-judged by user; audits prune | Full Pocock 25 + pstack 44 stores | Fit audit flags stale |
 | Hooks | verification-recorder, retention-canary | Pass-rate read-outs; silent-memory-loss tripwire | cadence-governor (rejected 08-19), external monitoring | Recorder DB unread by next read-out; canary false-warns |
 
 ## Live wiring (this machine)
@@ -32,6 +32,7 @@
 5. Wiring routes tools; prose doesn't (3×-repeated prompt mandate → 15.6% adherence; cadence-governor nudges 16.4% ≈ chance).
 6. Vendor claims measure at 1/8–1/3 of advertised, or negative — adopt only on locally measured, pre-registered endpoints.
 7. Decisions live in committed docs; memory is convenience.
+8. Skills are adopted on workflow fit (user judgment); usage audits are diagnostic — they flag stale or duplicate skills for re-review, never gate adoption. Rule 6 governs tools only. Usage units are canonical in `CONTEXT.md`: user-invoked ≠ model-invoked ≠ string-scan.
 
 ## Verdicts
 
@@ -50,6 +51,32 @@
 - **Stage 2 bake-off: skipped (user, 2026-08-19).** Was blocked on an OpenAI-compatible key; Stage 1b parity + the canary cover the residual risk. Unblock paths stay documented in the research doc if reopened.
 - **Upstream issue filed 2026-08-19:** https://github.com/can1357/oh-my-pi/issues/8940 — silent retention gap + differential; asks for retain-attempt telemetry (which, if shipped, retires the canary).
 - Switch trigger: related-project memory sharing becomes a live need → Hindsight (the one thing Mnemopi structurally cannot do).
+
+## Skills (settled 2026-08-22)
+
+Criterion: workflow fit, judged by the user. The 2026-08-20 fit audits (`pocock-skills-fit-report.html`, `pstack-skills-audit.html`) are diagnostic input; both kept on disk uncommitted, with adjudication addenda.
+
+**Audit adjudication (08-22, raw DBs):** both reports honest, units systematically mixed. 567 OMP "sessions" = 226 main + 341 subagent. grill-with-docs: 74 OMP session files / 215 Hermes sessions user-invoked (413 = registry loads). tdd/code-review: 0 user-invoked vs 108/320 model-invoked — the model reaches for them, the user never does; don't force slash commands. Only verification DBs reproduced exactly (OMP 527 @ 87.3% pass, Hermes 248): dedicated event tables beat string scans. Glossary of counting units: `CONTEXT.md`.
+
+**Adopted 08-22 (vanilla first; adapt only after real friction):**
+- `resolving-merge-conflicts`, `diagnosing-bugs` (Pocock) — sat on measured pains (merge churn: 64+ merges with conflict fallout; repeat-diagnosis loops) while structurally unavailable in OMP (recovery store only, `enableAgentsUser: false`). Their low use was availability, not misfit.
+- `create-verification-skill` (pstack) — the only genuine capability gap either audit found: verification is test/lint-centric; no user-journey checks on Paw app/portal/course sites.
+- `show-me-your-work` (pstack) — decision trails (Run Records, sealed proofs) are hand-rolled per repo today.
+- `reflect` (pstack) — the manual retrospective→skill-patch loop (137 patches on code-review), automated.
+- `recall` (pstack) — installed manual-only (ships `disable-model-invocation: true`). Forensic tool for canary-fires events; never wired (Rule 4, single memory owner).
+
+**Pruned from pack:** `to-spec`, `to-tickets` — 1 use each in 5 months; grill-with-docs + wayfinder already emit specs and tickets.
+
+**Rejected (and why):**
+- pstack duplication cluster (poteto-mode, laziness-protocol, subtract-before-you-add, minimize-reader-load, no-comments) — duplicates benchmarked ponytail (−10.3%) / caveman (−8.5%); double style injection = paid prompt weight; no-comments contradicts load-bearing `ponytail:` ceiling markers. Novel fragments fold into ponytail text, never a second skill.
+- pstack blast-radius, swarm — OMP-native subagent fan-out already covers both; a skill adds prompt weight over a proven native flow.
+- grill-me — grill-with-docs is a proven superset, including non-code decisions (this decision session ran on it).
+- handoff-as-deliberate-habit — compaction wiring (150K handoff) covers fragmentation mechanically; "remember to invoke at seams" is prose, and prose doesn't route (Rule 5). Skill stays installed for on-demand use.
+- writing-for-agents — doc-drift pain is real but the skill is prose discipline, no mechanism; revisit if drift persists.
+- pstack recall-as-wired-hedge — Rule 4 violation; retention-canary covers detection; upstream #8940 telemetry would retire even the canary.
+- wait-what, to-questionnaire, ask-matt, wizard — no observed need in 5 months / 1,000+ sessions.
+
+**Revisit:** next fit audit, or when a pruned skill's pain resurfaces. pstack Tier 1 leftovers (why, automate-me, interrogate, arena, technical-writing) reopen only if an adopted pstack pick earns its keep.
 
 ## Parked
 

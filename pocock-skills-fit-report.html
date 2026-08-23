@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matt Pocock Skills × Mihai's Usage — Fit Audit (Apr–Aug 2026)</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1c2430; --muted: #5b6675;
+    --line: #e3e7ec; --accent: #2456d6;
+    --t1: #1a7f4e; --t2: #2456d6; --t3: #8a6d1a; --t4: #b3392f;
+    --t1bg: #e8f6ee; --t2bg: #e9effc; --t3bg: #faf3dd; --t4bg: #fdeceb;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; }
+  header .sub { color: var(--muted); font-size: 14px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 15px; margin: 18px 0 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 14px; color: var(--accent); }
+  .card ul { margin: 0; padding-left: 18px; }
+  .card li { margin: 3px 0; font-size: 13.5px; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .pill { display: inline-block; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; font-size: 12.5px; color: var(--muted); margin: 2px 4px 2px 0; }
+  .callout { border-left: 4px solid var(--accent); background: var(--card); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 12px 0; }
+  .callout.warn { border-left-color: var(--t4); }
+  .callout.good { border-left-color: var(--t1); }
+  .callout b:first-child { display: block; margin-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 10px 0 24px; font-size: 13.5px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 9px 10px; background: #fbfcfd; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.rank { color: var(--muted); width: 2.2em; text-align: right; }
+  td.skill { font-weight: 600; white-space: nowrap; }
+  .score { display: inline-block; min-width: 34px; text-align: center; border-radius: 6px; padding: 1px 6px; font-weight: 600; font-size: 12.5px; }
+  .s5  { background: #d9f2e4; color: #14603a; }
+  .s45 { background: #e2f3e0; color: #2e6b1e; }
+  .s4  { background: #ecf3d8; color: #55701a; }
+  .s35 { background: #f7f0d2; color: #7a641a; }
+  .s3  { background: #faeccf; color: #8a5c14; }
+  .s25 { background: #fbe4cd; color: #94500f; }
+  .s2  { background: #fbdcca; color: #9c430e; }
+  .s15 { background: #fad4c6; color: #a4360f; }
+  .s1  { background: #f9cbc2; color: #ab2a12; }
+  .s05 { background: #f7c1bc; color: #b21d15; }
+  .tier { border-radius: 10px; padding: 3px 10px; font-weight: 700; font-size: 12.5px; display: inline-block; margin-right: 8px; }
+  .tier1 { background: var(--t1bg); color: var(--t1); }
+  .tier2 { background: var(--t2bg); color: var(--t2); }
+  .tier3 { background: var(--t3bg); color: var(--t3); }
+  .tier4 { background: var(--t4bg); color: var(--t4); }
+  .tierdesc { color: var(--muted); font-size: 13.5px; }
+  code { background: #eef1f5; border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 12px; }
+  @media print { body { background: #fff; } .wrap { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Matt Pocock Skills × Actual Usage</h1>
+  <div class="sub">Fit &amp; benefit audit · window 2026-04-01 → 2026-08-20 · sources: OMP, Hermes, Claude Code, 104 git repos (~/code + .dotfiles) · skills: <a href="https://github.com/mattpocock/skills">mattpocock/skills</a> (v1.2)</div>
+</header>
+
+<h2>Adjudication addendum — 2026-08-22</h2>
+<div class="callout warn">
+  <b>Numbers below are unit-mixed; raw-DB adjudication corrects them. Verdicts survive.</b>
+  Full outcome recorded in <code>DECISIONS_AI_TOOLING.md</code> (Skills, settled 2026-08-22).
+</div>
+<table>
+<tr><th>Claim in this report</th><th>Raw-data value</th><th>Correction</th></tr>
+<tr><td>567 OMP sessions</td><td>226 main + 341 subagent</td><td>Subagent sessions counted as sessions; top-level = 226.</td></tr>
+<tr><td>grill-with-docs 265+ (204 Hermes + 61 OMP)</td><td>215 Hermes sessions user-invoked (413 registry loads); 74 OMP skill-prompt files current</td><td>Snapshot drift, direction up. Flagship confirmed.</td></tr>
+<tr><td>wayfinder 114+</td><td>62 OMP + 52 Hermes explicit; 57 OMP current</td><td>Arithmetic reproduces.</td></tr>
+<tr><td>tdd/code-review/research “zero explicit invocations”</td><td>0 user-invoked, but tdd 108 / code-review 320 model-invoked (registry use_count)</td><td>Sharpened: the model reaches for them, the user never does. “Don't force slash commands” holds.</td></tr>
+<tr><td>resolving-merge-conflicts “installed-but-idle” (4 uses)</td><td>Recovery store only; invisible to OMP (<code>enableAgentsUser: false</code>)</td><td>Low use was availability, not adoption failure. Adopted into pack 08-22 with diagnosing-bugs.</td></tr>
+<tr><td>“14-skill pack in all three harnesses”</td><td>13 skills in curated pack</td><td>Count off by one.</td></tr>
+<tr><td>248 verification events</td><td>Hermes 248 exact; OMP 527 @ 87.3% pass</td><td>Only fully stable metrics — dedicated event tables.</td></tr>
+</table>
+<div class="callout">
+  <b>Actions taken 08-22:</b> pruned <code>to-spec</code>, <code>to-tickets</code>; added <code>resolving-merge-conflicts</code>, <code>diagnosing-bugs</code>; grill-me not added (grill-with-docs proven superset); handoff-as-habit rejected (Rule 5 — wiring covers); writing-for-agents not adopted (no mechanism).
+</div>
+
+<h2>What was audited</h2>
+<div class="cards">
+  <div class="card">
+    <h3>OMP</h3>
+    <ul>
+      <li><span class="num">567</span> sessions</li>
+      <li><span class="num">41K</span> assistant turns · <span class="num">50.7K</span> tool calls</li>
+      <li>Jun–Aug</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Hermes</h3>
+    <ul>
+      <li><span class="num">782</span> sessions</li>
+      <li><span class="num">73.9K</span> messages · <span class="num">42.2K</span> tool calls</li>
+      <li>May–Jul</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Claude Code</h3>
+    <ul>
+      <li><span class="num">~40</span> sessions</li>
+      <li>April-heavy, now a minor surface</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Git</h3>
+    <ul>
+      <li><span class="num">17</span> active repos</li>
+      <li><span class="num">643+</span> own commits</li>
+      <li>GitLab work + GitHub personal</li>
+    </ul>
+  </div>
+</div>
+
+<h3>Work mix (share of activity)</h3>
+<span class="pill">PawPass product dev (FastAPI/PostGIS + React Native) ~40%</span>
+<span class="pill">Agent/model benchmarking ~25%</span>
+<span class="pill">Data engineering (Syphon/Fabric, Mimir) ~15%</span>
+<span class="pill">Teaching / course prep ~10%</span>
+<span class="pill">Agent-stack infra ~10%</span>
+
+<h2>Highlights</h2>
+<div class="callout good">
+  <b>You already converged on the Pocock spine.</b>
+  grill → map → implement in worktrees → review → merge is your revealed workflow. <code>grill-with-docs</code> fired 265+ times (204 Hermes + 61 OMP) and <code>wayfinder</code> 114+ — before this audit, without anyone telling you to.
+</div>
+<div class="callout">
+  <b>Installed ≠ adopted.</b>
+  The 14-skill pack lives in all three harnesses, but usage concentrates in ~6 skills. <code>tdd</code>, <code>code-review</code> and <code>research</code> have <b>zero explicit invocations</b> — yet the underlying behaviors (248 verification events, 320 registry review uses, StandardsReview/SpecReview subagents) are among your strongest habits. You do the work natively; the slash-commands are bypassed.
+</div>
+<div class="callout">
+  <b>Review is institutional, alignment is habitual, teaching is real.</b>
+  MR-heavy delivery (64 merges in paw-backend alone), grilling before load-bearing changes, and 4 live course repos with 6 explicit <code>/teach</code> sessions.
+</div>
+<div class="callout warn">
+  <b>Pain #1 — session fragmentation.</b>
+  234 Hermes sessions ended by forced compression; constant “Continue / Resume” chains; OMP auto-handoff at 150K. Tasks routinely outgrow one context.
+</div>
+<div class="callout warn">
+  <b>Pain #2 — merge churn.</b>
+  64/26/25/18/15/10 merges across active repos; repeated conflict-recovery sessions with real fallout (missing imports, duplicate favorites UI, empty data tabs). Only 4 recorded uses of <code>resolving-merge-conflicts</code> — the largest pain-to-adoption gap found.
+</div>
+<div class="callout warn">
+  <b>Pain #3 — repeated failed diagnosis.</b>
+  “Got same error” loops, the Plane missing-comments prompt repeated verbatim, Mimir OCR defect cycles, a touch bug re-fixed three times in different components.
+</div>
+<div class="callout warn">
+  <b>Pain #4 — agent-doc drift.</b>
+  AGENTS.md/CLAUDE.md/CONTEXT.md maintained across ~12 repos; commits like <code>docs: reconcile post-merge drift</code>; 19 of 33 agent-created skills later marked stale.
+</div>
+
+<h2>Ranking</h2>
+
+<h3><span class="tier tier1">Tier 1</span><span class="tierdesc">Proven daily drivers — your workflow already <em>is</em> these skills; keep them, nothing to change</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Evidence</th></tr>
+<tr><td class="rank">1</td><td class="skill">grill-with-docs</td><td><span class="score s5">5</span></td><td><span class="score s5">5</span></td><td><b>265+ explicit activations.</b> Your single most-used skill. Directly counters your top failure mode — April rework loops and misalignment corrections.</td></tr>
+<tr><td class="rank">2</td><td class="skill">wayfinder</td><td><span class="score s5">5</span></td><td><span class="score s5">5</span></td><td><b>114+ explicit.</b> Maps exactly onto your issue-map → worktree → MR → merge-sequence loop on GitLab. “Implement issue #73/#74” is your bread and butter.</td></tr>
+<tr><td class="rank">3</td><td class="skill">grilling</td><td><span class="score s5">5</span></td><td><span class="score s4">4</span></td><td>The primitive under #1 — effectively fired 265+ times via composition. Load-bearing.</td></tr>
+<tr><td class="rank">4</td><td class="skill">domain-modeling</td><td><span class="score s5">5</span></td><td><span class="score s4">4</span></td><td>Auto-composed into every grill-with-docs run; ADRs + CONTEXT.md in 10+ repos. Doc-drift pain proves these docs are load-bearing — exactly what this skill maintains.</td></tr>
+<tr><td class="rank">5</td><td class="skill">code-review</td><td><span class="score s5">5</span></td><td><span class="score s4">4</span></td><td>320 Hermes registry uses; in OMP you reproduce its exact Standards/Spec split natively via subagents. MR-heavy delivery makes it structural.</td></tr>
+</table>
+
+<h3><span class="tier tier2">Tier 2</span><span class="tierdesc">High fit, under-used → biggest marginal wins; each sits installed-but-idle directly on top of a measured pain</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Evidence</th></tr>
+<tr><td class="rank">6</td><td class="skill">handoff</td><td><span class="score s5">5</span></td><td><span class="score s5">5</span></td><td>Pain #1. Only 7 deliberate handoffs vs 234 forced compressions. Invoking it deliberately at natural seams beats reorientation overhead.</td></tr>
+<tr><td class="rank">7</td><td class="skill">resolving-merge-conflicts</td><td><span class="score s5">5</span></td><td><span class="score s4">4</span></td><td>Pain #2. Merge churn everywhere; conflict fallout produced real bugs. 4 recorded uses — largest pain-to-adoption gap in the data.</td></tr>
+<tr><td class="rank">8</td><td class="skill">diagnosing-bugs</td><td><span class="score s4">4</span></td><td><span class="score s4">4</span></td><td>Pain #3. Its gated loop (red repro → minimise → hypothesise → instrument) <em>routes</em> rather than nudges — the mechanism your DECISIONS doc says you'd accept. 19 uses so far.</td></tr>
+<tr><td class="rank">9</td><td class="skill">writing-for-agents</td><td><span class="score s5">5</span></td><td><span class="score s4">4</span></td><td>Pain #4. You maintain, compress and curate agent docs by hand across ~12 repos. This skill is the discipline for the thing you already do manually.</td></tr>
+<tr><td class="rank">10</td><td class="skill">implement</td><td><span class="score s4">4</span></td><td><span class="score s3">3</span></td><td>Behavior exists (repo-backlog-implementation, 165 uses); Pocock's version adds pre-agreed TDD seams + closing review. Formalizes your issue→worktree→MR spine.</td></tr>
+</table>
+
+<h3><span class="tier tier3">Tier 3</span><span class="tierdesc">Genuine fit, situational — real matches with bounded or already-saturated benefit</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Evidence</th></tr>
+<tr><td class="rank">11</td><td class="skill">teach</td><td><span class="score s4">4</span></td><td><span class="score s3">3</span></td><td>6 explicit uses, 4 course repos, teaching workspaces with learning records. Already adopted where needed.</td></tr>
+<tr><td class="rank">12</td><td class="skill">tdd</td><td><span class="score s3">3</span></td><td><span class="score s3">3</span></td><td>Testing pervasive (248 verification events, 1108-test gates) but style is implementation-first: 0 explicit invocations across all three harnesses. Measured habit mismatch = adoption risk.</td></tr>
+<tr><td class="rank">13</td><td class="skill">improve-codebase-architecture</td><td><span class="score s3">3</span></td><td><span class="score s3">3</span></td><td>Periodic deepening survey fits paw-backend/mimir; overlaps ponytail-audit (16 uses), already adopted on measured cost.</td></tr>
+<tr><td class="rank">14</td><td class="skill">codebase-design</td><td><span class="score s3">3</span></td><td><span class="score s3">3</span></td><td>Hexagonal/DDD is literally your vocabulary (clean-ddd-hexagonal: 36 uses). Complements #10/#13 as the model-invoked discipline.</td></tr>
+<tr><td class="rank">15</td><td class="skill">research</td><td><span class="score s3">3</span></td><td><span class="score s2">2</span></td><td>You commit research MDs constantly but via scouts + inline sessions (0 explicit uses). Small marginal gain over the native pattern.</td></tr>
+<tr><td class="rank">16</td><td class="skill">prototype</td><td><span class="score s3">3</span></td><td><span class="score s2">2</span></td><td>8 total uses (DeepSWE branches, Mimir logging, Flask map). Habit exists but thin — you mostly go spec→implementation.</td></tr>
+<tr><td class="rank">17</td><td class="skill">triage</td><td><span class="score s2">2</span></td><td><span class="score s2">2</span></td><td>Issue-driven, but wayfinder generates your issues; no backlog-grooming habit visible. Could help if the benchmarking backlog grows.</td></tr>
+<tr><td class="rank">18</td><td class="skill">wizard</td><td><span class="score s2">2</span></td><td><span class="score s2">2</span></td><td>Occasional real fit: Fabric provisioning, K8s, credentials, GitLab setup. Rare enough to invoke ad hoc.</td></tr>
+</table>
+
+<h3><span class="tier tier4">Tier 4</span><span class="tierdesc">Redundant or low-fit — your existing stack covers these, or the need doesn't show up in five months of data</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Why</th></tr>
+<tr><td class="rank">19</td><td class="skill">to-spec</td><td>1 recorded use. grill-with-docs + wayfinder already emit your specs.</td></tr>
+<tr><td class="rank">20</td><td class="skill">to-tickets</td><td>1 recorded use. Wayfinder emits your tickets with blocking edges.</td></tr>
+<tr><td class="rank">21</td><td class="skill">grill-me</td><td>Superseded by grill-with-docs in every observed use; keep only for non-code decisions (CV tailoring, stack decisions).</td></tr>
+<tr><td class="rank">22</td><td class="skill">wait-what</td><td>Solves “message didn't land” — near-zero confusion signals in 1,657 prompts. Caveman already owns terseness, with measured −8.5% cost.</td></tr>
+<tr><td class="rank">23</td><td class="skill">to-questionnaire</td><td>Async decision docs for a colleague; zero evidence of the need despite team work.</td></tr>
+<tr><td class="rank">24</td><td class="skill">ask-matt</td><td>A router for people who don't know the flow. You've invoked the flow hundreds of times directly.</td></tr>
+<tr><td class="rank">25</td><td class="skill">setup-matt-pocock-skills</td><td>One-time utility, already effectively configured.</td></tr>
+</table>
+
+<h3>Sleeper pick from <code>misc/</code></h3>
+<div class="callout good">
+  <b>scaffold-exercises</b>
+  Teaching is ~10% of your commits across 4 course repos (student/solution notebook derivation, SQL validators, rubrics). The one non-headline skill that maps directly onto a recurring workload. Try it before the next course build.
+</div>
+
+<h2>Conclusions</h2>
+<div class="callout good">
+  <b>Keep Tier 1 untouched.</b>
+  grill-with-docs and wayfinder are your two flagship skills by hard count; they need continued use, not change.
+</div>
+<div class="callout">
+  <b>The money is in Tier 2.</b>
+  Four installed-but-idle skills sit exactly on your four measured pains: <code>handoff</code> ↔ fragmentation, <code>resolving-merge-conflicts</code> ↔ merge churn, <code>diagnosing-bugs</code> ↔ diagnosis loops, <code>writing-for-agents</code> ↔ doc drift.
+</div>
+<div class="callout">
+  <b>Trial per your own bar.</b>
+  DECISIONS_AI_TOOLING.md: adopt on locally measured success-adjusted cost, same as Ponytail (−10.3%) and Caveman (−8.5%). Easiest A/B: <code>resolving-merge-conflicts</code> and <code>handoff</code> — their trigger events (conflict, 150K compaction) are already logged.
+</div>
+<div class="callout warn">
+  <b>Don't force <code>tdd</code>/<code>code-review</code>/<code>research</code> as slash commands.</b>
+  The behaviors are already among your strongest habits, executed natively. Zero explicit invocations despite three-harness installation is a measured verdict, not an oversight.
+</div>
+<div class="callout warn">
+  <b>Prune Tier 4 from the curated roster</b>
+  (except grill-me for non-code decisions). Your own curator data shows large catalogs decay: 19/33 agent-created skills went stale. A tighter roster matches your measured-adoption philosophy.
+</div>
+
+<footer>
+  Generated 2026-08-20 · Evidence: <code>~/.omp/stats.db</code> (567 sessions), <code>~/.hermes/state.db</code> (782 sessions) + skills/.usage.json, <code>~/.claude/history.jsonl</code> + projects/, git logs across 104 repos · Skill set: mattpocock/skills v1.2 (25 stable + misc/in-progress).
+</footer>
+
+</div>
+</body>
+</html>

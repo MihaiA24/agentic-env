@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pstack Skills Fit Audit — Mihai — 2026-08-20</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1c2430; --muted: #5b6675;
+    --line: #e3e7ec; --accent: #2456d6;
+    --t1: #1a7f4e; --t2: #2456d6; --t3: #8a6d1a; --t4: #b3392f;
+    --t1bg: #e8f6ee; --t2bg: #e9effc; --t3bg: #faf3dd; --t4bg: #fdeceb;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; }
+  header .sub { color: var(--muted); font-size: 14px; }
+  h2 { font-size: 19px; margin: 40px 0 12px; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 15px; margin: 18px 0 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: 14px; color: var(--accent); }
+  .card ul { margin: 0; padding-left: 18px; }
+  .card li { margin: 3px 0; font-size: 13.5px; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .callout { border-left: 4px solid var(--accent); background: var(--card); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 12px 0; }
+  .callout.warn { border-left-color: var(--t4); }
+  .callout.good { border-left-color: var(--t1); }
+  .callout b:first-child { display: block; margin-bottom: 2px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 10px 0 24px; font-size: 13.5px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 9px 10px; background: #fbfcfd; border-bottom: 1px solid var(--line); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.rank { color: var(--muted); width: 2.2em; text-align: right; }
+  td.skill { font-weight: 600; white-space: nowrap; }
+  .score { display: inline-block; min-width: 34px; text-align: center; border-radius: 6px; padding: 1px 6px; font-weight: 600; font-size: 12.5px; }
+  .s5  { background: #d9f2e4; color: #14603a; }
+  .s45 { background: #e2f3e0; color: #2e6b1e; }
+  .s4  { background: #ecf3d8; color: #55701a; }
+  .s35 { background: #f7f0d2; color: #7a641a; }
+  .s3  { background: #faeccf; color: #8a5c14; }
+  .s25 { background: #fbe4cd; color: #94500f; }
+  .s2  { background: #fbdcca; color: #9c430e; }
+  .s15 { background: #fad4c6; color: #a4360f; }
+  .s1  { background: #f9cbc2; color: #ab2a12; }
+  .s05 { background: #f7c1bc; color: #b21d15; }
+  .tier { border-radius: 10px; padding: 3px 10px; font-weight: 700; font-size: 12.5px; display: inline-block; margin-right: 8px; }
+  .tier1 { background: var(--t1bg); color: var(--t1); }
+  .tier2 { background: var(--t2bg); color: var(--t2); }
+  .tier3 { background: var(--t3bg); color: var(--t3); }
+  .tier4 { background: var(--t4bg); color: var(--t4); }
+  .tierdesc { color: var(--muted); font-size: 13.5px; }
+  code { background: #eef1f5; border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 12px; }
+  @media print { body { background: #fff; } .wrap { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>pstack Skills Fit Audit</h1>
+  <div class="sub">Mihai · 2026-08-20 · window: April 2026 → now · sources: ~/code (48 targets) · OMP · Hermes · Claude Code · GitHub (MihaiA24) · GitLab (mihai.24) · catalog: <a href="https://github.com/cursor/plugins/tree/main/pstack/skills">cursor/plugins → pstack/skills</a> (44 skills)</div>
+</header>
+
+<h2>Adjudication addendum — 2026-08-22</h2>
+<div class="callout warn">
+  <b>Context correction: none of the 44 pstack skills were installed when this audit ran</b> — the catalog was a staging checkout in <code>/tmp/cursor-plugins</code>. All fit/benefit scores are projections from transcripts, not usage. Outcome recorded in <code>DECISIONS_AI_TOOLING.md</code> (Skills, settled 2026-08-22).
+</div>
+<table>
+<tr><th>Claim in this report</th><th>Raw-data value</th><th>Correction</th></tr>
+<tr><td>243 OMP sessions</td><td>stats.db: 567 distinct session files = 226 main + 341 subagent</td><td>243 not reproducible from the DB; likely top-level filesystem scan (DB main = 226).</td></tr>
+<tr><td>grill-with-docs ×413 Hermes, 110 OMP sessions</td><td>413 = registry <code>use_count</code> (loads); user-invoked = 215 Hermes sessions; exact OMP skill-prompts = 74 files</td><td>Registry loads and string scans overstate user-invoked use ~2×.</td></tr>
+<tr><td>tdd ×108 · code-review ×320</td><td>Registry use_count; user-invoked = 0 for both</td><td>Model-invoked ≠ user-invoked; both units now canonical in <code>CONTEXT.md</code>.</td></tr>
+<tr><td>527 + 248 verification events</td><td>Exact (OMP 527 @ 87.3% pass, Hermes 248)</td><td>Reproduced — dedicated event tables.</td></tr>
+</table>
+<div class="callout">
+  <b>Actions taken 08-22:</b> adopted vanilla <code>create-verification-skill</code>, <code>show-me-your-work</code>, <code>reflect</code>; <code>recall</code> installed manual-only (never wired — Rule 4, retention-canary covers detection). Rejected: duplication cluster (poteto-mode, laziness-protocol, subtract-before-you-add, minimize-reader-load, no-comments — duplicate benchmarked ponytail/caveman), blast-radius + swarm (OMP-native fan-out covers). Tier 1 leftovers (why, automate-me, interrogate, arena) reopen only if an adopted pick earns its keep. “Install 8 wholesale” declined per Rule 6 discipline.
+</div>
+
+<h2>Usage profile</h2>
+<div class="cards">
+  <div class="card">
+    <h3>~/code — repos</h3>
+    <ul>
+      <li><span class="num">48</span> active targets; Python-dominant (FastAPI, Polars, PySpark/Fabric, Neo4j)</li>
+      <li>TS product UIs: Expo app, Next.js portal, Vite viewers; <span class="num">1</span> Rust tool</li>
+      <li><span class="num">5</span> Spanish-first course repos</li>
+      <li>Signature: blueprint/ADR → issue branch → tests → <b>sealed proof</b> → CONTEXT handoff</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>OMP (Jun→now)</h3>
+    <ul>
+      <li><span class="num">243</span> sessions · <span class="num">1,735</span> prompts · <span class="num">17</span> projects</li>
+      <li>grill-with-docs in <span class="num">110</span> sessions · wayfinder <span class="num">62</span> · ponytail <span class="num">30</span></li>
+      <li><span class="num">341</span> subagent files · <span class="num">1,480</span> hub calls</li>
+      <li><span class="num">527</span> verification events, <span class="num">87.3%</span> pass</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Hermes (May–Jul)</h3>
+    <ul>
+      <li><span class="num">782</span> sessions · <span class="num">42k</span> tool calls</li>
+      <li>grill-with-docs ×<span class="num">413</span> · code-review ×<span class="num">320</span> · tdd ×<span class="num">108</span></li>
+      <li>Verification DB: <span class="num">248</span> events, failures retained</li>
+      <li>Jun-28 spike = <span class="num">140</span>-session 4-model benchmark matrix; kanban configured, unused</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>Remotes (since Apr)</h3>
+    <ul>
+      <li>GitHub: <span class="num">70</span> PRs · <span class="num">149</span> issues (benchmarks, dotfiles, window_zones)</li>
+      <li>GitLab: <span class="num">75</span> MRs · <span class="num">92</span> issues (PawPass ×3 repos, Mimir)</li>
+      <li>"Grilled" line-review notes; hard cutovers; verification sections in MR bodies</li>
+      <li>Claude Code: frozen-fingerprint independent reviewer only</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Highlights</h2>
+<div class="callout good">
+  <b>You independently built half of pstack.</b>
+  ponytail ≈ <i>laziness-protocol / subtract-before-you-add</i>; grill-with-docs ≈ <i>interrogate</i>; verification-recorder + evidence DBs ≈ <i>prove-it-works</i>; domain-modeling, tdd, prototype, diagnose all have pstack twins. High fit is everywhere — so the ranking is <b>benefit-weighted</b>: what matters is marginal value on top of your measured stack.
+</div>
+<div class="callout">
+  <b>Three documented pain loops pstack directly targets.</b>
+  (1) Stale acceptance artifacts / proof-freshness resealing (model-benchmarking chore) → <i>maintain-verification-skill</i>. (2) Hand-rolled decision trails per repo (Run Records, review guides, handoffs) → <i>show-me-your-work</i>. (3) Manual transcript→skill retrospectives (code-review skill patched 137×) → <i>reflect</i>.
+</div>
+<div class="callout">
+  <b>Biggest genuine gap: user-journey verification.</b>
+  Your verification is test/lint-centric. Paw consumer app, B2B portal, and course sites have no scripted "drive it like a user" check → <i>create-verification-skill</i> is the single highest-leverage install.
+</div>
+<div class="callout warn">
+  <b>Do not double-inject styles.</b>
+  poteto-mode, laziness-protocol, subtract-before-you-add, minimize-reader-load, and no-comments duplicate or contradict your benchmarked stack (ponytail −10.3% cost, caveman −8.5%; rationale comments and <code>ponytail:</code> ceiling markers are load-bearing). Installing them adds the prompt weight you've been measurably cutting.
+</div>
+<div class="callout">
+  <b>One observed incident argues for two skills.</b>
+  The Mnemopi silent-retention gap (07-19→08-10) → transcript-based <i>recall</i> as a hedge; the concurrent todo-state race under fan-out → <i>principle-separate-before-serializing-shared-state</i> as prevention.
+</div>
+
+<h2>Ranking — all 44 skills</h2>
+<p class="tierdesc">Fit = matches how you already work. Benefit = marginal value given your existing stack (skills you already own score low here even at max fit).</p>
+
+<h3><span class="tier tier1">Tier 1</span><span class="tierdesc">Adopt now — automates what you do by hand</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Why</th></tr>
+<tr><td class="rank">1</td><td class="skill">show-me-your-work</td><td><span class="score s5">5</span></td><td><span class="score s5">5</span></td><td>You hand-craft decision trails everywhere (sealed Run Records, 13-proof republications, ADR handoffs); a standard TSV log replaces bespoke per-repo formats for work reviewed after stepping away.</td></tr>
+<tr><td class="rank">2</td><td class="skill">create-verification-skill</td><td><span class="score s5">5</span></td><td><span class="score s5">5</span></td><td>Verification is your religion but test/lint-centric (527+248 events). Paw app, B2B portal, and course sites lack scripted user-journey verification — your biggest gap.</td></tr>
+<tr><td class="rank">3</td><td class="skill">blast-radius</td><td><span class="score s5">5</span></td><td><span class="score s45">4.5</span></td><td>You spin 9-reviewer global reviews for what this does surgically: what breaks beyond the diff + prove the one safety fact by running code. Runtime/tests/docs drift is a named frustration.</td></tr>
+<tr><td class="rank">4</td><td class="skill">reflect</td><td><span class="score s5">5</span></td><td><span class="score s45">4.5</span></td><td>You already mandate retrospectives that patch skills (137 patches on code-review, write-a-skill ×17) — manually. reflect is that loop, automated.</td></tr>
+<tr><td class="rank">5</td><td class="skill">why</td><td><span class="score s45">4.5</span></td><td><span class="score s45">4.5</span></td><td>ADR/issue-dense repos are the perfect substrate for parallel evidence-cited rationale; direct payoff on team repos (Paw, Mimir) and postmortems.</td></tr>
+<tr><td class="rank">6</td><td class="skill">maintain-verification-skill</td><td><span class="score s45">4.5</span></td><td><span class="score s4">4</span></td><td>Stale acceptance artifacts + proof-freshness resealing are named recurring chores; a periodic honesty pass is the lever. Pairs with #2.</td></tr>
+<tr><td class="rank">7</td><td class="skill">swarm</td><td><span class="score s5">5</span></td><td><span class="score s4">4</span></td><td>341 subagent files, up to 7 hub calls/turn, parallel Standards+Spec reviews — you improvise fan-out per session; swarm standardizes fan-out→drain→one report.</td></tr>
+<tr><td class="rank">8</td><td class="skill">automate-me</td><td><span class="score s45">4.5</span></td><td><span class="score s4">4</span></td><td>You engineered your style into ponytail/caveman/agentic-env; a transcript-derived personal -mode skill consolidates it into one portable artifact across harnesses.</td></tr>
+</table>
+
+<h3><span class="tier tier2">Tier 2</span><span class="tierdesc">Strong add — fills real gaps, cherry-pick per project</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Why</th></tr>
+<tr><td class="rank">9</td><td class="skill">interrogate</td><td><span class="score s5">5</span></td><td><span class="score s35">3.5</span></td><td>grill-with-docs (523 combined uses) covers plan-grilling; interrogate adds structured multi-model code review you currently rig by hand with frozen-fingerprint Claude Code sessions.</td></tr>
+<tr><td class="rank">10</td><td class="skill">arena</td><td><span class="score s35">3.5</span></td><td><span class="score s4">4</span></td><td>You run bake-offs constantly (OCR/model comparisons, DeepSWE twins, 4-condition benchmarks) but never graft the losers' best parts — that step is new and cheap for you.</td></tr>
+<tr><td class="rank">11</td><td class="skill">technical-writing</td><td><span class="score s45">4.5</span></td><td><span class="score s35">3.5</span></td><td>Enormous doc output (ADRs, runbooks, MR bodies, bilingual courses) with no writing standard in your stack; Diátaxis fits the course repos.</td></tr>
+<tr><td class="rank">12</td><td class="skill">recall</td><td><span class="score s4">4</span></td><td><span class="score s35">3.5</span></td><td>Transcript-based context reconstruction hedges the exact failure you lived: Mnemopi silently retaining nothing for 3 weeks. Complements the memory DB.</td></tr>
+<tr><td class="rank">13</td><td class="skill">figure-it-out</td><td><span class="score s4">4</span></td><td><span class="score s35">3.5</span></td><td>Your phased remediations (Paw phases 1–5, benchmark cutover) are hand-rolled playbooks; adds the hypothesis loop + decision logging, feeds #1.</td></tr>
+<tr><td class="rank">14</td><td class="skill">typescript-best-practices</td><td><span class="score s4">4</span></td><td><span class="score s35">3.5</span></td><td>Four active TS repos (paw-project, paw-b2b, mnemosine_front, mentor-graph) + TS hooks; auto-applies on .ts/.tsx, zero invocation cost.</td></tr>
+<tr><td class="rank">15</td><td class="skill">principle-separate-before-serializing-shared-state</td><td><span class="score s4">4</span></td><td><span class="score s35">3.5</span></td><td>A real concurrent todo-state race was observed in your OMP transcripts; at your fan-out volume this is preventive, not aspirational.</td></tr>
+<tr><td class="rank">16</td><td class="skill">setup-pstack</td><td><span class="score s3">—</span></td><td><span class="score s35">3.5</span></td><td>Enabler. You already run deliberate per-role models (Fable default / GPT-5.6-sol task / Opus advisor); wires pstack into that. Install only with Tier 1.</td></tr>
+</table>
+
+<h3><span class="tier tier3">Tier 3</span><span class="tierdesc">High fit, low marginal — you already live it; cheap as always-on principles for subagents</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Why</th></tr>
+<tr><td class="rank">17</td><td class="skill">principle-build-the-lever</td><td><span class="score s5">5</span></td><td><span class="score s3">3</span></td><td>agentic-env, notebook derivers, checkers, proof publishers — the principle pushes subagents to build levers for remaining chores (resealing, notebook mirrors).</td></tr>
+<tr><td class="rank">18</td><td class="skill">principle-prove-it-works</td><td><span class="score s5">5</span></td><td><span class="score s25">2.5</span></td><td>Already instrumented (verification-recorder, evidence DBs); value is only in propagating the norm to subagents.</td></tr>
+<tr><td class="rank">19</td><td class="skill">principle-encode-lessons-in-structure</td><td><span class="score s5">5</span></td><td><span class="score s25">2.5</span></td><td>You rejected prose nudges at 16% measured adherence and built hooks instead — this IS your doctrine.</td></tr>
+<tr><td class="rank">20</td><td class="skill">principle-sequence-verifiable-units</td><td><span class="score s5">5</span></td><td><span class="score s25">2.5</span></td><td>129 merged PRs/MRs in issue-sized, proof-ending slices; already your default delivery style.</td></tr>
+<tr><td class="rank">21</td><td class="skill">principle-type-system-discipline</td><td><span class="score s4">4</span></td><td><span class="score s3">3</span></td><td>Typed telemetry unions, mypy, Pydantic-at-boundary; reinforces across the TS/Python mix.</td></tr>
+<tr><td class="rank">22</td><td class="skill">principle-boundary-discipline</td><td><span class="score s4">4</span></td><td><span class="score s3">3</span></td><td>Auth/sync/privacy-allowlist boundary work recurs in Paw; matches existing practice.</td></tr>
+<tr><td class="rank">23</td><td class="skill">principle-make-operations-idempotent</td><td><span class="score s4">4</span></td><td><span class="score s25">2.5</span></td><td>agentic-update-stack is explicitly convergence-oriented; booking idempotency, benchmark reruns.</td></tr>
+<tr><td class="rank">24</td><td class="skill">principle-foundational-thinking</td><td><span class="score s4">4</span></td><td><span class="score s25">2.5</span></td><td>Contracts/blueprints-first already; mild reinforcement.</td></tr>
+<tr><td class="rank">25</td><td class="skill">unslop</td><td><span class="score s35">3.5</span></td><td><span class="score s25">2.5</span></td><td>Cheap always-on; complements caveman (which compresses; unslop de-slops). Marginal because your prose is already terse.</td></tr>
+<tr><td class="rank">26</td><td class="skill">principle-fix-root-causes</td><td><span class="score s5">5</span></td><td><span class="score s2">2</span></td><td>Your diagnose skill (reproduce→instrument→fix→regression) already encodes this.</td></tr>
+<tr><td class="rank">27</td><td class="skill">principle-migrate-callers-then-delete-legacy-apis</td><td><span class="score s5">5</span></td><td><span class="score s2">2</span></td><td>Hard cutovers are literal work items ("Hard-cut Functional V1", Mimir alias removal); harness contract already mandates clean cutover.</td></tr>
+<tr><td class="rank">28</td><td class="skill">principle-outcome-oriented-execution</td><td><span class="score s45">4.5</span></td><td><span class="score s2">2</span></td><td>Same cluster as #27; already the norm in phased remediations.</td></tr>
+<tr><td class="rank">29</td><td class="skill">principle-never-block-on-the-human</td><td><span class="score s45">4.5</span></td><td><span class="score s2">2</span></td><td>autoqaConsent granted, "Go / Continue / Next one" prompt style — the harness already enforces autonomy.</td></tr>
+<tr><td class="rank">30</td><td class="skill">teach</td><td><span class="score s35">3.5</span></td><td><span class="score s25">2.5</span></td><td>You teach professionally (5 course repos, Spanish-first), but your teaching is course authoring, not codebase explanation — and you keep your own teach skill.</td></tr>
+<tr><td class="rank">31</td><td class="skill">principle-exhaust-the-design-space</td><td><span class="score s3">3</span></td><td><span class="score s25">2.5</span></td><td>Bake-offs are your method; your prototype skill covers the rest.</td></tr>
+<tr><td class="rank">32</td><td class="skill">how</td><td><span class="score s35">3.5</span></td><td><span class="score s2">2</span></td><td>graphify + codebase-memory + how-heavy ADRs already answer this.</td></tr>
+<tr><td class="rank">33</td><td class="skill">architect</td><td><span class="score s4">4</span></td><td><span class="score s2">2</span></td><td>Covered by grill-with-docs + writing-plans + domain-modeling; the types-first sketch is the only novelty.</td></tr>
+<tr><td class="rank">34</td><td class="skill">principle-guard-the-context-window</td><td><span class="score s4">4</span></td><td><span class="score s2">2</span></td><td>You engineered 150K handoff compaction, caveman, compressed ADRs — solved with tooling, not principle text.</td></tr>
+<tr><td class="rank">35</td><td class="skill">principle-redesign-from-first-principles</td><td><span class="score s35">3.5</span></td><td><span class="score s2">2</span></td><td>Benchmark replacement shows the behavior exists; occasional need.</td></tr>
+<tr><td class="rank">36</td><td class="skill">tdd</td><td><span class="score s3">3</span></td><td><span class="score s2">2</span></td><td>You run your own tdd skill (108 Hermes uses); pstack's deliberately-narrow variant adds nothing.</td></tr>
+<tr><td class="rank">37</td><td class="skill">principle-model-the-domain</td><td><span class="score s5">5</span></td><td><span class="score s15">1.5</span></td><td>Perfect fit, fully redundant: domain-modeling + ubiquitous-language skills + glossaries already do it.</td></tr>
+</table>
+
+<h3><span class="tier tier4">Tier 4</span><span class="tierdesc">Skip — duplicates your measured stack or contradicts it</span></h3>
+<table>
+<tr><th>#</th><th>Skill</th><th>Fit</th><th>Benefit</th><th>Why</th></tr>
+<tr><td class="rank">38</td><td class="skill">poteto-mode</td><td><span class="score s4">4</span></td><td><span class="score s15">1.5</span></td><td>Bundles concise+subagents+unslop+simple code+verified — i.e., your existing ponytail+caveman+verification hooks. Double-injecting styles risks conflict; only useful in a vanilla Cursor session.</td></tr>
+<tr><td class="rank">39</td><td class="skill">principle-experience-first</td><td><span class="score s25">2.5</span></td><td><span class="score s2">2</span></td><td>Paw is a product, but you're the backend/data/verification person; UX tradeoffs mostly live elsewhere.</td></tr>
+<tr><td class="rank">40</td><td class="skill">principle-subtract-before-you-add</td><td><span class="score s45">4.5</span></td><td><span class="score s1">1</span></td><td>Ponytail (forced, measured −10.3% cost) already covers deletion-first.</td></tr>
+<tr><td class="rank">41</td><td class="skill">principle-minimize-reader-load</td><td><span class="score s4">4</span></td><td><span class="score s1">1</span></td><td>Covered by ponytail-review / codebase-cleanup habits (16 audits, 13 reviews).</td></tr>
+<tr><td class="rank">42</td><td class="skill">principle-laziness-protocol</td><td><span class="score s5">5</span></td><td><span class="score s05">0.5</span></td><td>Literal ponytail duplicate — you built, benchmarked, and force-load your own. Adopting it is regression to unmeasured text.</td></tr>
+<tr><td class="rank">43</td><td class="skill">no-comments</td><td><span class="score s15">1.5</span></td><td><span class="score s05">0.5</span></td><td>Actively contradicts you: hooks carry deliberate rationale/invariant comments and <code>ponytail:</code> ceiling markers are load-bearing.</td></tr>
+<tr><td class="rank">44</td><td class="skill">bro</td><td><span class="score s15">1.5</span></td><td><span class="score s05">0.5</span></td><td>No jargon-translation habit in 1,000+ sessions; your plain-language need (Spanish beginner courses) is authoring, not restating.</td></tr>
+</table>
+
+<h2>Conclusions</h2>
+<div class="callout good">
+  <b>Install 8 (+wiring).</b>
+  show-me-your-work, create-verification-skill, maintain-verification-skill, blast-radius, reflect, why, swarm, automate-me — plus setup-pstack to bind them to your Fable/GPT/Opus role split. Together they hit all three documented pain loops: proof freshness, hand-rolled decision trails, manual retrospectives.
+</div>
+<div class="callout">
+  <b>Cherry-pick Tier 2 per project.</b>
+  interrogate for Paw MRs · technical-writing for courses/ADRs · arena for the next bake-off · typescript-best-practices in the four TS repos · recall as the Mnemopi hedge · separate-before-serializing-shared-state given the observed todo race.
+</div>
+<div class="callout warn">
+  <b>Skip the duplication cluster.</b>
+  laziness-protocol / subtract-before-you-add / minimize-reader-load / no-comments / poteto-mode. You already run measured equivalents; these only add back prompt weight you benchmarked away.
+</div>
+<div class="callout">
+  <b>Method note.</b>
+  pstack's philosophy is already your philosophy — you converged on it independently and instrumented it. That is why the ranking is benefit-weighted: fit alone would put nearly everything at the top and tell you nothing. Follow your own doctrine: install Tier 1, measure adherence/cost like you did with ponytail and the cadence-governor, and delete what doesn't earn its tokens.
+</div>
+
+<footer>
+  Generated 2026-08-20 by 4 parallel audit subagents (code repos, OMP, Hermes+Claude Code, GitHub+GitLab). Full evidence: <code>agent://CodeReposScout</code> · <code>agent://OmpScout</code> · <code>agent://HermesClaudeScout</code> · <code>agent://RemotesScout</code>. Skill catalog snapshot: <code>/tmp/cursor-plugins/pstack/skills</code>.
+</footer>
+
+</div>
+</body>
+</html>

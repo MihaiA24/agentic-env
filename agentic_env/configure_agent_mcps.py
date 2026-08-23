@@ -101,6 +101,7 @@ OMP_MCP_PATHS = (
     Path.home() / ".omp" / "agent" / "mcp.json",
     Path.home() / ".pi" / "agent" / "mcp.json",
 )
+OMP_AGENT_CONFIG_PATH = Path.home() / ".omp" / "agent" / "config.yml"
 OMP_SKILL_ROOTS = (
     Path.home() / ".omp" / "agent" / "skills",
     Path.home() / ".pi" / "agent" / "skills",
@@ -663,6 +664,87 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     return ok_all
 
 
+_OMP_HOOK_FILES = ("verification-recorder.ts", "retention-canary.ts")
+
+# Settings that must be present in ~/.omp/agent/config.yml
+# (DECISIONS_AI_TOOLING.md "Live wiring": compaction tuning, single memory
+# owner, hooks, recovery-store discipline).
+OMP_AGENT_CONFIG_MARKERS = (
+    "backend: mnemopi",
+    "polyphonicRecall: false",
+    "thresholdTokens: 150000",
+    "idleEnabled: true",
+    "handoffSaveToDisk: true",
+    "enableAgentsUser: false",
+    *_OMP_HOOK_FILES,
+)
+
+_OMP_AGENT_CONFIG_TEMPLATE = """memory:
+  backend: mnemopi
+  polyphonicRecall: false
+{extensions}compaction:
+  thresholdTokens: 150000
+  idleEnabled: true
+  handoffSaveToDisk: true
+  methodOrder:
+    - handoff
+    - remote
+    - soft
+skills:
+  enableAgentsUser: false
+"""
+
+
+def _find_omp_hooks_dir() -> Path | None:
+    roots: list[Path] = []
+    env_root = os.environ.get("AGENTIC_DOTFILES_ROOT")
+    if env_root:
+        roots.append(Path(env_root))
+    for base in (Path.cwd().resolve(), Path(__file__).resolve()):
+        roots.append(base)
+        roots.extend(base.parents)
+    for root in roots:
+        hooks_dir = root / "omp" / "hooks"
+        if (hooks_dir / _OMP_HOOK_FILES[-1]).is_file():
+            return hooks_dir
+    return None
+
+
+def converge_omp_agent_config(*, dry_run: bool) -> bool:
+    path = OMP_AGENT_CONFIG_PATH
+    if not path.exists():
+        hooks_dir = _find_omp_hooks_dir()
+        if hooks_dir is None:
+            extensions = ""
+            warn(
+                f"{path}: omp/hooks not found (set AGENTIC_DOTFILES_ROOT); "
+                "seeding without hook extensions"
+            )
+        else:
+            hook_lines = "\n".join(f"  - {hooks_dir / name}" for name in _OMP_HOOK_FILES)
+            extensions = f"extensions:\n{hook_lines}\n"
+        content = _OMP_AGENT_CONFIG_TEMPLATE.format(extensions=extensions)
+        if not _write_atomic_text(path, content, dry_run=dry_run):
+            return False
+        if not dry_run:
+            ok(f"{path}: agent config seeded from stack contract")
+        return True
+
+    # Existing config is user-owned YAML this module cannot safely rewrite
+    # (block lists and quoted scalars do not survive the built-in parser),
+    # so verify the contract markers and report drift instead of editing.
+    text = path.read_text(encoding="utf-8")
+    missing = [marker for marker in OMP_AGENT_CONFIG_MARKERS if marker not in text]
+    if not missing:
+        skip(f"{path}: agent config matches stack contract")
+        return True
+    warn(
+        f"{path}: missing stack contract settings: {', '.join(missing)} "
+        "(see DECISIONS_AI_TOOLING.md 'Live wiring'; merge manually)"
+    )
+    return True
+
+
 def _install_skill(root: Path, skill: Skill, *, dry_run: bool) -> bool:
     skill_path = root / skill.name / "SKILL.md"
     if skill_path.exists():
@@ -741,6 +823,7 @@ def main(argv: list[str] | None = None) -> int:
         ok_all = configure_hermes(servers, dry_run=args.dry_run) and ok_all
     if "omp" in agents:
         ok_all = configure_omp(servers, dry_run=args.dry_run) and ok_all
+        ok_all = converge_omp_agent_config(dry_run=args.dry_run) and ok_all
     if install_matching_skills:
         install_names = list(server_names)
         if server_names and "ponytail" not in install_names:

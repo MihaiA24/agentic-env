@@ -225,6 +225,46 @@ memory:
                 self.assertIn("codebase-memory-mcp", parsed["mcpServers"])
                 self.assertEqual(parsed["disabledServers"], expected_disabled)
 
+    def test_converge_omp_agent_config_seeds_missing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dotfiles = Path(temp_dir) / "dotfiles"
+            hooks = dotfiles / "omp" / "hooks"
+            hooks.mkdir(parents=True)
+            for name in configure_agent_mcps._OMP_HOOK_FILES:
+                (hooks / name).write_text("// hook\n", encoding="utf-8")
+            config_path = Path(temp_dir) / "config.yml"
+            with (
+                patch(
+                    "agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH",
+                    config_path,
+                ),
+                patch.dict(
+                    "os.environ", {"AGENTIC_DOTFILES_ROOT": str(dotfiles)}
+                ),
+            ):
+                assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
+            text = config_path.read_text(encoding="utf-8")
+            for marker in configure_agent_mcps.OMP_AGENT_CONFIG_MARKERS:
+                self.assertIn(marker, text)
+            self.assertIn(str(hooks / "retention-canary.ts"), text)
+
+    def test_converge_omp_agent_config_warns_on_drift_without_rewriting(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.yml"
+            original = "memory:\n  backend: mnemopi\n"
+            config_path.write_text(original, encoding="utf-8")
+            with (
+                patch(
+                    "agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH",
+                    config_path,
+                ),
+                patch("agentic_env.configure_agent_mcps.warn") as mock_warn,
+            ):
+                assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
+            mock_warn.assert_called_once()
+            self.assertIn("thresholdTokens: 150000", mock_warn.call_args[0][0])
+            self.assertEqual(config_path.read_text(encoding="utf-8"), original)
+
     def test_install_skills_omits_lean_ctx_and_agentmemory_on_omp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "skills"

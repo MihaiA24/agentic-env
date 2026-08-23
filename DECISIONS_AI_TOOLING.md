@@ -22,6 +22,7 @@
 - Memory: `backend: mnemopi`, `polyphonicRecall: false` — single memory owner (ADR-0006)
 - MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances
 - Skills: curated at install time via `skill-packs.json`; `skills.enableAgentsUser: false` (`~/.agents/skills` = recovery store only). Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
+- Fresh-machine reproducibility: `agentic-configure-agent-mcps` seeds `~/.omp/agent/config.yml` from this contract when absent and verifies it when present (`converge_omp_agent_config`; existing user YAML is never rewritten)
 
 ## Rules (measured; violations cost real money)
 

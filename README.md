@@ -39,6 +39,7 @@ Docs:
     - Hermes: `lean-ctx`, `codebase-memory-mcp`, and `agentmemory`
     - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are deliberately not written and stale entries are removed (ADR-0006/ADR-0008)
   - Adds matching global skills, with the same OMP exclusions.
+  - Converges `~/.omp/agent/config.yml` to the stack contract: seeds it when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.
 - `agentic-bootstrap`
   - One-shot onboarding in phase order:
     - installs agent CLIs

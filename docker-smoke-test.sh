@@ -60,6 +60,26 @@ for (const mcpPath of [
   }
 }
 
+const agentConfig = path.join(home, '.omp', 'agent', 'config.yml');
+if (!fs.existsSync(agentConfig)) {
+  throw new Error(`missing ${agentConfig} (should be seeded from the stack contract)`);
+}
+const configText = fs.readFileSync(agentConfig, 'utf8');
+for (const marker of [
+  'backend: mnemopi',
+  'polyphonicRecall: false',
+  'thresholdTokens: 150000',
+  'idleEnabled: true',
+  'handoffSaveToDisk: true',
+  'enableAgentsUser: false',
+  'verification-recorder.ts',
+  'retention-canary.ts',
+]) {
+  if (!configText.includes(marker)) {
+    throw new Error(`${agentConfig} missing stack contract setting: ${marker}`);
+  }
+}
+
 for (const [skillsRoot, names] of [
   [path.join(home, '.hermes', 'skills'), ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']],
   [path.join(home, '.omp', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']],

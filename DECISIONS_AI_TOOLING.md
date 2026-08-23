@@ -83,7 +83,3 @@ Criterion: workflow fit, judged by the user. The 2026-08-20 fit audits (`docs/po
 - **Secondary-agent stack** (Hermes / Claude Code / Codex: lean-ctx + agentmemory + codebase-memory-mcp) — untouched, unmeasured on those harnesses. Revisit when a secondary harness becomes primary for any project, or agentmemory shows nonzero use.
 - Paired OMP/Hermes benchmark — only if OMP-primary ever needs to be definitive.
 - Context I/O re-shop — only when grep+LSP+scouts visibly fail on a real task.
-
-## Open
-
-- Merge `feat/agent-stack-measured-cleanup` to main — user's call. PR: https://github.com/MihaiA24/.dotfiles/pull/new/feat/agent-stack-measured-cleanup

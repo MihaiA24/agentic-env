@@ -69,7 +69,8 @@ export function canonicalize(command: string): string {
 let db: Database | null = null;
 function open(): Database {
 	if (db) return db;
-	db = new Database(DB_PATH, { create: true });
+	// Test seam: OMP_VERIFICATION_DB points the store at a temp file.
+	db = new Database(process.env.OMP_VERIFICATION_DB ?? DB_PATH, { create: true });
 	db.exec("PRAGMA journal_mode = WAL");
 	db.exec(`CREATE TABLE IF NOT EXISTS verification_events (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

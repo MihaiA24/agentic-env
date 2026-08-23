@@ -31,6 +31,8 @@ Enforcement is **wiring, not prose** (measured: a 3×-repeated prose mandate ach
 4. **Shop for a dedicated semantic-search tool** — rejected. The discovery funnel measured trending-list yield at 0–1/20 qualifying; swap only when semantic search measurably fails, same trigger discipline as ADR-0006.
 
 ## Consequences
+Written at acceptance (08-05), before the fallback executed. The items below describing an OMP semantic-only mount (per-harness installer wiring, the 18→1 schema tax) are superseded by the executed fallback in Status: OMP gets no `lean-ctx` entry at all and its schema tax is 0; secondary agents keep full wiring.
+
 - ADR-0007's retention of `ctx_shell`/`ctx_read`/`ctx_execute` is reversed. Its own warning applied: it corrected a no-measurement error with a usage measurement, but usage was the wrong metric — replaceability is.
 - The `~/.claude/CLAUDE.md` "Replace Mode (native tools denied)" block is now load-bearing wrong for this ADR and must be scoped to harnesses where it is true, or deleted (open item Q8).
 - Installer and smoke contract must configure `lean-ctx` per-harness: full wiring for secondary agents (until Q-F(a) resolves), semantic-only filter on OMP. The per-tool gating pattern already exists in `~/.codex/config.toml` (`[mcp_servers.lean-ctx.tools.<name>]`).

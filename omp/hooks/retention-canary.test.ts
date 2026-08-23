@@ -94,7 +94,13 @@ test("no matching bank (new project) stays silent", () => {
 
 test("empty bank counts as never retained and fires", () => {
 	makeBank("empty-abc123", null);
-	const warning = checkRetention({ cwd: "/x/empty", sessionFile: current, banksDir });
+	// Own session dir so the test proves the threshold without leftovers from other tests.
+	const dir = join(root, "sessions", "-empty");
+	mkdirSync(dir, { recursive: true });
+	const cur = join(dir, "current.jsonl");
+	writeFileSync(cur, "{}\n");
+	for (const name of ["e1.jsonl", "e2.jsonl"]) writeFileSync(join(dir, name), "{}\n");
+	const warning = checkRetention({ cwd: "/x/empty", sessionFile: cur, banksDir });
 	expect(warning).toContain("never (empty bank)");
 });
 

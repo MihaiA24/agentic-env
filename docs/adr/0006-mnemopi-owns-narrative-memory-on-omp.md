@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-`AI_CONTEXT_TOOLING_COMPARISON.md` (advisory, uncommitted, snapshot 2026-07-24) ranks Hindsight first for the memory layer on evidence grade A — ~91.4% LongMemEval answer accuracy. That grade does not survive checking: the comparison calls the result "independently reproduced", but both cited sources are first-party (the vendor's repository and `arXiv:2512.12818`, authored by Vectorize). The number is a vendor benchmark on a public corpus, not an independent reproduction. OMP 17.1.5 accepts `off | local | hindsight | mnemopi`, so the recommendation is implementable, not aspirational. Meanwhile the host runs `memory.backend: mnemopi` and simultaneously mounts the `agentmemory` MCP in OMP: two narrative memory owners capturing the same turns.
+`AI_CONTEXT_TOOLING_COMPARISON.md` (advisory, snapshot 2026-07-24; deleted 2026-08-19 — full ledger in its git history) ranks Hindsight first for the memory layer on evidence grade A — ~91.4% LongMemEval answer accuracy. That grade does not survive checking: the comparison calls the result "independently reproduced", but both cited sources are first-party (the vendor's repository and `arXiv:2512.12818`, authored by Vectorize). The number is a vendor benchmark on a public corpus, not an independent reproduction. OMP 17.1.5 accepts `off | local | hindsight | mnemopi`, so the recommendation is implementable, not aspirational. Meanwhile the host runs `memory.backend: mnemopi` and simultaneously mounts the `agentmemory` MCP in OMP: two narrative memory owners capturing the same turns.
 
 ## Decision
 On the primary harness (OMP), Mnemopi owns narrative memory, and `agentmemory` is unmounted from OMP so there is exactly one owner. Hindsight is not adopted now; it is the named upgrade path.

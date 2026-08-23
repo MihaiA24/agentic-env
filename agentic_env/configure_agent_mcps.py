@@ -494,6 +494,18 @@ class _OmpConfigAdapter:
 
         return changed
 
+    def remove_servers(self, data: dict[str, object], names: tuple[str, ...]) -> bool:
+        mcp_servers = data.get("mcpServers")
+        if not isinstance(mcp_servers, dict):
+            return False
+        changed = False
+        for name in names:
+            if name in mcp_servers:
+                del mcp_servers[name]
+                ok(f"{self.path}: {name} MCP removed (excluded on OMP)")
+                changed = True
+        return changed
+
     def validate(self, data: dict[str, object], servers: list[McpServer]) -> bool:
         mcp_servers = data.get("mcpServers")
         if not isinstance(mcp_servers, dict):
@@ -529,6 +541,7 @@ def _write_json_config_data(
     adapter: _OmpConfigAdapter,
     servers: list[McpServer],
     *,
+    remove: tuple[str, ...] = (),
     dry_run: bool,
 ) -> bool:
     data = adapter._read()
@@ -540,6 +553,7 @@ def _write_json_config_data(
     except ValueError as exc:
         warn(f"{adapter.path}: {exc}")
         return False
+    changed = adapter.remove_servers(data, remove) or changed
 
     if not adapter.validate(data, servers):
         warn(f"{adapter.path}: generated config failed validation")
@@ -599,37 +613,26 @@ def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
     return True
 
 
-def _validate_omp_config(data: dict[str, object], servers: list[McpServer]) -> bool:
-    mcp_servers = data.get("mcpServers")
-    if not isinstance(mcp_servers, dict):
-        return False
-    for server in servers:
-        entry = mcp_servers.get(server.name)
-        if not isinstance(entry, dict):
-            return False
-        if entry.get("command") != server.command:
-            return False
-        args = entry.get("args", [])
-        if not server.args and args:
-            return False
-        if server.args and args != list(server.args):
-            return False
-    return True
+# MCP servers deliberately absent from OMP; stale pre-existing entries are removed on converge.
+OMP_EXCLUDED_SERVERS = {
+    "agentmemory": "ADR-0006: Mnemopi owns narrative memory on OMP",
+    "lean-ctx": "ADR-0008 fallback: lean-ctx was dropped from OMP",
+}
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     omp_servers: list[McpServer] = []
     for server in servers:
-        if server.name == "agentmemory":
-            skip("OMP config: agentmemory MCP not written (ADR-0006)")
-        elif server.name == "lean-ctx":
-            skip("OMP config: lean-ctx MCP not written (ADR-0008 fallback)")
+        reason = OMP_EXCLUDED_SERVERS.get(server.name)
+        if reason:
+            skip(f"OMP config: {server.name} MCP not written ({reason})")
         else:
             omp_servers.append(server)
 
+    excluded = tuple(OMP_EXCLUDED_SERVERS)
     ok_all = True
     for adapter in _OMP_CONFIG_ADAPTERS:
-        if not _write_json_config_data(adapter, omp_servers, dry_run=dry_run):
+        if not _write_json_config_data(adapter, omp_servers, remove=excluded, dry_run=dry_run):
             ok_all = False
     return ok_all
 
@@ -663,13 +666,9 @@ def install_skills(agents: list[str], server_names: list[str], *, dry_run: bool)
     ok_all = True
     for root in roots:
         for server_name in server_names:
-            if root in OMP_SKILL_ROOTS and server_name == "agentmemory":
-                # ADR-0006: Mnemopi owns narrative memory on OMP.
-                skip(f"{root / server_name}: skill not installed on OMP (ADR-0006)")
-                continue
-            if root in OMP_SKILL_ROOTS and server_name == "lean-ctx":
-                # ADR-0008 fallback: lean-ctx was dropped from OMP.
-                skip(f"{root / server_name}: skill not installed on OMP (ADR-0008 fallback)")
+            reason = OMP_EXCLUDED_SERVERS.get(server_name)
+            if root in OMP_SKILL_ROOTS and reason:
+                skip(f"{root / server_name}: skill not installed on OMP ({reason})")
                 continue
             ok_all = _install_skill(root, SKILLS[server_name], dry_run=dry_run) and ok_all
     return ok_all

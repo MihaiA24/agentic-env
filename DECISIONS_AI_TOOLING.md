@@ -21,7 +21,7 @@
 - MCP: `mcpServers: {}` · `disabledServers: [agentmemory, node_repl, codebase-memory-mcp, lean-ctx]` (bak `mcp.json.bak-leanctx-drop`)
 - Memory: `backend: mnemopi`, `polyphonicRecall: false` — single memory owner (ADR-0006)
 - MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances
-- Skills: curated at install time via `skill-packs.json`; `skills.enableAgentsUser: false` (`~/.agents/skills` = recovery store only)
+- Skills: curated at install time via `skill-packs.json`; `skills.enableAgentsUser: false` (`~/.agents/skills` = recovery store only). Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
 
 ## Rules (measured; violations cost real money)
 

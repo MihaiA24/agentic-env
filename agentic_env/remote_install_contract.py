@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import hashlib
 
-from urllib.parse import urlparse
 from typing import Mapping
 
 from .common import warn
 
 
 REMOTE_KIND_NPM = "npm"
-REMOTE_KIND_RAW_URL = "raw-url"
 REMOTE_KIND_SCRIPT = "script"
 
 
@@ -17,21 +15,6 @@ def _is_pinned_npm_package(package: str) -> bool:
     """Return True when an npm package spec is pinned to an explicit version."""
     _, sep, version = package.rpartition("@")
     return bool(sep and version and version.lower() != "latest")
-
-
-def _is_pinned_raw_url(raw_url: str) -> bool:
-    """Return True when a raw GitHub URL is pinned to a non-mutable ref."""
-    parsed = urlparse(raw_url)
-    if parsed.scheme not in {"http", "https"}:
-        return False
-    path = [part for part in parsed.path.split("/") if part]
-    if len(path) < 3:
-        return False
-    # raw.githubusercontent.com/<owner>/<repo>/<ref>/<path...>
-    ref = path[2]
-    if not ref:
-        return False
-    return ref.lower() not in {"main", "master", "develop", "trunk", "latest", "head"}
 
 
 def _is_sha256(value: str | None) -> bool:
@@ -55,7 +38,7 @@ def validate_remote_contract_reference(
         warn(f"[{scope}] invalid remote contract entry for {label!r} in {scope}")
         return False
 
-    if kind not in {REMOTE_KIND_NPM, REMOTE_KIND_RAW_URL, REMOTE_KIND_SCRIPT}:
+    if kind not in {REMOTE_KIND_NPM, REMOTE_KIND_SCRIPT}:
         warn(f"[{scope}] {label}: unsupported remote kind '{kind}'")
         return False
 
@@ -63,13 +46,6 @@ def validate_remote_contract_reference(
         if kind == REMOTE_KIND_NPM and not _is_pinned_npm_package(reference):
             warn(
                 f"[{scope}] {label}: pinned npm package must include an explicit version, "
-                f"found '{reference}'."
-            )
-            return False
-
-        if kind == REMOTE_KIND_RAW_URL and not _is_pinned_raw_url(reference):
-            warn(
-                f"[{scope}] {label}: raw URL must avoid mutable git refs (main/master), "
                 f"found '{reference}'."
             )
             return False

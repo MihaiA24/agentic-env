@@ -2,17 +2,21 @@
  * Smoke test for verification-recorder.
  * Run: bun test omp/hooks/verification-recorder.test.ts
  *
- * Exercises the same `handleToolResult` path the hook uses, against a real SQLite file.
+ * Exercises the same `handleToolResult` path the hook uses, against a real SQLite file
+ * in a temp directory (via OMP_VERIFICATION_DB); the global store is untouched.
  */
 
 import { afterAll, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { homedir } from "node:os";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { unlinkSync } from "node:fs";
 import hook, { canonicalize, classify, handleToolResult, parseExitCode } from "./verification-recorder.ts";
 
-const DB_PATH = join(homedir(), ".omp", "agent", "verification_evidence.db");
+const root = mkdtempSync(join(tmpdir(), "verification-recorder-"));
+const DB_PATH = join(root, "verification_evidence.db");
+// The hook reads this lazily on first record, so setting it after import is safe.
+process.env.OMP_VERIFICATION_DB = DB_PATH;
 
 test("classify recognises verification commands and ignores the rest", () => {
 	expect(classify("pnpm run lint")).toBe("lint");
@@ -38,8 +42,6 @@ test("canonicalize strips cd-prefix and chaining so commands group", () => {
 });
 
 test("handleToolResult records a failing test run and skips non-verification", () => {
-	// The hook creates the DB on first write, so a pre-existing file is not guaranteed.
-
 	const recorded = handleToolResult(
 		{
 			toolName: "bash",
@@ -106,16 +108,4 @@ test("default export registers a tool_result handler that records", () => {
 	expect(row?.status).toBe("passed");
 });
 
-
-afterAll(() => {
-	// Leave the real store intact; only drop rows this test wrote.
-	try {
-		const db = new Database(DB_PATH);
-		db.query("delete from verification_events where session_id in ('smoke-test','hook-entry-test')").run();
-		db.close();
-	} catch {
-		try {
-			unlinkSync(DB_PATH);
-		} catch {}
-	}
-});
+afterAll(() => rmSync(root, { recursive: true, force: true }));

@@ -67,7 +67,9 @@ class SmokeContractTests(unittest.TestCase):
         self.assertIn("lean-ctx", readme)
         self.assertIn("codebase-memory-mcp", readme)
         self.assertIn("agentmemory", readme)
-        self.assertIn("agentic-bootstrap --yes", readme)
+        self.assertIn("agentic-bootstrap", readme)
+        # bootstrap takes no --yes; it forwards --yes to phases internally
+        self.assertNotIn("agentic-bootstrap --yes", readme)
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ Install the command set from this checkout:
 ```bash
 cd /path/to/your/dotfiles/agentic-env
 uv tool install --force .
-agentic-bootstrap --yes
+agentic-bootstrap
 agentic-update-stack
 
 # Split steps (legacy):
@@ -130,7 +130,7 @@ Inside container:
 cd /workspace
 # Install all components into the container first
 uv tool install --force .
-agentic-bootstrap --yes
+agentic-bootstrap
 
 # Quick runtime checks for each CLI
 hermes --help
@@ -143,7 +143,7 @@ codebase-memory-mcp --version
 You can also run all steps in one command:
 
 ```bash
-docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-bootstrap --yes && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
+docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-bootstrap && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
 ```
 
 ### 3) Host-side install + configure smoke (no docker)
@@ -153,7 +153,7 @@ If you need to run on the host machine directly:
 ```bash
 cd /path/to/your/dotfiles/agentic-env
 uv tool install --force .
-agentic-bootstrap --yes
+agentic-bootstrap
 lean-ctx doctor
 agentmemory doctor
 codebase-memory-mcp --version
@@ -261,7 +261,7 @@ docker run --rm -v "$PWD":/workspace agentic-env-fresh-install /bin/sh ./docker-
 ### Current smoke contract
 The run is successful only if all checks pass:
 1. `uv tool install --force .` succeeds.
-2. `agentic-bootstrap --yes` succeeds.
+2. `agentic-bootstrap` succeeds.
 3. Root script wrappers load and expose help through `uv run --script`.
 4. Binary checks pass for:
    - `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory`

@@ -121,7 +121,7 @@ Do not treat lean-ctx memory as the project decision record. Do not mount or ins
 
 `agentic-env/README.md` and the installer own install behavior and per-agent config
 shapes; this doc owns roles. From this repo: `uv tool install --force .` then
-`agentic-bootstrap --yes`.
+`agentic-bootstrap`.
 
 ## Per-project startup checklist
 

@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim
+FROM node:20-bookworm-slim
 
 ENV PATH="/root/.local/bin:/usr/local/bin:${PATH}"
 
@@ -7,6 +7,9 @@ RUN apt-get update \
       ca-certificates \
       curl \
       git \
+      xz-utils \
+      libatomic1 \
+      unzip \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.local/bin/uv /usr/local/bin/uv

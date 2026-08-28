@@ -96,7 +96,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
 - **Fresh install**
   - A complete, non-interactive installation in a clean supported-host environment using:
     - `uv tool install --force .`
-    - `agentic-bootstrap --yes`
+    - `agentic-bootstrap`
     - legacy split path:
       - `agentic-install-agents --all --yes`
       - `agentic-install-skills-mcps --all-mcps --yes`

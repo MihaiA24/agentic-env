@@ -95,8 +95,13 @@ for (const [skillsRoot, names] of [
 JS
 
 if [ "$SKIP_INSTALL" != "1" ]; then
+  echo "[1/7] Installing agentic-env CLI"
+  run_cmd "uv tool install --force ."
+fi
+
+if [ "$SKIP_INSTALL" != "1" ]; then
   echo "[2/7] Running one-shot bootstrap"
-  run_cmd "agentic-bootstrap --yes"
+  run_cmd "agentic-bootstrap"
 
   echo "[3/7] Verifying root script wrappers"
   run_cmd "uv run --with rich python -c 'import agentic_env.bootstrap, agentic_env.configure_agent_mcps, agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.update_agentic_stack'"

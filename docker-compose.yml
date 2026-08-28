@@ -5,5 +5,9 @@ services:
       dockerfile: Dockerfile.agentic
     working_dir: /workspace
     command: ["/bin/sh", "./docker-smoke-test.sh"]
+    environment:
+      # Hook extensions live at the dotfiles root, one level above this package.
+      AGENTIC_DOTFILES_ROOT: /dotfiles
     volumes:
       - .:/workspace
+      - ..:/dotfiles:ro

@@ -26,10 +26,12 @@ def set_verbose(enabled: bool) -> None:
     _VERBOSE_OUTPUT = bool(enabled)
 
 
-def _run(cmd: Iterable[str]) -> subprocess.CompletedProcess[str]:
+def _run(
+    cmd: Iterable[str], cwd: str | None = None
+) -> subprocess.CompletedProcess[str]:
     command = list(cmd)
     if _VERBOSE_OUTPUT:
-        result = subprocess.run(command, check=False, text=True)
+        result = subprocess.run(command, check=False, text=True, cwd=cwd)
     else:
         result = subprocess.run(
             command,
@@ -37,6 +39,7 @@ def _run(cmd: Iterable[str]) -> subprocess.CompletedProcess[str]:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            cwd=cwd,
         )
 
     if result.returncode != 0:
@@ -79,7 +82,8 @@ def cmd_version_matches(
             check=True,
             capture_output=True,
             text=True,
-            timeout=10,
+            # Cold-start venv CLIs (hermes) need ~10s on first run.
+            timeout=60,
         )
     except Exception:
         return False
@@ -107,6 +111,13 @@ def _is_valid_sha256(value: str | None) -> bool:
     return len(value) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in value)
 
 
+def _fetch_url(url: str, timeout_sec: int) -> bytes:
+    # Some CDNs (omp.sh, claude.ai) reject the default Python-urllib UA with 403.
+    request = urllib.request.Request(url, headers={"User-Agent": "agentic-env/1.0"})
+    with urllib.request.urlopen(request, timeout=timeout_sec) as response:
+        return response.read()
+
+
 def run_remote_script(
     *,
     label: str,
@@ -118,8 +129,7 @@ def run_remote_script(
 ) -> bool:
     """Download and execute a remote installer script with optional checksum pinning."""
     try:
-        with urllib.request.urlopen(url, timeout=timeout_sec) as response:
-            payload = response.read()
+        payload = _fetch_url(url, timeout_sec)
     except Exception as exc:
         warn(f"{label}: failed to download installer script: {exc}")
         return False
@@ -143,7 +153,10 @@ def run_remote_script(
         with os.fdopen(fd, "wb") as file:
             file.write(payload)
         os.chmod(script_path, 0o700)
-        _run(script_command)
+        # Neutral cwd: installers must not inherit our project context
+        # (e.g. Hermes runs `uv venv --python 3.11`, which refuses under a
+        # pyproject that pins requires-python >= 3.12).
+        _run(script_command, cwd=str(Path.home()))
     except subprocess.CalledProcessError:
         warn(f"{label}: installer script execution failed")
         return False
@@ -162,8 +175,7 @@ def install_pinned_binary_archive(
 ) -> bool:
     """Install one checksum-pinned binary from a release tarball."""
     try:
-        with urllib.request.urlopen(url, timeout=timeout_sec) as response:
-            payload = response.read()
+        payload = _fetch_url(url, timeout_sec)
     except Exception as exc:
         warn(f"{label}: failed to download release: {exc}")
         return False

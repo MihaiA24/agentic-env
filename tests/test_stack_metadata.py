@@ -167,6 +167,7 @@ class StackMetadataTests(unittest.TestCase):
         ):
             assert install_agents._install_omp(True) is True
             assert remote.call_args.kwargs["interpreter_args"] == [
+                "--binary",
                 "--ref",
                 stack_metadata.OMP_REF,
             ]

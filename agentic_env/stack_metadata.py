@@ -30,15 +30,15 @@ AGENTMEMORY_NPM_PACKAGE: Final[str] = f"@agentmemory/agentmemory@{AGENTMEMORY_VE
 
 HERMES_INSTALL_URL: Final[str] = "https://hermes-agent.nousresearch.com/install.sh"
 HERMES_INSTALL_SHA256: Final[str] = (
-    "c2e4326c1660bd45f64321996eb15bda35e7a4649e32a310495a61972a2804c8"
+    "4b5839eb4f7cf4775108bcda6345a8de7766898ac4b4bbcafb5b0374f65603e3"
 )
 OMP_INSTALL_URL: Final[str] = "https://omp.sh/install"
 OMP_INSTALL_SHA256: Final[str] = (
-    "1e089e5d3c94224a7ceaa7c2130b6ea8018ec88aafa55b9fa18728fe076a1e80"
+    "3b0e54e890586ef86e699c58be90db97e2406e1f04730feaadebd22f64d29a17"
 )
 CLAUDE_INSTALL_URL: Final[str] = "https://claude.ai/install.sh"
 CLAUDE_INSTALL_SHA256: Final[str] = (
-    "b3f79015b54c751440a6488f07b1b64f9088742b9052bc1bd356d13108320d2a"
+    "3a68d3406cf674e17bed1733a4dcf37805e2e47d87417700007d7e1aa766a944"
 )
 
 
@@ -102,7 +102,9 @@ LEAN_CTX_ARCHIVES: Final[dict[tuple[str, str], tuple[str, str]]] = {
 }
 
 STACK_VERSION_FRAGMENTS: Final[dict[str, tuple[str, ...]]] = {
-    "hermes": (f"Hermes Agent v{HERMES_VERSION}", f"upstream {HERMES_COMMIT[:8]}"),
+    # Hermes version output labels the pinned checkout "local <hash>" since the
+    # 2026-08 installer; match the bare hash to stay robust to label churn.
+    "hermes": (f"Hermes Agent v{HERMES_VERSION}", HERMES_COMMIT[:8]),
     "omp": (f"omp/{OMP_VERSION}",),
     "codex": (f"codex-cli {OPENAI_CODEX_VERSION}",),
     "claude": (CLAUDE_VERSION,),

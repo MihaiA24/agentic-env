@@ -84,7 +84,10 @@ def _install_omp(non_interactive: bool) -> bool:
         url=OMP_INSTALL_URL,
         expected_sha256=OMP_INSTALL_SHA256,
         interpreter="sh",
-        interpreter_args=["--ref", OMP_REF],
+        # --binary: the installer's source path (bun install -g on a workspace
+        # member) cannot resolve catalog: deps for pinned refs; the prebuilt
+        # release binary for the exact tag avoids bun entirely.
+        interpreter_args=["--binary", "--ref", OMP_REF],
     ):
         return False
     if not cmd_version_matches("omp", STACK_VERSION_FRAGMENTS["omp"]):

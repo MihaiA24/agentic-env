@@ -199,8 +199,15 @@ def _parse_yaml_scalar(raw: str, line_no: int) -> object:
     if text.startswith("[") and text.endswith("]"):
         try:
             value = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"line {line_no}: invalid YAML list: {exc}") from None
+        except json.JSONDecodeError:
+            # YAML flow lists allow unquoted scalars (`[hermes-cli]`); parse
+            # each comma-separated item as a scalar instead of failing.
+            inner = text[1:-1].strip()
+            if not inner:
+                return []
+            return [
+                _parse_yaml_scalar(item, line_no) for item in inner.split(",")
+            ]
         if not isinstance(value, list):
             raise ValueError(f"line {line_no}: list value expected")
         return value

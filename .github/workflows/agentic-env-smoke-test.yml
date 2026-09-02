@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'agentic-env/**'
+      - 'omp/hooks/**'
       - '.github/workflows/agentic-env-smoke-test.yml'
   pull_request:
     paths:
       - 'agentic-env/**'
+      - 'omp/hooks/**'
       - '.github/workflows/agentic-env-smoke-test.yml'
   workflow_dispatch:
 

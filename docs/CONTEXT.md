@@ -6,19 +6,27 @@
   - The canonical local tooling set managed in this folder: `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory`. `lean-ctx` was removed stack-wide on 2026-09-02 (ADR-0009).
 
 - **Primary harness**
-  - The agent the stack is chosen for and validated against: `omp`. Its wiring is the mandatory contract: installer-enforced, smoke-verified, and a stack-doctor failure. Secondary agents still receive installs and MCP configuration, but they do not drive tool selection and their correctness is a documented TODO, not a contract.
+  - The agent the stack is chosen for and validated against: `omp`. Its wiring is the mandatory contract: installer-enforced, smoke-verified, and a stack-doctor failure. Every other agent is either a supported agent or an installed agent; neither drives tool selection.
   - _Avoid_: Default agent, main CLI, preferred agent
 
 - **Supported agent**
-  - An agent whose CLI, global skills, project-memory MCP configuration, and health checks are all managed by `agentic-env`. Authentication and credentials remain user-owned. The supported agents are Hermes, OMP, Claude Code, and Codex.
-  - _Avoid_: Installed agent, partially supported agent, authenticated agent
+  - An agent whose CLI, global skills, project-memory MCP configuration, and health checks are all managed by `agentic-env`. Authentication and credentials remain user-owned. The supported agents are Hermes and OMP; only OMP's wiring is mandatory (see Primary harness).
+  - _Avoid_: Partially supported agent, authenticated agent
+
+- **Installed agent**
+  - An agent for which `agentic-env` installs a pinned CLI and the curated skills, and nothing more: no MCP configuration is written or diagnosed, and the doctor only warns when the binary is missing. The installed agents are Claude Code and Codex (measured need for managed wiring: zero; `DECISIONS_AI_TOOLING.md` "Secondary agents TODO").
+  - _Avoid_: Supported agent, secondary agent (unqualified)
+
+- **Clean host**
+  - A supported host with no prior agent-stack installation and a `~/.dotfiles` checkout present. The contract: `uv tool install --force . && agentic-bootstrap` yields exactly the documented stack with zero skill, MCP, or hook drift. Newer tool versions than the pins are tolerated drift; skill, MCP, and hook drift are not.
+  - _Avoid_: Fresh machine (unqualified), blank VM
 
 - **Machine provisioning**
   - The product boundary of `agentic-env`: install, configure, update, and diagnose the user-level agent stack. Repository initialization, indexing, project-memory maintenance, uninstall, and rollback remain outside the product boundary. Agent hook files are diagnosed but never written; the tools that install them own them.
   - _Avoid_: Project onboarding, project lifecycle management
 
 - **Project memory stack**
-  - The project context layer used by agents. On the primary harness: OMP core owns context I/O and search, Mnemopi holds narrative memory, and `codebase-memory-mcp` answers structural code-graph queries when its enable litmus fires. Secondary agents keep `codebase-memory-mcp` and `agentmemory` wiring (unmeasured; see "Secondary agents TODO" in `DECISIONS_AI_TOOLING.md`).
+  - The project context layer used by agents. On the primary harness: OMP core owns context I/O and search, Mnemopi holds narrative memory, and `codebase-memory-mcp` answers structural code-graph queries when its enable litmus fires. Hermes keeps `codebase-memory-mcp` and `agentmemory` wiring (unmeasured); installed agents get none.
   - _Avoid_: Memory MCP stack, AI context stack
 
 ## Stack lifecycle states
@@ -82,7 +90,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: MCP server, project-local skill
 
 - **Curated skill default**
-  - The small reviewed set of skills installed by default for the supported agent workflow, selected per pack in the skill-pack manifest and installed to a single skill root shared by all supported agents; custom skill-pack configuration is the extension point for user-specific packs. Prompt exposure follows installation — there is no separate allowlist layer.
+  - The small reviewed set of skills installed by default for the supported agent workflow, selected per pack in the skill-pack manifest and installed once into the skill store, which every supported and installed agent reads; custom skill-pack configuration is the extension point for user-specific packs. Prompt exposure follows installation — there is no separate allowlist layer.
   - _Avoid_: Comprehensive skill catalog, skill marketplace
 
 - **uv runnable script**
@@ -116,7 +124,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Per-script command wrapper copies
 
 - **Smoke test**
-  - The fresh-install contract exercised on Arch Linux and macOS; it must pass before a host is accepted as supported.
+  - The fresh-install contract exercised in the Docker smoke environment (Debian bookworm) and on the supported hosts (macOS, CachyOS); it must pass before a host is accepted as supported.
 
 - **Smoke contract**
   - Process succeeds when: tools are installed, binaries are callable, `agentic-stack-doctor` exits successfully (the OMP mandatory checks), and Hermes has its project memory stack servers and matching global skills.
@@ -126,7 +134,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Line coverage, mocked installer success
 
 - **Stack doctor**
-  - A read-only host diagnostic (`agentic-stack-doctor`) with two tiers. Mandatory checks cover the primary harness: OMP binaries and versions, both OMP `mcp.json` roots wired and gated with excluded servers absent, no read-interception prose in any file OMP loads (including `~/.claude.json`), the `config.yml` contract, each hook registered exactly once with its file present, the curated skill roster, and no `lean-ctx` skill directory. Secondary checks (Hermes, Claude Code, Codex, agentmemory) only warn with a `TODO secondary` tag. It exits unsuccessfully with corrective commands only on a mandatory failure, never repairs, and runs as the final phase of `agentic-bootstrap` and `agentic-update-stack`.
+  - A read-only host diagnostic (`agentic-stack-doctor`) with two tiers. Mandatory checks cover the primary harness: OMP binaries and versions, both OMP `mcp.json` roots wired and gated (including the `node_repl` built-in) with excluded servers absent, `~/.claude.json` free of excluded servers and of read-interception prose (OMP imports it), the `config.yml` contract, each hook registered exactly once with its file present, the curated skill roster, and no `lean-ctx` skill directory. Secondary checks (Hermes wiring; Hermes, Claude Code, Codex, agentmemory binaries) only warn with a `TODO secondary` tag. It exits unsuccessfully with corrective commands only on a mandatory failure, never repairs, and runs as the final phase of `agentic-bootstrap` and `agentic-update-stack`.
   - _Avoid_: Smoke test, automatic repair
 
 - **Supported host**
@@ -134,7 +142,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Any Unix-like host, Debian-compatible host
 
 - **Compatibility floor**
-  - Host prerequisites required by the agent stack: Python 3.12+, Node.js 20+, `curl`, `git`, and trusted CA certificates. The Linux fresh-install smoke environment is Arch Linux.
+  - Host prerequisites required by the agent stack: Python 3.12+, Node.js 20+, `curl`, `git`, and trusted CA certificates. The Linux fresh-install smoke environment is Debian bookworm (`node:20-bookworm-slim`); supported hosts stay macOS and CachyOS.
 
 - **Documentation scope**
   - `agentic-env/README.md`: runbook and operating instructions.
@@ -158,9 +166,9 @@ Skill-specific states, distinct from the component lifecycle states above: a com
   - Kept in the curated skill default because it fits the user's workflows: a fit judgment by the user, never a usage-count threshold. Usage audits are diagnostic — they flag stale or duplicate skills for re-review.
   - _Avoid_: Proven, validated
 
-- **Recovery store**
-  - `~/.agents/skills` — holds everything ever installed; invisible to harnesses (`enableAgentsUser: false`). Not part of the stack.
-  - _Avoid_: Backup, archive
+- **Skill store**
+  - `~/.agents/skills` — the canonical copy of every installed skill. `skills add` writes here and symlinks `~/.claude/skills/<name>` and `~/.hermes/skills/<name>` into it; Codex reads it directly. OMP mounts it through `~/.claude/skills` (`enableClaudeUser`), never as its own root (`enableAgentsUser: false`), so each skill is loaded once.
+  - _Avoid_: Recovery store, backup, archive
 
 ## Skill usage measurement
 

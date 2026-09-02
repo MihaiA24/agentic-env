@@ -16,15 +16,15 @@
 
 ## Live wiring (this machine)
 
-Mandatory contract = the OMP layer below. Installer-enforced (`agentic-configure-agent-mcps`), smoke-verified (`docker-smoke-test.sh`), diagnosed by `agentic-stack-doctor` (read-only; exit 1 only on an OMP check, secondary agents warn with a TODO tag). The doctor runs as the last phase of `agentic-bootstrap` and `agentic-update-stack`.
+Mandatory contract = the OMP layer below. Installer-enforced (`agentic-configure-agent-mcps`), smoke-verified (`docker-smoke-test.sh`), diagnosed by `agentic-stack-doctor` (read-only; exit 1 only on an OMP check; Hermes wiring and the Hermes/Claude/Codex binaries warn with a TODO tag). The doctor runs as the last phase of `agentic-bootstrap` and `agentic-update-stack`. Clean-host contract (2026-09-02): `uv tool install --force . && agentic-bootstrap` on a host with a `~/.dotfiles` checkout yields exactly this stack; version drift above the pins is tolerated, skill/MCP/hook drift is not.
 
 - OMP pin: `18.1.4` (`stack_metadata.OMP_VERSION`; host validated on it, installer hash unchanged). Contract keys re-verified against `packages/coding-agent/src/config/settings-schema.ts` at that tag: `memory.backend`, `compaction.{thresholdTokens,idleEnabled,handoffSaveToDisk,methodOrder}`, `skills.enableAgentsUser`, `extensions`. `polyphonicRecall` lives at **`mnemopi.polyphonicRecall`** (not `memory.`; same in 17.0.5) — template, host config, and drift check fixed 2026-09-02. Drift check is block-scoped (`OMP_AGENT_CONFIG_CONTRACT`), not substring.
 - OMP: compaction `handoff` @ 150K, idle on, handoff-to-disk (bak `~/.omp/agent/config.yml.bak-tuning`)
-- Hooks: `omp/hooks/verification-recorder.ts` + `retention-canary.ts` (memory staleness tripwire); doctor requires each registered exactly once in `extensions:` and the file present. Hook files are diagnosed, never written (machine-provisioning boundary).
-- MCP: `mcpServers: {codebase-memory-mcp}` gated by `disabledServers: [agentmemory, node_repl, codebase-memory-mcp, lean-ctx]` — wired but off, enable per session when the litmus passes. Installer keeps `codebase-memory-mcp` gated (`OMP_GATED_SERVERS`) and `agentmemory`/`lean-ctx` purged **and** disabled (`OMP_EXCLUDED_SERVERS`) on both OMP roots, so claude-import cannot mount them (bak `mcp.json.bak-leanctx-drop`, `.bak-gate`)
+- Hooks: `omp/hooks/verification-recorder.ts` + `retention-canary.ts` (memory staleness tripwire); doctor requires each registered exactly once in `extensions:` and the file present. Hook files are diagnosed, never written (machine-provisioning boundary); the installer finds them via `$AGENTIC_DOTFILES_ROOT`, then `~/.dotfiles`, then the cwd/package ancestors, and refuses to seed `config.yml` without them (a half-seeded config is three doctor failures later).
+- MCP: `mcpServers: {codebase-memory-mcp}` gated by `disabledServers: [agentmemory, node_repl, codebase-memory-mcp, lean-ctx]` — wired but off, enable per session when the litmus passes. Installer keeps `codebase-memory-mcp` gated (`OMP_GATED_SERVERS`), the `node_repl` built-in disabled (`OMP_GATED_BUILTINS`), and `agentmemory`/`lean-ctx` purged **and** disabled (`OMP_EXCLUDED_SERVERS`) on both OMP roots; doctor fails if any excluded name is mounted in `~/.claude.json` (claude-import path) (bak `mcp.json.bak-leanctx-drop`, `.bak-gate`)
 - Memory: `backend: mnemopi`, `mnemopi.polyphonicRecall: false` — single memory owner (ADR-0006)
 - MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances
-- Skills: curated at install time via `skill-packs.json` (packs list their skills explicitly; the `default` profile is the roster the doctor checks under `~/.claude/skills`, the root OMP loads); `skills.enableAgentsUser: false` (`~/.agents/skills` = recovery store only). Packs are install-time frozen — no floating refresh; caveman stays at its installed text (v2.4.0 upstream not taken: prompt text is benchmarked as installed). Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
+- Skills: curated at install time via `skill-packs.json` (packs list their skills explicitly; the `default` profile is the roster the doctor checks under `~/.claude/skills`, the root OMP loads); `skills.enableAgentsUser: false` (`~/.agents/skills` = skill store: the canonical copy `~/.claude/skills` and `~/.hermes/skills` symlink into, loaded once via the Claude root). Packs are pinned to upstream tags in `source` (`mattpocock/skills#v1.2.3`, `JuliusBrussee/caveman#v2.3.1` — the benchmarked text, v2.4.0+ not taken; `DietrichGebert/ponytail#v4.9.0`); `cursor/plugins` (pstack) publishes no tags and floats on `main`. Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
 - Read-interception prose: zero tolerance in any config OMP loads, including `~/.claude.json` `mcpServers.*.instructions` (doctor greps `ctx_` / `shadow mode` / `auto-route`).
 - Fresh-machine reproducibility: `agentic-configure-agent-mcps` seeds `~/.omp/agent/config.yml` from this contract when absent and verifies it when present (`converge_omp_agent_config`; existing user YAML is never rewritten)
 
@@ -98,12 +98,12 @@ Pre-registered triggers; nothing here is acted on without the trigger firing.
 
 ## Secondary agents TODO
 
-Hermes / Claude Code / Codex are installed and configured but outside the mandatory contract; the doctor only warns on them. Open items, in order:
+Hermes is a supported agent (installed + configured, doctor warns); Claude Code and Codex are installed agents (pinned CLI + skills only; no managed MCP config). Glossary in `docs/CONTEXT.md`. Items:
 
-1. Hermes install correctness — host runs v0.20.6 vs pin 0.18.2; decide float-or-pin, then make `_install_hermes` converge.
-2. `agentmemory` + `codebase-memory-mcp` wiring correctness on Hermes/Claude/Codex (entries exist; behaviour unmeasured — agentmemory 0 calls in 934 sessions).
-3. Codex per-tool approval filters (`[mcp_servers.<name>.tools.*]`) — pattern exists, unused since lean-ctx removal.
-4. Claude/Codex pin refresh — host codex-cli 0.152.0 vs pin 0.144.1.
+1. Hermes install correctness — **closed by `chore/agentic-env-bump-pins`**: pin moved to release v2026.8.31 (`0.21.0`, `29112bef`); `_install_hermes` already converges to `HERMES_COMMIT`.
+2. `agentmemory` + `codebase-memory-mcp` wiring on Claude/Codex — **not pursued (2026-09-02)**: Claude Code and Codex are installed agents; measured need for managed wiring is zero (agentmemory 0 calls in 934 sessions, codebase-memory litmus 0×). Hermes keeps its entries; the `@agentmemory/mcp` shim is pinned to `AGENTMEMORY_VERSION`.
+3. Codex per-tool approval filters — **not pursued (2026-09-02)**: no managed Codex MCP config exists to filter.
+4. Claude/Codex pin refresh — **closed by `chore/agentic-env-bump-pins`**: Codex 0.152.1, Claude 2.1.258, agentmemory 0.9.29; installer script checksums re-verified unchanged.
 
 ## Parked
 

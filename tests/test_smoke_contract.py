@@ -47,7 +47,7 @@ class SmokeContractTests(unittest.TestCase):
             "for (const name of ['codebase-memory-mcp', 'agentmemory']) {",
             script,
         )
-        self.assertIn("if (text.includes('lean-ctx')) {", script)
+        self.assertNotIn("lean-ctx", script)  # doctor owns that check (hermes warn, OMP fail)
         self.assertIn(
             "if (!/^\\s*provider:\\s*agentmemory\\s*$/m.test(text)) {",
             script,

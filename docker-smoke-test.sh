@@ -32,9 +32,6 @@ for (const name of ['codebase-memory-mcp', 'agentmemory']) {
     throw new Error(`~/.hermes/config.yaml missing ${name} MCP entry`);
   }
 }
-if (text.includes('lean-ctx')) {
-  throw new Error('~/.hermes/config.yaml still references lean-ctx (ADR-0009)');
-}
 if (!/^\s*provider:\s*agentmemory\s*$/m.test(text)) {
   throw new Error('~/.hermes/config.yaml missing memory.provider=agentmemory');
 }

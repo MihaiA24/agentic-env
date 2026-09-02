@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agentic_env import configure_agent_mcps
+from agentic_env.stack_metadata import AGENTMEMORY_VERSION
 
 
 class ConfigureAgentMcpsTests(unittest.TestCase):
@@ -124,7 +125,7 @@ memory:
             self.assertEqual(parsed["mcp_servers"]["agentmemory"]["command"], "npx")
             self.assertEqual(
                 parsed["mcp_servers"]["agentmemory"]["args"],
-                ["-y", "@agentmemory/mcp"],
+                ["-y", f"@agentmemory/mcp@{AGENTMEMORY_VERSION}"],
             )
             self.assertEqual(parsed["memory"]["provider"], "agentmemory")
 
@@ -200,7 +201,7 @@ memory:
 
     def test_configure_omp_gates_default_off_servers(self) -> None:
         for existing, expected_disabled in (
-            ({}, ["codebase-memory-mcp", "agentmemory", "lean-ctx"]),
+            ({}, ["codebase-memory-mcp", "node_repl", "agentmemory", "lean-ctx"]),
             (
                 {"disabledServers": ["node_repl"]},
                 ["node_repl", "codebase-memory-mcp", "agentmemory", "lean-ctx"],
@@ -242,6 +243,42 @@ memory:
             text = config_path.read_text(encoding="utf-8")
             self.assertEqual(configure_agent_mcps.omp_config_drift(text), [])
             self.assertIn(str(hooks / "retention-canary.ts"), text)
+
+    def test_converge_omp_agent_config_finds_hooks_in_home_dotfiles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            hooks = home / ".dotfiles" / "omp" / "hooks"
+            hooks.mkdir(parents=True)
+            for name in configure_agent_mcps._OMP_HOOK_FILES:
+                (hooks / name).write_text("// hook\n", encoding="utf-8")
+            config_path = Path(temp_dir) / "config.yml"
+            with (
+                patch("agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH", config_path),
+                patch("agentic_env.configure_agent_mcps.Path.home", lambda: home),
+                patch("agentic_env.configure_agent_mcps.Path.cwd", lambda: Path(temp_dir)),
+                patch.dict("os.environ", {"AGENTIC_DOTFILES_ROOT": ""}),
+            ):
+                assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
+            text = config_path.read_text(encoding="utf-8")
+            self.assertEqual(configure_agent_mcps.omp_config_drift(text), [])
+            self.assertIn(str(hooks / "verification-recorder.ts"), text)
+
+    def test_converge_omp_agent_config_refuses_to_seed_without_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home = Path(temp_dir) / "home"
+            home.mkdir()
+            config_path = Path(temp_dir) / "config.yml"
+            with (
+                patch("agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH", config_path),
+                patch("agentic_env.configure_agent_mcps.Path.home", lambda: home),
+                patch("agentic_env.configure_agent_mcps.Path.cwd", lambda: Path(temp_dir)),
+                patch("agentic_env.configure_agent_mcps.__file__", str(Path(temp_dir) / "pkg" / "x.py")),
+                patch.dict("os.environ", {"AGENTIC_DOTFILES_ROOT": ""}),
+                patch("agentic_env.configure_agent_mcps.warn") as mock_warn,
+            ):
+                self.assertFalse(configure_agent_mcps.converge_omp_agent_config(dry_run=False))
+            self.assertFalse(config_path.exists())
+            self.assertIn("omp/hooks not found", mock_warn.call_args[0][0])
 
     def test_converge_omp_agent_config_warns_on_drift_without_rewriting(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

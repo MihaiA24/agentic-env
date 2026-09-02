@@ -1,9 +1,10 @@
 """Read-only diagnosis of the agent stack against the wiring contract.
 
 Mandatory checks cover the OMP-primary layer (DECISIONS_AI_TOOLING.md "Live
-wiring"): any failure exits 1 and names the corrective command. Secondary
-agents (Hermes, Claude Code, Codex) only warn; their wiring correctness is
-tracked under "Secondary agents TODO". Nothing is written.
+wiring"): any failure exits 1 and names the corrective command. Hermes (the
+other supported agent) only warns; Claude Code and Codex are installed agents
+(pinned CLI + skills, no managed config) and get a binary check only.
+Nothing is written.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from .stack_metadata import STACK_VERSION_FRAGMENTS
 
 CLAUDE_USER_CONFIG_PATH = Path.home() / ".claude.json"
 # OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
-# recovery store and stays unloaded (skills.enableAgentsUser: false).
+# skill store and stays unmounted as a root (skills.enableAgentsUser: false).
 CLAUDE_SKILL_ROOT = Path.home() / ".claude" / "skills"
 SKILL_PROFILE = "default"
 SECONDARY_AGENTS = ("hermes", "claude", "codex", "agentmemory")
@@ -99,6 +100,15 @@ def _check_omp_mcp(path: Path) -> list[Check]:
         )
         for name in cfg.OMP_GATED_SERVERS
     ]
+    for name in cfg.OMP_GATED_BUILTINS:
+        checks.append(
+            Check(
+                f"{label}: {name} gated",
+                name in disabled,
+                "disabledServers" if name in disabled else "not in disabledServers",
+                FIX_CONFIGURE,
+            )
+        )
     mounted = [name for name in cfg.OMP_EXCLUDED_SERVERS if name in servers]
     checks.append(
         Check(
@@ -120,21 +130,33 @@ def _check_omp_mcp(path: Path) -> list[Check]:
     return checks
 
 
-def _check_claude_import() -> Check:
-    """OMP's claude-import mounts ~/.claude.json servers; their prose must be clean too."""
-    name = "~/.claude.json: no read-interception prose"
+def _check_claude_import() -> list[Check]:
+    """OMP's claude-import mounts ~/.claude.json servers: excluded names and
+    read-interception prose are forbidden there too."""
+    prose = "~/.claude.json: no read-interception prose"
+    absent = "~/.claude.json: excluded servers absent"
     if not CLAUDE_USER_CONFIG_PATH.exists():
-        return Check(name, True, "absent")
+        return [Check(prose, True, "absent"), Check(absent, True, "absent")]
     loaded = _mcp_servers(CLAUDE_USER_CONFIG_PATH)
     if loaded is None:
-        return Check(name, False, "unreadable JSON", "fix ~/.claude.json by hand")
-    hits = _interception_prose(loaded[0])
-    return Check(
-        name,
-        not hits,
-        ", ".join(hits) if hits else "clean",
-        "delete mcpServers.<name> from ~/.claude.json" if hits else "",
-    )
+        return [Check(prose, False, "unreadable JSON", "fix ~/.claude.json by hand")]
+    servers = loaded[0]
+    hits = _interception_prose(servers)
+    mounted = [name for name in cfg.OMP_EXCLUDED_SERVERS if name in servers]
+    return [
+        Check(
+            prose,
+            not hits,
+            ", ".join(hits) if hits else "clean",
+            "delete mcpServers.<name> from ~/.claude.json" if hits else "",
+        ),
+        Check(
+            absent,
+            not mounted,
+            ", ".join(mounted) if mounted else ", ".join(cfg.OMP_EXCLUDED_SERVERS),
+            " && ".join(f"delete mcpServers.{name} from ~/.claude.json" for name in mounted),
+        ),
+    ]
 
 
 def _check_agent_config() -> list[Check]:
@@ -215,6 +237,16 @@ def _check_hermes() -> list[Check]:
             mandatory=False,
         )
     ]
+    stale = "lean-ctx:" in entries
+    checks.append(
+        Check(
+            "hermes mcp_servers: no lean-ctx",
+            not stale,
+            "lean-ctx" if stale else "clean",
+            "delete mcp_servers.lean-ctx from ~/.hermes/config.yaml (ADR-0009)",
+            mandatory=False,
+        )
+    )
     missing = [name for name in cfg.SKILLS if not (cfg.HERMES_SKILL_ROOT / name / "SKILL.md").is_file()]
     checks.append(
         Check(
@@ -235,7 +267,7 @@ def run_checks() -> list[Check]:
     ]
     for path in cfg.OMP_MCP_PATHS:
         checks.extend(_check_omp_mcp(path))
-    checks.append(_check_claude_import())
+    checks.extend(_check_claude_import())
     checks.extend(_check_agent_config())
     checks.extend(_check_skills())
     checks.extend(_check_binary(name, fix=FIX_UPDATE, mandatory=False) for name in SECONDARY_AGENTS)

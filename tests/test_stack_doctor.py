@@ -59,10 +59,18 @@ class _Host:
             _skill(self.hermes_skills, name)
 
     @staticmethod
-    def write_mcp(path: Path, *, gated: bool, extra: dict[str, object] | None = None) -> None:
+    def write_mcp(
+        path: Path,
+        *,
+        gated: bool,
+        extra: dict[str, object] | None = None,
+        disabled: list[str] | None = None,
+    ) -> None:
         servers: dict[str, object] = {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}
         servers.update(extra or {})
-        data = {"mcpServers": servers, "disabledServers": ["codebase-memory-mcp"] if gated else []}
+        if disabled is None:
+            disabled = ["codebase-memory-mcp", "node_repl"] if gated else []
+        data = {"mcpServers": servers, "disabledServers": disabled}
         path.write_text(json.dumps(data), encoding="utf-8")
 
     def patched(self, *, missing_commands: tuple[str, ...] = ()) -> contextlib.ExitStack:
@@ -117,6 +125,50 @@ class StackDoctorTests(unittest.TestCase):
             code, output = _run(host)
         self.assertEqual(code, 1)
         self.assertIn("lean-ctx", output)
+
+    def test_claude_import_excluded_server_fails_without_prose(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            host.claude_json.write_text(
+                json.dumps({"mcpServers": {"lean-ctx": {"command": "lean-ctx"}}}),
+                encoding="utf-8",
+            )
+            code, output = _run(host)
+        self.assertEqual(code, 1)
+        self.assertIn("excluded servers absent", output)
+        self.assertIn("mcpServers.lean-ctx", output)
+
+    def test_node_repl_builtin_must_be_gated(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            host.write_mcp(host.mcp_paths[0], gated=True, disabled=["codebase-memory-mcp"])
+            code, output = _run(host)
+        self.assertEqual(code, 1)
+        self.assertIn("node_repl gated", output)
+
+    def test_agent_config_missing_method_order_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            text = host.agent_config.read_text(encoding="utf-8")
+            host.agent_config.write_text(
+                "\n".join(line for line in text.splitlines() if "methodOrder" not in line) + "\n",
+                encoding="utf-8",
+            )
+            code, output = _run(host)
+        self.assertEqual(code, 1)
+        self.assertIn("compaction.methodOrder:", output)
+
+    def test_hermes_lean_ctx_entry_only_warns(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            host.hermes_config.write_text(
+                host.hermes_config.read_text(encoding="utf-8") + "  lean-ctx:\n    command: lean-ctx\n",
+                encoding="utf-8",
+            )
+            code, output = _run(host)
+        self.assertEqual(code, 0)
+        self.assertIn("TODO secondary", output)
+        self.assertIn("no lean-ctx", output)
 
     def test_missing_secondary_only_warns(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

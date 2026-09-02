@@ -19,8 +19,8 @@ Docs:
     - `codebase-memory-mcp` (UI install supported)
     - `agentmemory` (CLI + Hermes MCP config)
   - Skill packs are driven by the bundled `agentic_env/skill-packs.json` default with:
-    - `packs` entries that can define optional `skills` (array of specific skill names)
-      to install only those from that pack by default.
+    - `packs` entries whose `source` is `owner/repo#<tag>` (pinned; `skills add` clones that tag) and which can define optional `skills` (array of specific skill names)
+      to install only those from that pack by default. `cursor/plugins` (pstack) publishes no tags and floats on `main`.
     - `profiles` (named pack sets).
   - Supported options:
     - `--skill-pack` (comma-separated, repeated) to choose packs.
@@ -62,7 +62,7 @@ Docs:
   - Ends with `agentic-stack-doctor`; a mandatory-check failure makes the update exit non-zero.
   - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
 - `agentic-stack-doctor`
-  - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes / Claude Code / Codex checks only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints the corrective command per failure; never repairs.
+  - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated incl. the `node_repl` built-in, excluded servers absent there and in `~/.claude.json`, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes wiring (incl. a stale `lean-ctx` entry) and the Hermes / Claude Code / Codex binaries only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints the corrective command per failure; never repairs.
 - Root `*.py` files remain `uv run --script` compatibility wrappers for development and smoke checks.
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
@@ -116,7 +116,7 @@ docker compose up --build --force-recreate --exit-code-from fresh-install
 
 `--force-recreate` matters: with unchanged image layers, `compose up` restarts the previous container and its `/root` state, which is no longer a fresh install.
 
-If the skills clone fails inside the container with "Authentication failed" for a public GitHub repo while the host clones fine, the container's git 2.39 is getting HTTP 401 on `git-upload-pack` over HTTP/2 from your network (seen 2026-09-02, not in CI). Run once with git forced to HTTP/1.1:
+If a GitHub clone fails inside the container with "Authentication failed" / "could not read Username" for a public repo while the host clones fine (the Hermes installer's `hermes-agent` clone and `skills add` both hit it), the container's git 2.39 is getting HTTP 401 on `git-upload-pack` over HTTP/2 from your network (seen 2026-09-02, not in CI). Run once with git forced to HTTP/1.1:
 
 ```bash
 docker compose run --rm --build -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=http.version -e GIT_CONFIG_VALUE_0=HTTP/1.1 fresh-install
@@ -280,19 +280,18 @@ The run is successful only if all checks pass:
    - `agentic-*` entry points incl. `agentic-stack-doctor`
    - `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory`
 5. `agentic-stack-doctor` exits 0 — the OMP mandatory contract:
-   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`, gated in `disabledServers`; `agentmemory` and `lean-ctx` absent from `mcpServers`
+   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`, gated in `disabledServers` together with the `node_repl` built-in; `agentmemory` and `lean-ctx` absent from `mcpServers` (also in `~/.claude.json`)
    - no read-interception prose in the OMP MCP files or `~/.claude.json`
    - `~/.omp/agent/config.yml` matches the contract; each hook registered once with its file present
    - curated `default` skill roster present; `codebase-memory-mcp` and `ponytail` descriptors in the OMP skill roots; no `lean-ctx` skill dir
 6. Hermes config checks pass:
-   - `~/.hermes/config.yaml` contains `codebase-memory-mcp` and `agentmemory` MCP entries, no `lean-ctx`, and `memory.provider: agentmemory`
+   - `~/.hermes/config.yaml` contains `codebase-memory-mcp` and `agentmemory` MCP entries and `memory.provider: agentmemory` (a stale `lean-ctx` entry is a doctor warning, not a smoke failure)
 
 ## Design and tradeoffs
-- **Chosen base image:** `node:20-bullseye-slim`
-- **Measured image size:** about **329MB** for `agentic-env-fresh-install`.
+- **Chosen base image:** `node:20-bookworm-slim` (Debian bookworm; the Linux smoke environment)
+- **Measured image size:** about **329MB** for `agentic-env-fresh-install` on the earlier `bullseye-slim` base; not re-measured after the bookworm switch.
 - `.dockerignore` in `agentic-env/` trims compose build context for faster local/CI builds.
-- `node:20-bullseye-slim` is the minimum tested image that keeps Hermes/OMP installers compatible in non-interactive fresh installs.
+- `node:20-bullseye-slim` was the original minimum; the image moved to `bookworm-slim` in `b49fa8f` when it gained `xz-utils`/`libatomic1`/`unzip` for Hermes' Node 26 + bun runtime (ADR-0001 records the bullseye-era measurements).
 - `alpine` images were rejected due installer/runtime incompatibilities (`omp`/Hermes path).
-- `bookworm`/other slim tags were tested but were larger with no reliability gain.
 ## Dependencies
 - `rich` is required and is installed automatically through package dependencies or uv script metadata.

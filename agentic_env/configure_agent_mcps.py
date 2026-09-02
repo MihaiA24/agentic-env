@@ -15,7 +15,7 @@ from pathlib import Path
 from rich.prompt import Prompt
 
 from .common import cmd_exists, console, ok, set_verbose, skip, warn
-from .stack_metadata import CONFIGURE_AGENT_CHOICES
+from .stack_metadata import AGENTMEMORY_VERSION, CONFIGURE_AGENT_CHOICES
 
 
 @dataclass(frozen=True)
@@ -42,7 +42,7 @@ MCP_SERVERS: dict[str, McpServer] = {
     "agentmemory": McpServer(
         name="agentmemory",
         command="npx",
-        args=("-y", "@agentmemory/mcp"),
+        args=("-y", f"@agentmemory/mcp@{AGENTMEMORY_VERSION}"),
         requires=("npx",),
         hermes_memory_provider="agentmemory",
     ),
@@ -646,6 +646,8 @@ OMP_EXCLUDED_SERVERS = {
 # Servers wired on OMP but default-off ("Gated" in DECISIONS_AI_TOOLING.md); the installer
 # keeps them in `disabledServers` so a fresh machine never mounts them silently.
 OMP_GATED_SERVERS = ("codebase-memory-mcp",)
+# OMP built-ins with no `mcpServers` entry; gated the same way (0 calls, DECISIONS "Rejected").
+OMP_GATED_BUILTINS = ("node_repl",)
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
@@ -658,7 +660,7 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
             omp_servers.append(server)
 
     excluded = tuple(OMP_EXCLUDED_SERVERS)
-    gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS) + excluded
+    gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS) + OMP_GATED_BUILTINS + excluded
     ok_all = True
     for adapter in _OMP_CONFIG_ADAPTERS:
         if not _write_json_config_data(
@@ -673,13 +675,14 @@ _OMP_HOOK_FILES = ("verification-recorder.ts", "retention-canary.ts")
 # Settings that must be present in ~/.omp/agent/config.yml as (top-level block,
 # "key: value" line), keyed per settings-schema.ts at the pinned OMP_VERSION
 # (DECISIONS_AI_TOOLING.md "Live wiring": compaction tuning, single memory
-# owner, hooks, recovery-store discipline).
+# owner, hooks, skill-store discipline).
 OMP_AGENT_CONFIG_CONTRACT = (
     ("memory", "backend: mnemopi"),
     ("mnemopi", "polyphonicRecall: false"),
     ("compaction", "thresholdTokens: 150000"),
     ("compaction", "idleEnabled: true"),
     ("compaction", "handoffSaveToDisk: true"),
+    ("compaction", "methodOrder:"),
     ("skills", "enableAgentsUser: false"),
     *(("extensions", name) for name in _OMP_HOOK_FILES),
 )
@@ -727,16 +730,19 @@ def omp_config_drift(text: str) -> list[str]:
 
 
 def _find_omp_hooks_dir() -> Path | None:
+    """Hooks live in the dotfiles checkout, never in the wheel: $AGENTIC_DOTFILES_ROOT,
+    then ~/.dotfiles, then any ancestor of cwd or this file."""
     roots: list[Path] = []
     env_root = os.environ.get("AGENTIC_DOTFILES_ROOT")
     if env_root:
         roots.append(Path(env_root))
+    roots.append(Path.home() / ".dotfiles")
     for base in (Path.cwd().resolve(), Path(__file__).resolve()):
         roots.append(base)
         roots.extend(base.parents)
     for root in roots:
         hooks_dir = root / "omp" / "hooks"
-        if (hooks_dir / _OMP_HOOK_FILES[-1]).is_file():
+        if all((hooks_dir / name).is_file() for name in _OMP_HOOK_FILES):
             return hooks_dir
     return None
 
@@ -746,14 +752,13 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
     if not path.exists():
         hooks_dir = _find_omp_hooks_dir()
         if hooks_dir is None:
-            extensions = ""
             warn(
-                f"{path}: omp/hooks not found (set AGENTIC_DOTFILES_ROOT); "
-                "seeding without hook extensions"
+                f"{path}: omp/hooks not found in ~/.dotfiles (or set AGENTIC_DOTFILES_ROOT); "
+                "not seeding a config the doctor would fail"
             )
-        else:
-            hook_lines = "\n".join(f"  - {hooks_dir / name}" for name in _OMP_HOOK_FILES)
-            extensions = f"extensions:\n{hook_lines}\n"
+            return False
+        hook_lines = "\n".join(f"  - {hooks_dir / name}" for name in _OMP_HOOK_FILES)
+        extensions = f"extensions:\n{hook_lines}\n"
         content = _OMP_AGENT_CONFIG_TEMPLATE.format(extensions=extensions)
         if not _write_atomic_text(path, content, dry_run=dry_run):
             return False

@@ -22,6 +22,6 @@ Remove `lean-ctx` from the stack: installer, pin/checksum table, update step, sk
 3. **Remove now, reinstall pointer** — taken. Reinstall is one line; the pointer records the version floor so the lossy default cannot come back by accident.
 
 ## Consequences
-- Secondary agents lose their context-routing layer. Accepted: they are documented TODO ("Secondary agents TODO" in `DECISIONS_AI_TOOLING.md`), and Rule 5 says the routing they lose was prose-level anyway.
+- Secondary agents lose their context-routing layer. Accepted: they are documented under Harness → "Secondary agents TODO" in `DECISIONS_AI_TOOLING.md`, and Rule 5 says the routing they lose was prose-level anyway.
 - The `<generic-rules>` shadow-mode block disappears from OMP system prompts once the host `~/.claude.json` entry is gone and instances restart.
 - If semantic search is ever needed again, the reinstall is `lean-ctx >= 3.10.0` with an OMP-native gated entry per ADR-0008's server-side gate pattern — not the claude-import path.

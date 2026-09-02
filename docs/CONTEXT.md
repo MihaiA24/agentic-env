@@ -14,7 +14,7 @@
   - _Avoid_: Partially supported agent, authenticated agent
 
 - **Installed agent**
-  - An agent for which `agentic-env` installs a pinned CLI and the curated skills, and nothing more: no MCP configuration is written or diagnosed, and the doctor only warns when the binary is missing. The installed agents are Claude Code and Codex (measured need for managed wiring: zero; `DECISIONS_AI_TOOLING.md` "Secondary agents TODO").
+  - An agent for which `agentic-env` installs a pinned CLI and the curated skills, and nothing more: no MCP configuration is written or diagnosed, and the doctor only warns when the binary is missing. The installed agents are Claude Code and Codex (measured need for managed wiring: zero; `DECISIONS_AI_TOOLING.md` Harness → "Agent tiers").
   - _Avoid_: Supported agent, secondary agent (unqualified)
 
 - **Clean host**
@@ -146,7 +146,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
 
 - **Documentation scope**
   - `agentic-env/README.md`: runbook and operating instructions.
-  - `agentic-env/DECISIONS_AI_TOOLING.md`: operative agent-stack decisions (tools, skills, hooks, memory).
+  - `agentic-env/DECISIONS_AI_TOOLING.md`: operative agent-stack decisions, one section per layer (harness, context I/O, compaction, memory, code graph, skills, hooks), each Decided → Why → Rejected → Revisit → Wiring.
   - `agentic-env/docs/CONTEXT.md`: canonical vocabulary and invariants.
   - `agentic-env/docs/adr/*.md`: irreversible design decisions.
 

@@ -6,7 +6,7 @@ import argparse
 import sys
 from collections.abc import Callable
 
-from . import install_agents, install_skills_mcps
+from . import install_agents, install_skills_mcps, stack_doctor
 from .common import (
     cmd_exists,
     cmd_version_matches,
@@ -140,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     ok_all = _update_codex() and ok_all
     ok_all = _update_agentmemory() and ok_all
     ok_all = _update_skills() and ok_all
+    ok_all = stack_doctor.main([]) == 0 and ok_all
 
     return 0 if ok_all else 1
 

@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Final, Literal
 
-from . import configure_agent_mcps, install_agents, install_skills_mcps
+from . import configure_agent_mcps, install_agents, install_skills_mcps, stack_doctor
 from .common import ok, set_verbose, skip, warn
 from .stack_metadata import CONFIGURE_AGENT_CHOICES, SKILL_AGENTS, SKILL_AGENT_LOOKUP
 
@@ -60,6 +60,7 @@ def _parse(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--skip-install-agents", action="store_true", help="Skip the install-agents phase.")
     parser.add_argument("--skip-install-skills", action="store_true", help="Skip the install-skills-mcps phase.")
     parser.add_argument("--skip-configure", action="store_true", help="Skip the configure-agent-mcps phase.")
+    parser.add_argument("--skip-doctor", action="store_true", help="Skip the final stack-doctor phase.")
     parser.add_argument(
         "--configure-no-skills",
         action="store_true",
@@ -245,6 +246,17 @@ def _bootstrap_plan(args: argparse.Namespace) -> list[BootstrapPhase] | None:
                 else None
             ),
         ),
+        BootstrapPhase(
+            name="doctor",
+            argv=[],
+            main=stack_doctor.main,
+            requested=not args.skip_doctor,
+            skipped_reason=(
+                "doctor phase skipped (pass --skip-doctor to restore)"
+                if args.skip_doctor
+                else None
+            ),
+        ),
     ]
 
 
@@ -382,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
     set_verbose(args.verbose)
 
-    if args.skip_install_agents and args.skip_install_skills and args.skip_configure:
+    if args.skip_install_agents and args.skip_install_skills and args.skip_configure and args.skip_doctor:
         skip("agentic-bootstrap: no phases selected")
         return 0
 

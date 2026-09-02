@@ -16,6 +16,7 @@ agentic-install-skills-mcps = "agentic_env.install_skills_mcps:main"
 agentic-configure-agent-mcps = "agentic_env.configure_agent_mcps:main"
 agentic-bootstrap = "agentic_env.bootstrap:main"
 agentic-update-stack = "agentic_env.update_agentic_stack:main"
+agentic-stack-doctor = "agentic_env.stack_doctor:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentic_env"]

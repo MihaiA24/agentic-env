@@ -11,10 +11,12 @@ from agentic_env import bootstrap
 class BootstrapTests(unittest.TestCase):
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_default_bootstrap_runs_all_phases_in_order(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -44,8 +46,6 @@ class BootstrapTests(unittest.TestCase):
             [
                 "--yes",
                 "--server",
-                "lean-ctx",
-                "--server",
                 "codebase-memory-mcp",
                 "--server",
                 "agentmemory",
@@ -66,10 +66,12 @@ class BootstrapTests(unittest.TestCase):
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_dry_run_does_not_execute_phases(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -82,10 +84,12 @@ class BootstrapTests(unittest.TestCase):
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_rejects_unknown_skill_agent(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -98,10 +102,12 @@ class BootstrapTests(unittest.TestCase):
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_rejects_unknown_server(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -118,10 +124,12 @@ class BootstrapTests(unittest.TestCase):
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_skip_install_agents_omits_phase(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -138,10 +146,12 @@ class BootstrapTests(unittest.TestCase):
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_skip_install_skills_and_configure_omit_those_phases(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -160,6 +170,7 @@ class BootstrapTests(unittest.TestCase):
                 "--skip-install-agents",
                 "--skip-install-skills",
                 "--skip-configure",
+                "--skip-doctor",
             ]
         )
 
@@ -167,10 +178,12 @@ class BootstrapTests(unittest.TestCase):
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
     def test_rejects_empty_skill_profile(
         self,
         configure_main,
+        doctor_main,
         skills_main,
         agents_main,
     ) -> None:
@@ -190,7 +203,7 @@ class BootstrapTests(unittest.TestCase):
         plan = bootstrap._bootstrap_plan(args)
 
         assert plan is not None
-        self.assertEqual([phase.requested for phase in plan], [False, True, True])
+        self.assertEqual([phase.requested for phase in plan], [False, True, True, True])
         self.assertIsNone(plan[1].skipped_reason)
         self.assertIsNotNone(plan[0].skipped_reason)
         self.assertIn("--skip-install-agents", plan[0].skipped_reason)
@@ -251,7 +264,7 @@ class BootstrapTests(unittest.TestCase):
         payload = json.loads(stream.getvalue().strip())
         self.assertEqual(result, 0)
         self.assertEqual(payload["status"], "ok")
-        self.assertEqual(len(payload["phases"]), 3)
+        self.assertEqual([phase["name"] for phase in payload["phases"]], ["install-agents", "install-skills", "configure", "doctor"])
         self.assertTrue(all(phase["requested"] for phase in payload["phases"]))
 
     def test_skipped_phase_json_summary_reports_partial(self) -> None:

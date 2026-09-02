@@ -12,6 +12,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Hermes-side wiring is secondary (doctor only warns); the smoke still pins it.
 cat >"$_node_script" <<'JS'
 const fs = require('fs');
 const path = require('path');
@@ -26,71 +27,16 @@ if (!fs.existsSync(hermes)) {
   throw new Error('missing ~/.hermes/config.yaml');
 }
 const text = fs.readFileSync(hermes, 'utf8');
-for (const name of ['lean-ctx', 'codebase-memory-mcp', 'agentmemory']) {
+for (const name of ['codebase-memory-mcp', 'agentmemory']) {
   if (!text.includes(`${name}:`)) {
     throw new Error(`~/.hermes/config.yaml missing ${name} MCP entry`);
   }
 }
+if (text.includes('lean-ctx')) {
+  throw new Error('~/.hermes/config.yaml still references lean-ctx (ADR-0009)');
+}
 if (!/^\s*provider:\s*agentmemory\s*$/m.test(text)) {
   throw new Error('~/.hermes/config.yaml missing memory.provider=agentmemory');
-}
-
-
-for (const mcpPath of [
-  path.join(home, '.omp', 'agent', 'mcp.json'),
-  path.join(home, '.pi', 'agent', 'mcp.json'),
-]) {
-  if (!fs.existsSync(mcpPath)) {
-    throw new Error(`missing ${mcpPath}`);
-  }
-  const mcp = JSON.parse(fs.readFileSync(mcpPath, 'utf8'));
-  if (!mcp || typeof mcp.mcpServers !== 'object' || Array.isArray(mcp.mcpServers)) {
-    throw new Error(`${mcpPath} missing mcpServers object`);
-  }
-  if (!mcp.mcpServers['codebase-memory-mcp']) {
-    throw new Error(`${mcpPath} missing codebase-memory-mcp MCP entry`);
-  }
-  if (!Array.isArray(mcp.disabledServers) || !mcp.disabledServers.includes('codebase-memory-mcp')) {
-    throw new Error(`${mcpPath} codebase-memory-mcp entry is not gated in disabledServers`);
-  }
-  for (const name of ['agentmemory', 'lean-ctx']) {
-    if (mcp.mcpServers[name]) {
-      throw new Error(`${mcpPath} unexpectedly contains ${name} MCP entry`);
-    }
-  }
-}
-
-const agentConfig = path.join(home, '.omp', 'agent', 'config.yml');
-if (!fs.existsSync(agentConfig)) {
-  throw new Error(`missing ${agentConfig} (should be seeded from the stack contract)`);
-}
-const configText = fs.readFileSync(agentConfig, 'utf8');
-for (const marker of [
-  'backend: mnemopi',
-  'polyphonicRecall: false',
-  'thresholdTokens: 150000',
-  'idleEnabled: true',
-  'handoffSaveToDisk: true',
-  'enableAgentsUser: false',
-  'verification-recorder.ts',
-  'retention-canary.ts',
-]) {
-  if (!configText.includes(marker)) {
-    throw new Error(`${agentConfig} missing stack contract setting: ${marker}`);
-  }
-}
-
-for (const [skillsRoot, names] of [
-  [path.join(home, '.hermes', 'skills'), ['lean-ctx', 'codebase-memory-mcp', 'agentmemory', 'ponytail']],
-  [path.join(home, '.omp', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']],
-  [path.join(home, '.pi', 'agent', 'skills'), ['codebase-memory-mcp', 'ponytail']],
-]) {
-  for (const name of names) {
-    const skillPath = path.join(skillsRoot, name, 'SKILL.md');
-    if (!fs.existsSync(skillPath)) {
-      throw new Error(`missing skill ${skillPath}`);
-    }
-  }
 }
 JS
 
@@ -104,12 +50,13 @@ if [ "$SKIP_INSTALL" != "1" ]; then
   run_cmd "agentic-bootstrap"
 
   echo "[3/7] Verifying root script wrappers"
-  run_cmd "uv run --with rich python -c 'import agentic_env.bootstrap, agentic_env.configure_agent_mcps, agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.update_agentic_stack'"
+  run_cmd "uv run --with rich python -c 'import agentic_env.bootstrap, agentic_env.configure_agent_mcps, agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.stack_doctor, agentic_env.update_agentic_stack'"
   run_cmd "uv run --script bootstrap.py --help"
   run_cmd "uv run --script install-agents.py --help"
   run_cmd "uv run --script install-skills-mcps.py --help"
   run_cmd "uv run --script configure-agent-mcps.py --help"
   run_cmd "uv run --script update-agentic-stack.py --help"
+  run_cmd "uv run --script stack-doctor.py --help"
 fi
 
 if [ "$SKIP_INSTALL" != "1" ]; then
@@ -142,17 +89,18 @@ if [ "$SKIP_INSTALL" != "1" ]; then
   require_command agentic-install-skills-mcps
   require_command agentic-configure-agent-mcps
   require_command agentic-update-stack
+  require_command agentic-stack-doctor
 fi
 
 require_command hermes
 require_command omp
 require_command codex
 require_command claude
-require_command lean-ctx
 require_command codebase-memory-mcp
 require_command agentmemory
 
-echo "[7/7] Verifying Hermes and OMP config artifacts"
+echo "[7/7] Verifying stack wiring (agentic-stack-doctor) and Hermes config artifacts"
+run_cmd "agentic-stack-doctor"
 run_cmd "node $_node_script"
 
 if [ "$failures" -ne 0 ]; then

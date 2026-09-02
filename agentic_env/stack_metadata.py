@@ -14,20 +14,22 @@ from .remote_install_contract import (
 )
 
 # Reviewed stack release. Install and update must converge to these identities.
-HERMES_VERSION: Final[str] = "0.18.2"
-HERMES_COMMIT: Final[str] = "36f2a966c7f9f69987494b867c3dcf96b69a5766"
+# Bumped 2026-09-02: Hermes v2026.8.31, Codex 0.152.1, Claude 2.1.258, agentmemory 0.9.29;
+# installer script SHA256s re-verified unchanged that day.
+HERMES_VERSION: Final[str] = "0.21.0"
+HERMES_COMMIT: Final[str] = "29112bef099274229cadff79cdff7bf7b99c4b77"
 OMP_VERSION: Final[str] = "18.1.4"
 OMP_REF: Final[str] = f"v{OMP_VERSION}"
-OPENAI_CODEX_VERSION: Final[str] = "0.144.1"
+OPENAI_CODEX_VERSION: Final[str] = "0.152.1"
 OPENAI_CODEX_PACKAGE: Final[str] = f"@openai/codex@{OPENAI_CODEX_VERSION}"
-CLAUDE_VERSION: Final[str] = "2.1.210"
+CLAUDE_VERSION: Final[str] = "2.1.258"
 CODEBASE_MEMORY_VERSION: Final[str] = "0.9.0"
 # lean-ctx is Rejected (ADR-0009). Reinstall pointer if semantic search need ever
 # fires: https://github.com/yvgude/lean-ctx v3.10.0 or newer — never 3.9.x (lossy
 # read-path default).
 SKILLS_CLI_VERSION: Final[str] = "1.5.16"
 SKILLS_CLI_PACKAGE: Final[str] = f"skills@{SKILLS_CLI_VERSION}"
-AGENTMEMORY_VERSION: Final[str] = "0.9.27"
+AGENTMEMORY_VERSION: Final[str] = "0.9.29"
 AGENTMEMORY_NPM_PACKAGE: Final[str] = f"@agentmemory/agentmemory@{AGENTMEMORY_VERSION}"
 
 HERMES_INSTALL_URL: Final[str] = "https://hermes-agent.nousresearch.com/install.sh"

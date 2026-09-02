@@ -11,13 +11,12 @@ Roles differ by harness:
 | OMP context access | OMP core | Native reads, search, shell, evaluation, and anchored edits | No |
 | OMP narrative memory | Mnemopi | Per-project transcript recall | No; retrieval layer |
 | Structural memory | `codebase-memory-mcp` | Code graph queries: symbols, callers, callees, routes, architecture, impact, dead-code candidates | No; rebuildable cache |
-| Secondary-agent context access | `lean-ctx` | Context routing for Hermes, Claude Code, and Codex | No |
 | Secondary-agent narrative memory | `agentmemory` | Session history and rationale recall for Hermes, Claude Code, and Codex | No; retrieval layer |
 | Plain-text project record | `CONTEXT.md` + `docs/adr/*.md` | Canonical domain language and accepted decisions | Yes |
 
 Rule: if losing the generated store would lose project truth, the fact belongs in plain text too.
 
-On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). The ADR-0008 pre-registered fallback was executed on 2026-08-11 after one semantic-search call since 2026-07-28, below the fixed threshold of five, so `lean-ctx` is dropped from OMP entirely. `codebase-memory-mcp` remains available there, but its use is gated behind the codebase-memory litmus.
+On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). `lean-ctx` was dropped from OMP on 2026-08-11 (ADR-0008 pre-registered fallback) and removed from the whole stack on 2026-09-02 (ADR-0009). `codebase-memory-mcp` remains available there, but its use is gated behind the codebase-memory litmus.
 
 ## Repository template
 
@@ -105,18 +104,6 @@ Use for structural questions:
 
 Do not store rationale here. The graph is derived from code and can be rebuilt.
 
-### `lean-ctx`
-
-Use on secondary agents for their local context layer:
-
-- file reads with the smallest useful fidelity
-- cached re-reads
-- shell output compression
-- directory maps
-- session/context savings visibility
-
-Do not treat lean-ctx memory as the project decision record. Do not mount or install its skill on OMP; the ADR-0008 fallback dropped it there on 2026-08-11.
-
 ## Install and configure
 
 `agentic-env/README.md` and the installer own install behavior and per-agent config
@@ -129,7 +116,7 @@ Run this when opening a repo for agent work:
 
 1. Ensure `CONTEXT.md` exists.
 2. Ensure `docs/adr/` exists or create it on first ADR.
-3. On OMP, use native context I/O and Mnemopi; on a secondary agent, verify its `agentmemory` and `lean-ctx` wiring.
+3. On OMP, use native context I/O and Mnemopi; on a secondary agent, verify its `agentmemory` wiring (`agentic-stack-doctor` warns on it).
 4. If the codebase-memory litmus passes, index the repo with `codebase-memory-mcp` or enable auto-index.
 5. Ask structural questions through `codebase-memory-mcp` only after that litmus passes.
 6. During `grill-with-docs`, update `CONTEXT.md` immediately when a term is settled.
@@ -142,4 +129,3 @@ Run this when opening a repo for agent work:
 - `agentmemory`: keep project sessions for secondary agents and let its lifecycle/decay manage recall quality.
 - Mnemopi: OMP's sole narrative-memory owner; treat it as transcript recall, not the canonical record.
 - `codebase-memory-mcp`: disposable/rebuildable index; optionally commit its shared graph artifact only after the team wants shared bootstrap speed.
-- `lean-ctx`: secondary-agent local cache/session layer; not a project record and not mounted on OMP.

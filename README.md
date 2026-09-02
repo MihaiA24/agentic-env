@@ -3,7 +3,8 @@
 This folder packages commands that provision and update a local multi-agent tooling stack.
 
 Docs:
-- [Project memory stack](docs/project-memory-stack.md) – guide and one-repo template for `lean-ctx`, `codebase-memory-mcp`, `agentmemory`, `CONTEXT.md`, and ADR usage.
+- [Project memory stack](docs/project-memory-stack.md) – guide and one-repo template for `codebase-memory-mcp`, `agentmemory`, `CONTEXT.md`, and ADR usage.
+- [Decisions](DECISIONS_AI_TOOLING.md) – the operative stack contract; `lean-ctx` was removed stack-wide (ADR-0009).
 
 - `agentic-install-agents`
   - Installs/reinstalls:
@@ -16,7 +17,6 @@ Docs:
     - mattpocock skills pack (global)
     - ponytail skill bundle (global, agent-dispatch)
     - `codebase-memory-mcp` (UI install supported)
-    - `lean-ctx`
     - `agentmemory` (CLI + Hermes MCP config)
   - Skill packs are driven by the bundled `agentic_env/skill-packs.json` default with:
     - `packs` entries that can define optional `skills` (array of specific skill names)
@@ -36,8 +36,8 @@ Docs:
     - When `skills` exists and you pass `--skill`, installs the intersection of both lists.
 - `agentic-configure-agent-mcps`
   - Adds selected project-memory MCP servers when missing:
-    - Hermes: `lean-ctx`, `codebase-memory-mcp`, and `agentmemory`
-    - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are deliberately not written and stale entries are removed (ADR-0006/ADR-0008)
+    - Hermes: `codebase-memory-mcp` and `agentmemory`
+    - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are excluded — stale entries are removed and both names stay in `disabledServers` so OMP's `~/.claude.json` import cannot mount them (ADR-0006/ADR-0009)
   - Adds matching global skills, with the same OMP exclusions.
   - Converges `~/.omp/agent/config.yml` to the stack contract: seeds it when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.
 - `agentic-bootstrap`
@@ -45,6 +45,7 @@ Docs:
     - installs agent CLIs
     - installs MCP tooling and matching skills
     - configures MCP servers and global skills
+    - runs `agentic-stack-doctor` (a mandatory-check failure fails the bootstrap)
   - defaults:
     - `--skill-profile default`
     - all install/configure targets
@@ -53,11 +54,15 @@ Docs:
     - `--skip-install-agents`
     - `--skip-install-skills`
     - `--skip-configure`
+    - `--skip-doctor`
     - `--configure-no-skills`
 - `agentic-update-stack`
   - Converges installed components to the reviewed versions in `agentic_env/stack_metadata.py` without interactive prompts:
-    - `hermes`, `omp`, `codex`, `claude`, `skills` CLI, `codebase-memory-mcp`, `lean-ctx`, `agentmemory` CLI
+    - `hermes`, `omp`, `codex`, `claude`, `skills` CLI, `codebase-memory-mcp`, `agentmemory` CLI
+  - Ends with `agentic-stack-doctor`; a mandatory-check failure makes the update exit non-zero.
   - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
+- `agentic-stack-doctor`
+  - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes / Claude Code / Codex checks only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints the corrective command per failure; never repairs.
 - Root `*.py` files remain `uv run --script` compatibility wrappers for development and smoke checks.
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
@@ -106,13 +111,21 @@ uv run --script update-agentic-stack.py
 
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-docker compose up --build --exit-code-from fresh-install
+docker compose up --build --force-recreate --exit-code-from fresh-install
+```
+
+`--force-recreate` matters: with unchanged image layers, `compose up` restarts the previous container and its `/root` state, which is no longer a fresh install.
+
+If the skills clone fails inside the container with "Authentication failed" for a public GitHub repo while the host clones fine, the container's git 2.39 is getting HTTP 401 on `git-upload-pack` over HTTP/2 from your network (seen 2026-09-02, not in CI). Run once with git forced to HTTP/1.1:
+
+```bash
+docker compose run --rm --build -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=http.version -e GIT_CONFIG_VALUE_0=HTTP/1.1 fresh-install
 ```
 
 What this runbook validates:
 - installs from clean container
-- verifies `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory` are callable
-- verifies Hermes MCP/skill artifacts are present and OMP has `codebase-memory-mcp` without `agentmemory` or `lean-ctx` wiring
+- verifies `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory` are callable
+- runs `agentic-stack-doctor` (OMP mandatory contract) and checks Hermes MCP/skill artifacts
 
 ### 2) Interactive container validation (same checkbook, inspectable)
 
@@ -121,7 +134,7 @@ cd /path/to/your/dotfiles/agentic-env
 docker compose run --rm --entrypoint sh fresh-install
 ```
 
-Important: this opens a **fresh image**. It does not pre-install `hermes`, `lean-ctx`, or any MCP tooling.
+Important: this opens a **fresh image**. It does not pre-install `hermes` or any MCP tooling.
 Run install/configure commands first, then smoke checks.
 
 Inside container:
@@ -135,7 +148,7 @@ agentic-bootstrap
 # Quick runtime checks for each CLI
 hermes --help
 omp --help
-lean-ctx doctor
+agentic-stack-doctor
 agentmemory doctor
 codebase-memory-mcp --version
 ```
@@ -143,7 +156,7 @@ codebase-memory-mcp --version
 You can also run all steps in one command:
 
 ```bash
-docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-bootstrap && hermes --help && omp --help && lean-ctx doctor && agentmemory doctor && codebase-memory-mcp --version"
+docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-bootstrap && hermes --help && omp --help && agentmemory doctor && codebase-memory-mcp --version"
 ```
 
 ### 3) Host-side install + configure smoke (no docker)
@@ -154,7 +167,7 @@ If you need to run on the host machine directly:
 cd /path/to/your/dotfiles/agentic-env
 uv tool install --force .
 agentic-bootstrap
-lean-ctx doctor
+agentic-stack-doctor
 agentmemory doctor
 codebase-memory-mcp --version
 hermes --help
@@ -188,7 +201,7 @@ Repair by adding clean blocks:
 
 ```bash
 hermes config set memory.provider agentmemory
-agentic-configure-agent-mcps --yes --server lean-ctx --server codebase-memory-mcp --server agentmemory --agent hermes
+agentic-configure-agent-mcps --yes --server codebase-memory-mcp --server agentmemory --agent hermes
 ```
 
 Then rerun `hermes mcp list`.
@@ -244,13 +257,13 @@ Files:
 ### Run full fresh install test
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-docker compose up --build --exit-code-from fresh-install
+docker compose up --build --force-recreate --exit-code-from fresh-install
 ```
 
 ### Run checks only (skip installs)
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-SKIP_INSTALL=1 docker compose up --build --exit-code-from fresh-install
+SKIP_INSTALL=1 docker compose up --build --force-recreate --exit-code-from fresh-install
 ```
 
 You can also run the script directly:
@@ -261,15 +274,18 @@ docker run --rm -v "$PWD":/workspace agentic-env-fresh-install /bin/sh ./docker-
 ### Current smoke contract
 The run is successful only if all checks pass:
 1. `uv tool install --force .` succeeds.
-2. `agentic-bootstrap` succeeds.
-3. Root script wrappers load and expose help through `uv run --script`.
+2. `agentic-bootstrap` succeeds (its final phase is `agentic-stack-doctor`).
+3. Root script wrappers load and expose help through `uv run --script` (incl. `stack-doctor.py`).
 4. Binary checks pass for:
-   - `hermes`, `omp`, `codex`, `claude`, `lean-ctx`, `codebase-memory-mcp`, `agentmemory`
-5. Hermes and OMP config checks pass:
-   - `~/.hermes/config.yaml` contains `lean-ctx`, `codebase-memory-mcp`, and `agentmemory` MCP entries
-   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`, gated in `disabledServers`
-   - those OMP-family MCP files contain neither `agentmemory` nor `lean-ctx`
-   - Hermes has all matching global skills; OMP skill roots have `codebase-memory-mcp` and `ponytail`
+   - `agentic-*` entry points incl. `agentic-stack-doctor`
+   - `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory`
+5. `agentic-stack-doctor` exits 0 — the OMP mandatory contract:
+   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`, gated in `disabledServers`; `agentmemory` and `lean-ctx` absent from `mcpServers`
+   - no read-interception prose in the OMP MCP files or `~/.claude.json`
+   - `~/.omp/agent/config.yml` matches the contract; each hook registered once with its file present
+   - curated `default` skill roster present; `codebase-memory-mcp` and `ponytail` descriptors in the OMP skill roots; no `lean-ctx` skill dir
+6. Hermes config checks pass:
+   - `~/.hermes/config.yaml` contains `codebase-memory-mcp` and `agentmemory` MCP entries, no `lean-ctx`, and `memory.provider: agentmemory`
 
 ## Design and tradeoffs
 - **Chosen base image:** `node:20-bullseye-slim`

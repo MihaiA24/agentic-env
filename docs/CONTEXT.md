@@ -3,10 +3,10 @@
 ## Core terms
 
 - **Agent stack**
-  - The canonical local tooling set managed in this folder: `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `lean-ctx`, `agentmemory`.
+  - The canonical local tooling set managed in this folder: `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory`. `lean-ctx` was removed stack-wide on 2026-09-02 (ADR-0009).
 
 - **Primary harness**
-  - The agent the stack is chosen for and validated against: `omp`. Secondary agents still receive installs and MCP configuration, but they do not drive tool selection.
+  - The agent the stack is chosen for and validated against: `omp`. Its wiring is the mandatory contract: installer-enforced, smoke-verified, and a stack-doctor failure. Secondary agents still receive installs and MCP configuration, but they do not drive tool selection and their correctness is a documented TODO, not a contract.
   - _Avoid_: Default agent, main CLI, preferred agent
 
 - **Supported agent**
@@ -18,7 +18,7 @@
   - _Avoid_: Project onboarding, project lifecycle management
 
 - **Project memory stack**
-  - The project context layer used by agents. On the primary harness: OMP core owns context I/O and search, Mnemopi holds narrative memory, and `codebase-memory-mcp` answers structural code-graph queries when its enable litmus fires; `lean-ctx` is not mounted (ADR-0008 pre-registered fallback, executed 2026-08-11). Secondary agents keep the earlier three-tool wiring — `lean-ctx`, `codebase-memory-mcp`, `agentmemory` — until that is revisited.
+  - The project context layer used by agents. On the primary harness: OMP core owns context I/O and search, Mnemopi holds narrative memory, and `codebase-memory-mcp` answers structural code-graph queries when its enable litmus fires. Secondary agents keep `codebase-memory-mcp` and `agentmemory` wiring (unmeasured; see "Secondary agents TODO" in `DECISIONS_AI_TOOLING.md`).
   - _Avoid_: Memory MCP stack, AI context stack
 
 ## Stack lifecycle states
@@ -70,7 +70,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Project memory, skill install
 
 - **Managed MCP entry**
-  - A user-level MCP configuration entry named `lean-ctx`, `codebase-memory-mcp`, or `agentmemory` that `agentic-env` owns and converges to its curated definition while preserving unrelated agent settings. Malformed configuration is rejected without modification.
+  - A user-level MCP configuration entry named `codebase-memory-mcp` or `agentmemory` that `agentic-env` owns and converges to its curated definition while preserving unrelated agent settings. On OMP roots, `agentmemory` and `lean-ctx` are excluded entries: purged from `mcpServers` and kept in `disabledServers` so a re-import cannot mount them. Malformed configuration is rejected without modification.
   - _Avoid_: Any MCP entry, user-owned configuration
 
 - **Read-interception policy**
@@ -101,10 +101,11 @@ Every tracked tool or process is in exactly one state; the state names the bar f
       - `agentic-install-agents --all --yes`
       - `agentic-install-skills-mcps --all-mcps --yes`
       - `agentic-configure-agent-mcps --yes`
+  - _Avoid_: Deployment (unqualified — means either fresh install or curated stack update)
 
 - **Curated stack update**
   - A non-interactive maintenance run that converges every installed agent-stack component to the reviewed versions declared by `agentic-env`.
-  - _Avoid_: Latest-available update, mixed pinned/latest update, fresh install
+  - _Avoid_: Latest-available update, mixed pinned/latest update, fresh install, deployment (unqualified)
 
 - **Provisioner upgrade**
   - Replacement of the installed `agentic-env` tool through `uv`, kept separate from a curated stack update because `uv` owns the provisioner's installation source and lifecycle.
@@ -118,14 +119,14 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - The fresh-install contract exercised on Arch Linux and macOS; it must pass before a host is accepted as supported.
 
 - **Smoke contract**
-  - Process succeeds when: tools are installed, binaries are callable, every supported agent's MCP config contains the project memory stack servers, and matching global skills exist.
+  - Process succeeds when: tools are installed, binaries are callable, `agentic-stack-doctor` exits successfully (the OMP mandatory checks), and Hermes has its project memory stack servers and matching global skills.
 
 - **Provisioning verification**
   - Evidence that deterministic command and configuration contracts pass focused tests and the complete agent stack passes the fresh-install smoke contract.
   - _Avoid_: Line coverage, mocked installer success
 
 - **Stack doctor**
-  - A read-only host diagnostic that reports agent-stack command availability, versions, MCP registrations, global skills, duplicate hook registrations, and conflicting read-interception policies for every supported agent; it exits unsuccessfully with corrective commands when the machine does not satisfy the smoke contract.
+  - A read-only host diagnostic (`agentic-stack-doctor`) with two tiers. Mandatory checks cover the primary harness: OMP binaries and versions, both OMP `mcp.json` roots wired and gated with excluded servers absent, no read-interception prose in any file OMP loads (including `~/.claude.json`), the `config.yml` contract, each hook registered exactly once with its file present, the curated skill roster, and no `lean-ctx` skill directory. Secondary checks (Hermes, Claude Code, Codex, agentmemory) only warn with a `TODO secondary` tag. It exits unsuccessfully with corrective commands only on a mandatory failure, never repairs, and runs as the final phase of `agentic-bootstrap` and `agentic-update-stack`.
   - _Avoid_: Smoke test, automatic repair
 
 - **Supported host**

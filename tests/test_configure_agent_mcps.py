@@ -24,7 +24,7 @@ class ConfigureAgentMcpsTests(unittest.TestCase):
     def test_install_skill_atomic_write(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "hermes"
-            skill = configure_agent_mcps.SKILLS["lean-ctx"]
+            skill = configure_agent_mcps.SKILLS["codebase-memory-mcp"]
 
             assert configure_agent_mcps._install_skill(root, skill, dry_run=False) is True
             skill_path = root / skill.name / "SKILL.md"
@@ -35,8 +35,8 @@ class ConfigureAgentMcpsTests(unittest.TestCase):
 
     def test_parse_yaml_roundtrip_and_scalar_types(self) -> None:
         raw = """mcp_servers:
-  lean-ctx:
-    command: lean-ctx
+  codebase-memory-mcp:
+    command: codebase-memory-mcp
   agentmemory:
     command: npx
     args: [\"-y\", \"@agentmemory/mcp\"]
@@ -70,8 +70,6 @@ nullish: null
             path = Path(temp_dir) / "config.yaml"
             path.write_text(
                 """mcp_servers:
-  lean-ctx:
-    command: lean-ctx
   codebase-memory-mcp:
     command: codebase-memory-mcp
   agentmemory:
@@ -88,7 +86,6 @@ memory:
             ):
                 assert configure_agent_mcps.configure_hermes(
                     [
-                        configure_agent_mcps.MCP_SERVERS["lean-ctx"],
                         configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"],
                         configure_agent_mcps.MCP_SERVERS["agentmemory"],
                     ],
@@ -100,7 +97,7 @@ memory:
             self.assertIn("memory", parsed)
             self.assertEqual(
                 set(parsed["mcp_servers"].keys()),
-                {"lean-ctx", "codebase-memory-mcp", "agentmemory"},
+                {"codebase-memory-mcp", "agentmemory"},
             )
             self.assertEqual(parsed["memory"]["provider"], "agentmemory")
             self.assertFalse(path.with_suffix(path.suffix + ".agentic-env.bak").exists())
@@ -110,8 +107,8 @@ memory:
             path = Path(temp_dir) / "config.yaml"
             path.write_text(
                 """mcp_servers:
-  lean-ctx:
-    command: lean-ctx
+  codebase-memory-mcp:
+    command: codebase-memory-mcp
 """,
                 encoding="utf-8",
             )
@@ -142,7 +139,7 @@ memory:
             ):
                 self.assertFalse(
                     configure_agent_mcps.configure_hermes(
-                        [configure_agent_mcps.MCP_SERVERS["lean-ctx"]],
+                        [configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]],
                         dry_run=False,
                     )
                 )
@@ -158,7 +155,6 @@ memory:
             ):
                 assert configure_agent_mcps.configure_omp(
                     [
-                        configure_agent_mcps.MCP_SERVERS["lean-ctx"],
                         configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"],
                         configure_agent_mcps.MCP_SERVERS["agentmemory"],
                     ],
@@ -204,10 +200,10 @@ memory:
 
     def test_configure_omp_gates_default_off_servers(self) -> None:
         for existing, expected_disabled in (
-            ({}, ["codebase-memory-mcp"]),
+            ({}, ["codebase-memory-mcp", "agentmemory", "lean-ctx"]),
             (
                 {"disabledServers": ["node_repl"]},
-                ["node_repl", "codebase-memory-mcp"],
+                ["node_repl", "codebase-memory-mcp", "agentmemory", "lean-ctx"],
             ),
         ):
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -244,8 +240,7 @@ memory:
             ):
                 assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
             text = config_path.read_text(encoding="utf-8")
-            for marker in configure_agent_mcps.OMP_AGENT_CONFIG_MARKERS:
-                self.assertIn(marker, text)
+            self.assertEqual(configure_agent_mcps.omp_config_drift(text), [])
             self.assertIn(str(hooks / "retention-canary.ts"), text)
 
     def test_converge_omp_agent_config_warns_on_drift_without_rewriting(self) -> None:
@@ -262,10 +257,10 @@ memory:
             ):
                 assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
             mock_warn.assert_called_once()
-            self.assertIn("thresholdTokens: 150000", mock_warn.call_args[0][0])
+            self.assertIn("compaction.thresholdTokens: 150000", mock_warn.call_args[0][0])
             self.assertEqual(config_path.read_text(encoding="utf-8"), original)
 
-    def test_install_skills_omits_lean_ctx_and_agentmemory_on_omp(self) -> None:
+    def test_install_skills_omits_agentmemory_on_omp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "skills"
             with patch(
@@ -274,11 +269,10 @@ memory:
             ):
                 assert configure_agent_mcps.install_skills(
                     ["omp"],
-                    ["lean-ctx", "codebase-memory-mcp", "agentmemory", "ponytail"],
+                    ["codebase-memory-mcp", "agentmemory", "ponytail"],
                     dry_run=False,
                 )
 
-            self.assertFalse((root / "lean-ctx").exists())
             self.assertFalse((root / "agentmemory").exists())
             self.assertTrue((root / "codebase-memory-mcp" / "SKILL.md").is_file())
             self.assertTrue((root / "ponytail" / "SKILL.md").is_file())
@@ -294,7 +288,7 @@ memory:
             ):
                 self.assertFalse(
                     configure_agent_mcps.configure_omp(
-                        [configure_agent_mcps.MCP_SERVERS["lean-ctx"]],
+                        [configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]],
                         dry_run=False,
                     )
                 )
@@ -312,7 +306,7 @@ memory:
                 "agentic_env.configure_agent_mcps._SKILL_BODY_DIR",
                 Path(temp_dir),
             ):
-                body = configure_agent_mcps._load_skill_body("lean-ctx")
+                body = configure_agent_mcps._load_skill_body("codebase-memory-mcp")
 
             self.assertIn("Built-in skill body is unavailable", body)
             mock_warn.assert_called_once()

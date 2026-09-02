@@ -30,8 +30,6 @@ from .stack_metadata import (
     AGENTMEMORY_NPM_PACKAGE,
     CODEBASE_MEMORY_ARCHIVES,
     CODEBASE_MEMORY_RELEASE_BASE,
-    LEAN_CTX_ARCHIVES,
-    LEAN_CTX_RELEASE_BASE,
     SKILL_AGENTS,
     SKILL_AGENT_CLI_NAMES,
     SKILL_AGENT_LOOKUP,
@@ -100,7 +98,6 @@ class SkillInstallPlan:
     skill_names: SkillNameSelection
     skill_agents: SkillAgentSelection
     do_codebase: bool
-    do_lean_ctx: bool
     do_agentmemory: bool
 
 
@@ -302,6 +299,16 @@ def _skill_pack_skills(name: str) -> list[str]:
     return list(_pack_lookup()[name].skills)
 
 
+def profile_skills(profile: str, path: Path = _SKILL_PACK_CONFIG_PATH) -> list[str]:
+    """Curated skill roster: union of every pack filter in `profile` (manifest order)."""
+    if not _load_skill_pack_config(path):
+        return []
+    names: list[str] = []
+    for pack in _pack_profiles()[profile].packs:
+        names.extend(skill for skill in _skill_pack_skills(pack) if skill not in names)
+    return names
+
+
 def _validate_remote_contract() -> bool:
     return validate_remote_contract(
         _REMOTE_INSTALL_CONTRACT, scope="agentic-install-skills-mcps"
@@ -406,7 +413,6 @@ def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> S
         skill_names=skill_names,
         skill_agents=selected_skill_agents,
         do_codebase=bool(args.all_mcps),
-        do_lean_ctx=bool(args.all_mcps),
         do_agentmemory=bool(args.all_mcps),
     )
 
@@ -661,43 +667,6 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     return True
 
 
-def _install_lean_ctx(non_interactive: bool) -> bool:
-    if not _should_install_mcp("lean-ctx", "lean-ctx", non_interactive):
-        return True
-    platform_key = _platform_key()
-    if platform_key is None:
-        return False
-    archive_name, checksum = LEAN_CTX_ARCHIVES[platform_key]
-
-    info("Installing lean-ctx...")
-    if cmd_exists("lean-ctx"):
-        subprocess.run(
-            ["lean-ctx", "stop"],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    if not install_pinned_binary_archive(
-        label="lean-ctx",
-        binary="lean-ctx",
-        url=f"{LEAN_CTX_RELEASE_BASE}/{archive_name}",
-        expected_sha256=checksum,
-    ):
-        return False
-    binary = str(Path.home() / ".local" / "bin" / "lean-ctx")
-    if not cmd_version_matches(binary, STACK_VERSION_FRAGMENTS["lean-ctx"]):
-        warn("lean-ctx: installed version does not match curated release")
-        return False
-    ok("lean-ctx: installed")
-
-    if ask("Run lean-ctx setup now", default=True, non_interactive=non_interactive):
-        run([binary, "setup"])
-        ok("lean-ctx setup: run")
-    else:
-        skip("lean-ctx setup: skipped")
-    return True
-
-
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -788,10 +757,9 @@ def main(argv: list[str] | None = None) -> int:
 
     do_skills = bool(selected_skill_packs)
     do_codebase = plan.do_codebase
-    do_lean = plan.do_lean_ctx
     do_agentmemory = plan.do_agentmemory
 
-    if not do_skills and not do_codebase and not do_lean and not do_agentmemory:
+    if not do_skills and not do_codebase and not do_agentmemory:
         do_skills = ask(
             "Install skill packs",
             default=False,
@@ -804,9 +772,6 @@ def main(argv: list[str] | None = None) -> int:
             "Install MCP: codebase-memory-mcp",
             default=False,
             non_interactive=non_interactive,
-        )
-        do_lean = ask(
-            "Install MCP: lean-ctx", default=False, non_interactive=non_interactive
         )
         do_agentmemory = ask(
             "Install MCP: agentmemory",
@@ -834,11 +799,6 @@ def main(argv: list[str] | None = None) -> int:
         ok_all = _install_codebase_memory(with_ui, non_interactive) and ok_all
     else:
         skip("codebase-memory-mcp: skipped")
-
-    if do_lean:
-        ok_all = _install_lean_ctx(non_interactive) and ok_all
-    else:
-        skip("lean-ctx: skipped")
 
     if do_agentmemory:
         ok_all = _install_agentmemory(non_interactive) and ok_all

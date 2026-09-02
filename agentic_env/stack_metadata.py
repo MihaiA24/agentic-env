@@ -16,13 +16,15 @@ from .remote_install_contract import (
 # Reviewed stack release. Install and update must converge to these identities.
 HERMES_VERSION: Final[str] = "0.18.2"
 HERMES_COMMIT: Final[str] = "36f2a966c7f9f69987494b867c3dcf96b69a5766"
-OMP_VERSION: Final[str] = "17.0.5"
+OMP_VERSION: Final[str] = "18.1.4"
 OMP_REF: Final[str] = f"v{OMP_VERSION}"
 OPENAI_CODEX_VERSION: Final[str] = "0.144.1"
 OPENAI_CODEX_PACKAGE: Final[str] = f"@openai/codex@{OPENAI_CODEX_VERSION}"
 CLAUDE_VERSION: Final[str] = "2.1.210"
 CODEBASE_MEMORY_VERSION: Final[str] = "0.9.0"
-LEAN_CTX_VERSION: Final[str] = "3.9.11"
+# lean-ctx is Rejected (ADR-0009). Reinstall pointer if semantic search need ever
+# fires: https://github.com/yvgude/lean-ctx v3.10.0 or newer — never 3.9.x (lossy
+# read-path default).
 SKILLS_CLI_VERSION: Final[str] = "1.5.16"
 SKILLS_CLI_PACKAGE: Final[str] = f"skills@{SKILLS_CLI_VERSION}"
 AGENTMEMORY_VERSION: Final[str] = "0.9.27"
@@ -30,7 +32,7 @@ AGENTMEMORY_NPM_PACKAGE: Final[str] = f"@agentmemory/agentmemory@{AGENTMEMORY_VE
 
 HERMES_INSTALL_URL: Final[str] = "https://hermes-agent.nousresearch.com/install.sh"
 HERMES_INSTALL_SHA256: Final[str] = (
-    "4b5839eb4f7cf4775108bcda6345a8de7766898ac4b4bbcafb5b0374f65603e3"
+    "5854b15670b51a8daae8f59ddfa917062de9f74be261eb73b4b8d719710f8968"
 )
 OMP_INSTALL_URL: Final[str] = "https://omp.sh/install"
 OMP_INSTALL_SHA256: Final[str] = (
@@ -79,27 +81,6 @@ CODEBASE_MEMORY_ARCHIVES: Final[dict[tuple[str, str, bool], tuple[str, str]]] = 
         "67ef134e3fb490093b64156a88437c7ed1424c16e45440670d972346ea25271b",
     ),
 }
-LEAN_CTX_RELEASE_BASE: Final[str] = (
-    f"https://github.com/yvgude/lean-ctx/releases/download/v{LEAN_CTX_VERSION}"
-)
-LEAN_CTX_ARCHIVES: Final[dict[tuple[str, str], tuple[str, str]]] = {
-    ("darwin", "amd64"): (
-        "lean-ctx-x86_64-apple-darwin.tar.gz",
-        "1bfa42f5ec4c45398ba6687ec3e860678fd704d837110f926b48bbaa9bb773e0",
-    ),
-    ("darwin", "arm64"): (
-        "lean-ctx-aarch64-apple-darwin.tar.gz",
-        "8f7735e2df93b99056d89d0d4d406f5d1d795968f49372018ac46b511e4c228c",
-    ),
-    ("linux", "amd64"): (
-        "lean-ctx-x86_64-unknown-linux-gnu.tar.gz",
-        "69f48a29d9dbeddbb9bf087a304153b00588f2a67efa0bee282ae0381cb70f69",
-    ),
-    ("linux", "arm64"): (
-        "lean-ctx-aarch64-unknown-linux-gnu.tar.gz",
-        "f8cb2a769ae00a22756bb60451d209fd52c6b7ba4859afb979d9afaad285d127",
-    ),
-}
 
 STACK_VERSION_FRAGMENTS: Final[dict[str, tuple[str, ...]]] = {
     # Hermes version output labels the pinned checkout "local <hash>" since the
@@ -109,7 +90,6 @@ STACK_VERSION_FRAGMENTS: Final[dict[str, tuple[str, ...]]] = {
     "codex": (f"codex-cli {OPENAI_CODEX_VERSION}",),
     "claude": (CLAUDE_VERSION,),
     "codebase-memory-mcp": (f"codebase-memory-mcp {CODEBASE_MEMORY_VERSION}",),
-    "lean-ctx": (f"lean-ctx {LEAN_CTX_VERSION}",),
     "agentmemory": (AGENTMEMORY_VERSION,),
     "skills": (SKILLS_CLI_VERSION,),
 }

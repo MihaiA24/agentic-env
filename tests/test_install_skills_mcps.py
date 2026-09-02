@@ -108,12 +108,10 @@ class InstallSkillsMcpsTests(unittest.TestCase):
     @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
     @patch("agentic_env.install_skills_mcps._install_skills")
     @patch("agentic_env.install_skills_mcps._install_codebase_memory")
-    @patch("agentic_env.install_skills_mcps._install_lean_ctx")
     @patch("agentic_env.install_skills_mcps._install_agentmemory")
     def test_main_with_unknown_skill_pack_selection_aborts_without_installs(
         self,
         mock_install_agentmemory,
-        mock_install_lean_ctx,
         mock_install_codebase_memory,
         mock_install_skills,
         _mock_validate_remote_contract,
@@ -123,18 +121,15 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         self.assertEqual(result, 1)
         mock_install_skills.assert_not_called()
         mock_install_codebase_memory.assert_not_called()
-        mock_install_lean_ctx.assert_not_called()
         mock_install_agentmemory.assert_not_called()
 
     @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
     @patch("agentic_env.install_skills_mcps._install_skills")
     @patch("agentic_env.install_skills_mcps._install_codebase_memory")
-    @patch("agentic_env.install_skills_mcps._install_lean_ctx")
     @patch("agentic_env.install_skills_mcps._install_agentmemory")
     def test_build_plan_skips_invalid_skill_agents(
         self,
         mock_install_agentmemory,
-        mock_install_lean_ctx,
         mock_install_codebase_memory,
         mock_install_skills,
         _mock_validate_remote_contract,
@@ -144,7 +139,6 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         self.assertEqual(result, 1)
         mock_install_skills.assert_not_called()
         mock_install_codebase_memory.assert_not_called()
-        mock_install_lean_ctx.assert_not_called()
         mock_install_agentmemory.assert_not_called()
 
     @patch("agentic_env.install_skills_mcps._configure_hermes_agentmemory", return_value=True)

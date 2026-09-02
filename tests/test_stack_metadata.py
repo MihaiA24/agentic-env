@@ -73,7 +73,6 @@ class StackMetadataTests(unittest.TestCase):
             install_skills_mcps.CODEBASE_MEMORY_ARCHIVES
             is stack_metadata.CODEBASE_MEMORY_ARCHIVES
         )
-        assert install_skills_mcps.LEAN_CTX_ARCHIVES is stack_metadata.LEAN_CTX_ARCHIVES
         assert (
             update_agentic_stack.AGENTMEMORY_NPM_PACKAGE
             == stack_metadata.AGENTMEMORY_NPM_PACKAGE
@@ -194,16 +193,12 @@ class StackMetadataTests(unittest.TestCase):
             ("linux", "amd64"),
             ("linux", "arm64"),
         }
-        assert set(stack_metadata.LEAN_CTX_ARCHIVES) == platforms
         assert {key[:2] for key in stack_metadata.CODEBASE_MEMORY_ARCHIVES} == platforms
         assert {key[2] for key in stack_metadata.CODEBASE_MEMORY_ARCHIVES} == {
             False,
             True,
         }
-        for _, checksum in (
-            *stack_metadata.LEAN_CTX_ARCHIVES.values(),
-            *stack_metadata.CODEBASE_MEMORY_ARCHIVES.values(),
-        ):
+        for _, checksum in stack_metadata.CODEBASE_MEMORY_ARCHIVES.values():
             assert len(checksum) == 64
             int(checksum, 16)
 

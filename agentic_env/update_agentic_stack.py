@@ -133,7 +133,6 @@ def main(argv: list[str] | None = None) -> int:
             "codebase-memory-mcp",
             lambda: install_skills_mcps._install_codebase_memory(True, True),
         ),
-        ("lean-ctx", "lean-ctx", lambda: install_skills_mcps._install_lean_ctx(True)),
     )
     ok_all = True
     for label, binary, installer in steps:

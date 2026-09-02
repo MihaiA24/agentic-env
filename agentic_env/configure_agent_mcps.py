@@ -34,11 +34,6 @@ class Skill:
 
 
 MCP_SERVERS: dict[str, McpServer] = {
-    "lean-ctx": McpServer(
-        name="lean-ctx",
-        command="lean-ctx",
-        requires=("lean-ctx",),
-    ),
     "codebase-memory-mcp": McpServer(
         name="codebase-memory-mcp",
         command="codebase-memory-mcp",
@@ -56,7 +51,7 @@ MCP_SERVERS: dict[str, McpServer] = {
 SKILLS: dict[str, Skill] = {}
 
 _SKILL_BODY_DIR = Path(__file__).with_name("skill_bodies")
-_SKILL_NAMES = ("lean-ctx", "codebase-memory-mcp", "agentmemory", "ponytail")
+_SKILL_NAMES = ("codebase-memory-mcp", "agentmemory", "ponytail")
 _SKILL_BODY_MISSING_TEMPLATE = """---
 name: {name}
 description: Built-in skill descriptor is unavailable; using fallback text.
@@ -640,10 +635,12 @@ def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
     return True
 
 
-# MCP servers deliberately absent from OMP; stale pre-existing entries are removed on converge.
+# MCP servers deliberately absent from OMP; stale pre-existing entries are removed on converge
+# and the names stay in `disabledServers` so OMP's claude-import (~/.claude.json) cannot
+# mount them either. lean-ctx is Rejected stack-wide (ADR-0009).
 OMP_EXCLUDED_SERVERS = {
     "agentmemory": "ADR-0006: Mnemopi owns narrative memory on OMP",
-    "lean-ctx": "ADR-0008 fallback: lean-ctx was dropped from OMP",
+    "lean-ctx": "ADR-0009: lean-ctx removed from the stack",
 }
 
 # Servers wired on OMP but default-off ("Gated" in DECISIONS_AI_TOOLING.md); the installer
@@ -661,7 +658,7 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
             omp_servers.append(server)
 
     excluded = tuple(OMP_EXCLUDED_SERVERS)
-    gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS)
+    gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS) + excluded
     ok_all = True
     for adapter in _OMP_CONFIG_ADAPTERS:
         if not _write_json_config_data(
@@ -673,21 +670,23 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
 
 _OMP_HOOK_FILES = ("verification-recorder.ts", "retention-canary.ts")
 
-# Settings that must be present in ~/.omp/agent/config.yml
+# Settings that must be present in ~/.omp/agent/config.yml as (top-level block,
+# "key: value" line), keyed per settings-schema.ts at the pinned OMP_VERSION
 # (DECISIONS_AI_TOOLING.md "Live wiring": compaction tuning, single memory
 # owner, hooks, recovery-store discipline).
-OMP_AGENT_CONFIG_MARKERS = (
-    "backend: mnemopi",
-    "polyphonicRecall: false",
-    "thresholdTokens: 150000",
-    "idleEnabled: true",
-    "handoffSaveToDisk: true",
-    "enableAgentsUser: false",
-    *_OMP_HOOK_FILES,
+OMP_AGENT_CONFIG_CONTRACT = (
+    ("memory", "backend: mnemopi"),
+    ("mnemopi", "polyphonicRecall: false"),
+    ("compaction", "thresholdTokens: 150000"),
+    ("compaction", "idleEnabled: true"),
+    ("compaction", "handoffSaveToDisk: true"),
+    ("skills", "enableAgentsUser: false"),
+    *(("extensions", name) for name in _OMP_HOOK_FILES),
 )
 
 _OMP_AGENT_CONFIG_TEMPLATE = """memory:
   backend: mnemopi
+mnemopi:
   polyphonicRecall: false
 {extensions}compaction:
   thresholdTokens: 150000
@@ -700,6 +699,31 @@ _OMP_AGENT_CONFIG_TEMPLATE = """memory:
 skills:
   enableAgentsUser: false
 """
+
+
+def omp_config_block(text: str, key: str) -> list[str]:
+    """Stripped lines nested under top-level `key:` (indent-based; the built-in
+    YAML parser rejects the block lists OMP configs contain)."""
+    lines: list[str] = []
+    inside = False
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line[0].isspace():
+            inside = line.split(":", 1)[0].strip() == key
+            continue
+        if inside:
+            lines.append(line.strip())
+    return lines
+
+
+def omp_config_drift(text: str) -> list[str]:
+    """Contract settings missing from an OMP agent config; empty when compliant."""
+    return [
+        f"{block}.{marker}"
+        for block, marker in OMP_AGENT_CONFIG_CONTRACT
+        if not any(marker in line for line in omp_config_block(text, block))
+    ]
 
 
 def _find_omp_hooks_dir() -> Path | None:
@@ -740,8 +764,7 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
     # Existing config is user-owned YAML this module cannot safely rewrite
     # (block lists and quoted scalars do not survive the built-in parser),
     # so verify the contract markers and report drift instead of editing.
-    text = path.read_text(encoding="utf-8")
-    missing = [marker for marker in OMP_AGENT_CONFIG_MARKERS if marker not in text]
+    missing = omp_config_drift(path.read_text(encoding="utf-8"))
     if not missing:
         skip(f"{path}: agent config matches stack contract")
         return True

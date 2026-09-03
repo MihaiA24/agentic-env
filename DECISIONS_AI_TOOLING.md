@@ -63,7 +63,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
 
 #### Secondary agents TODO (closed 2026-09-02)
 
-1. Hermes install correctness — **closed by `chore/agentic-env-bump-pins`**: pin moved to release v2026.8.31 (`0.21.0`, `29112bef`); `_install_hermes` already converges to `HERMES_COMMIT`.
+1. Hermes install correctness — **closed by `chore/agentic-env-bump-pins`**: pin moved to release v2026.8.31 (`0.21.0`, `29112bef`); `_install_hermes` converges to `HERMES_COMMIT` on fresh or behind checkouts and leaves a checkout ahead of the pin alone (the installer refuses rollbacks without `--force-commit`; drift above the pin is tolerated, doctor warns).
 2. `agentmemory` + `codebase-memory-mcp` wiring on Claude/Codex — **not pursued**: Claude Code and Codex are installed agents; measured need for managed wiring is zero (agentmemory 0 calls in 934 sessions, codebase-memory litmus 0×). Hermes keeps its entries; the `@agentmemory/mcp` shim is pinned to `AGENTMEMORY_VERSION`.
 3. Codex per-tool approval filters — **not pursued**: no managed Codex MCP config exists to filter.
 4. Claude/Codex pin refresh — **closed by `chore/agentic-env-bump-pins`**: Codex 0.152.1, Claude 2.1.258, agentmemory 0.9.29; installer script checksums re-verified unchanged.

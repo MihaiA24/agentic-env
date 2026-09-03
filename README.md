@@ -99,6 +99,7 @@ uv run --script update-agentic-stack.py
 
 - Install and update use the same immutable commit, release, or npm package pins from `agentic_env/stack_metadata.py`.
 - Every changed component is checked with its version command; a mismatch fails the run.
+- Exception: a Hermes checkout already *ahead* of `HERMES_COMMIT` is left alone (the Hermes installer refuses to roll an install backwards; drift above the pin is tolerated). The doctor still warns until the pin catches up.
 - Upgrading the curated stack requires a reviewed metadata, installer checksum, and release-asset checksum change.
 - `skills` refers to the pinned CLI only; installed skill-pack contents are not advanced to floating upstream revisions.
 - Do not call `agentmemory upgrade` here. That command prompts to re-run the `iii-engine` installer and can mutate the current workspace when `package.json` is present. Run it manually when intentionally refreshing the `iii-engine` runtime.

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
+from pathlib import Path
 
 from .common import (
     ask,
@@ -42,6 +44,28 @@ def _validate_remote_contract() -> bool:
     )
 
 
+_HERMES_CHECKOUT = Path.home() / ".hermes" / "hermes-agent"
+
+
+def _hermes_checkout_ahead_of_pin() -> bool:
+    """True when the managed checkout already contains HERMES_COMMIT.
+
+    The Hermes installer refuses to roll an existing install backwards
+    (`--commit` is ignored without `--force-commit`), and the stack contract
+    tolerates version drift above the pins, so a newer checkout is not drift
+    to converge — just a doctor warning."""
+    if not (_HERMES_CHECKOUT / ".git").exists():
+        return False
+    return (
+        subprocess.run(
+            ["git", "-C", str(_HERMES_CHECKOUT), "merge-base", "--is-ancestor", HERMES_COMMIT, "HEAD"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+
+
 def _install_hermes(non_interactive: bool) -> bool:
     if cmd_version_matches("hermes", STACK_VERSION_FRAGMENTS["hermes"]):
         if not ask(
@@ -50,6 +74,9 @@ def _install_hermes(non_interactive: bool) -> bool:
             skip("Hermes Agent: curated version already installed")
             return True
     elif cmd_exists("hermes"):
+        if _hermes_checkout_ahead_of_pin():
+            warn("Hermes Agent: checkout is ahead of the curated release; drift above the pin is tolerated")
+            return True
         warn("Hermes Agent: installed version differs; converging")
 
     info("Installing Hermes...")

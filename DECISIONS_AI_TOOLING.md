@@ -53,7 +53,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
 - **Why:** best model access + LSP + edit anchors. The alternatives lost on tooling, not on model.
 - **Rejected as primary:** Hermes, Claude Code, opencode, Codex. A paired OMP/Hermes benchmark is parked — only if OMP-primary ever needs to be definitive.
 - **Revisit:** never unless OMP fails. OMP major bump → re-verify converge keys against `packages/coding-agent/src/config/settings-schema.ts` at the new tag, re-pin, re-run the docker smoke.
-- **Wiring:** contract keys verified at the pinned tag: `memory.backend`, `compaction.{thresholdTokens,idleEnabled,handoffSaveToDisk,methodOrder}`, `skills.enableAgentsUser`, `extensions`; drift check is block-scoped (`OMP_AGENT_CONFIG_CONTRACT`), not substring. `node_repl` built-in disabled on both OMP roots (0 calls; `OMP_GATED_BUILTINS`, doctor-enforced). MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances.
+- **Wiring:** contract keys verified at the pinned tag: `memory.backend`, `compaction.{thresholdTokens,idleEnabled,handoffSaveToDisk,methodOrder}`, `skills.{enableClaudeUser,enableAgentsUser}`, `extensions`; drift check is block-scoped (`OMP_AGENT_CONFIG_CONTRACT`), not substring. `node_repl` built-in disabled on both OMP roots (0 calls; `OMP_GATED_BUILTINS`, doctor-enforced). MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances.
 
 #### Agent tiers (2026-09-02)
 
@@ -129,7 +129,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
   - pstack recall-as-wired-hedge — Rule 4 violation; retention-canary covers detection; upstream #8940 telemetry would retire even the canary.
   - wait-what, to-questionnaire, ask-matt, wizard — no observed need in 5 months / 1,000+ sessions.
 - **Revisit:** next fit audit, or when a pruned skill's pain resurfaces. pstack Tier 1 leftovers (why, automate-me, interrogate, arena, technical-writing) reopen only if an adopted pstack pick earns its keep. mattpocock `retro` ships → fit audit against pstack `reflect` (same job; keep one).
-- **Wiring:** curated at install time via `skill-packs.json` (packs list their skills explicitly; the `default` profile is the roster the doctor checks under `~/.claude/skills`, the root OMP loads). Packs pinned to upstream tags in `source` (`mattpocock/skills#v1.2.3`; `JuliusBrussee/caveman#v2.3.1` — the benchmarked text, v2.4.0+ not taken; `DietrichGebert/ponytail#v4.9.0`); `cursor/plugins` (pstack) publishes no tags and floats on `main`. `skills.enableAgentsUser: false` — `~/.agents/skills` is the skill store: the canonical copy that `~/.claude/skills` and `~/.hermes/skills` symlink into, loaded once via the Claude root. Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
+- **Wiring:** curated at install time via `skill-packs.json` (packs list their skills explicitly; the `default` profile is the roster the doctor checks under `~/.claude/skills`, the root OMP loads). Packs pinned to upstream tags in `source` (`mattpocock/skills#v1.2.3`; `JuliusBrussee/caveman#v2.3.1` — the benchmarked text, v2.4.0+ not taken; `DietrichGebert/ponytail#v4.9.0`); `cursor/plugins` (pstack) publishes no tags and floats on `main`. `skills.enableClaudeUser: true` + `skills.enableAgentsUser: false` — `~/.agents/skills` is the skill store: the canonical copy that `~/.claude/skills` and `~/.hermes/skills` symlink into, loaded once via the Claude root. `enableClaudeUser` must be set explicitly: it defaults to `false` in the inspected OMP 18.1.13 schema, which silently left the whole pack invisible to OMP (found 2026-09-07 via missing `grill-with-docs`; only plugin + `~/.omp/agent/skills` skills loaded). Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
 
 ### 7. Hooks — verification-recorder + retention-canary
 
@@ -147,7 +147,7 @@ Mandatory contract = the OMP layer. Installer-enforced (`agentic-configure-agent
 
 - Clean-host contract (2026-09-02): `uv tool install --force . && agentic-bootstrap` on a host with a `~/.dotfiles` checkout yields exactly this stack; version drift above the pins is tolerated, skill/MCP/hook drift is not.
 - Fresh-machine reproducibility: `agentic-configure-agent-mcps` seeds `~/.omp/agent/config.yml` from this contract when absent and verifies it when present (`converge_omp_agent_config`; existing user YAML is never rewritten).
-- The concrete settings are the **Wiring** line of each layer above: harness (pin, contract keys, `node_repl`), context I/O (excluded servers, prose ban), compaction (`compaction.*`), memory (`memory.backend`, `mnemopi.polyphonicRecall`), code graph (`mcp.json` gate), skills (`skill-packs.json`, `skills.enableAgentsUser`), hooks (`extensions`).
+- The concrete settings are the **Wiring** line of each layer above: harness (pin, contract keys, `node_repl`), context I/O (excluded servers, prose ban), compaction (`compaction.*`), memory (`memory.backend`, `mnemopi.polyphonicRecall`), code graph (`mcp.json` gate), skills (`skill-packs.json`, `skills.enableClaudeUser`, `skills.enableAgentsUser`), hooks (`extensions`).
 
 ## Upstream watch
 

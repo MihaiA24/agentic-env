@@ -39,7 +39,7 @@ Docs:
     - Hermes: `codebase-memory-mcp` and `agentmemory`
     - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are excluded — stale entries are removed and both names stay in `disabledServers` so OMP's `~/.claude.json` import cannot mount them (ADR-0006/ADR-0009)
   - Adds matching global skills, with the same OMP exclusions.
-  - Converges `~/.omp/agent/config.yml` to the stack contract: seeds it when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.
+  - Converges `~/.omp/agent/config.yml` to the stack contract: seeds it when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableClaudeUser: true` + `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.
 - `agentic-bootstrap`
   - One-shot onboarding in phase order:
     - installs agent CLIs

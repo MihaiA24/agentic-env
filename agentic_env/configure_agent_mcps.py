@@ -683,6 +683,7 @@ OMP_AGENT_CONFIG_CONTRACT = (
     ("compaction", "idleEnabled: true"),
     ("compaction", "handoffSaveToDisk: true"),
     ("compaction", "methodOrder:"),
+    ("skills", "enableClaudeUser: true"),
     ("skills", "enableAgentsUser: false"),
     *(("extensions", name) for name in _OMP_HOOK_FILES),
 )
@@ -700,24 +701,80 @@ mnemopi:
     - remote
     - soft
 skills:
+  enableClaudeUser: true
   enableAgentsUser: false
 """
 
 
 def omp_config_block(text: str, key: str) -> list[str]:
-    """Stripped lines nested under top-level `key:` (indent-based; the built-in
-    YAML parser rejects the block lists OMP configs contain)."""
+    """Stripped direct-child lines under top-level ``key:``."""
     lines: list[str] = []
     inside = False
+    child_indent: int | None = None
     for line in text.splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
+        stripped = line.strip()
+        if not stripped or line.lstrip().startswith("#"):
             continue
-        if not line[0].isspace():
+
+        indent = len(line) - len(line.lstrip())
+        if indent == 0:
             inside = line.split(":", 1)[0].strip() == key
+            child_indent = None
             continue
-        if inside:
-            lines.append(line.strip())
+        if not inside:
+            continue
+        if child_indent is None:
+            child_indent = indent
+        if indent < child_indent:
+            inside = False
+            child_indent = None
+        elif indent == child_indent:
+            lines.append(stripped)
     return lines
+
+
+def _omp_scalar_without_comment(raw: str) -> str:
+    quote: str | None = None
+    index = 0
+    while index < len(raw):
+        char = raw[index]
+        if quote == "'":
+            if char == "'":
+                if index + 1 < len(raw) and raw[index + 1] == "'":
+                    index += 2
+                    continue
+                quote = None
+        elif quote == '"':
+            if char == "\\":
+                index += 2
+                continue
+            if char == '"':
+                quote = None
+        elif char in {"'", '"'}:
+            quote = char
+        elif char == "#" and (index == 0 or raw[index - 1].isspace()):
+            return raw[:index].rstrip()
+        index += 1
+    return raw.strip()
+
+
+def _omp_contract_line_matches(line: str, marker: str) -> bool:
+    expected_key, separator, expected_raw = marker.partition(":")
+    if not separator:
+        return marker in line
+
+    actual_key, separator, actual_raw = line.partition(":")
+    if not separator or actual_key.strip() != expected_key.strip():
+        return False
+    if not expected_raw.strip():
+        return True
+
+    try:
+        expected = _parse_yaml_scalar(_omp_scalar_without_comment(expected_raw), 0)
+        actual = _parse_yaml_scalar(_omp_scalar_without_comment(actual_raw), 0)
+    except ValueError:
+        return False
+    return type(actual) is type(expected) and actual == expected
 
 
 def omp_config_drift(text: str) -> list[str]:
@@ -725,7 +782,10 @@ def omp_config_drift(text: str) -> list[str]:
     return [
         f"{block}.{marker}"
         for block, marker in OMP_AGENT_CONFIG_CONTRACT
-        if not any(marker in line for line in omp_config_block(text, block))
+        if not any(
+            _omp_contract_line_matches(line, marker)
+            for line in omp_config_block(text, block)
+        )
     ]
 
 

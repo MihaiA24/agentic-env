@@ -54,14 +54,13 @@ if [ "$SKIP_INSTALL" != "1" ]; then
   echo "[2/7] Running one-shot bootstrap"
   run_cmd "agentic-bootstrap"
 
-  echo "[3/7] Verifying root script wrappers"
-  run_cmd "uv run --with rich python -c 'import agentic_env.bootstrap, agentic_env.configure_agent_mcps, agentic_env.install_agents, agentic_env.install_skills_mcps, agentic_env.stack_doctor, agentic_env.update_agentic_stack'"
-  run_cmd "uv run --script bootstrap.py --help"
-  run_cmd "uv run --script install-agents.py --help"
-  run_cmd "uv run --script install-skills-mcps.py --help"
-  run_cmd "uv run --script configure-agent-mcps.py --help"
-  run_cmd "uv run --script update-agentic-stack.py --help"
-  run_cmd "uv run --script stack-doctor.py --help"
+  echo "[3/7] Verifying package module entry points"
+  run_cmd "uv run python -m agentic_env.bootstrap --help"
+  run_cmd "uv run python -m agentic_env.install_agents --help"
+  run_cmd "uv run python -m agentic_env.install_skills_mcps --help"
+  run_cmd "uv run python -m agentic_env.configure_agent_mcps --help"
+  run_cmd "uv run python -m agentic_env.update_agentic_stack --help"
+  run_cmd "uv run python -m agentic_env.stack_doctor --help"
 fi
 
 if [ "$SKIP_INSTALL" != "1" ]; then

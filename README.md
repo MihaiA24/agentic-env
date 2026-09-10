@@ -64,7 +64,7 @@ Docs:
   - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
 - `agentic-stack-doctor`
   - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated incl. the `node_repl` built-in, excluded servers absent there and in `~/.claude.json`, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes wiring (incl. a stale `lean-ctx` entry) and the Hermes / Claude Code / Codex binaries only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints the corrective command per failure; never repairs.
-- Root `*.py` files remain `uv run --script` compatibility wrappers for development and smoke checks.
+- Checkout development runs the package modules through `uv run python -m agentic_env.<module>`; installed workflows use the `agentic-*` commands.
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
 
@@ -84,14 +84,15 @@ agentic-update-stack
 # agentic-configure-agent-mcps --yes
 ```
 
-Development compatibility wrappers remain available from the checkout:
+Run package modules directly when developing from the checkout:
 
 ```bash
-uv run --script bootstrap.py
-uv run --script install-agents.py
-uv run --script install-skills-mcps.py
-uv run --script configure-agent-mcps.py
-uv run --script update-agentic-stack.py
+uv run python -m agentic_env.bootstrap
+uv run python -m agentic_env.install_agents
+uv run python -m agentic_env.install_skills_mcps
+uv run python -m agentic_env.configure_agent_mcps
+uv run python -m agentic_env.update_agentic_stack
+uv run python -m agentic_env.stack_doctor
 ```
 
 ### Update policy
@@ -277,7 +278,7 @@ docker run --rm -v "$PWD":/workspace agentic-env-fresh-install /bin/sh ./docker-
 The run is successful only if all checks pass:
 1. `uv tool install --force .` succeeds.
 2. `agentic-bootstrap` succeeds (its final phase is `agentic-stack-doctor`).
-3. Root script wrappers load and expose help through `uv run --script` (incl. `stack-doctor.py`).
+3. All six package module entry points load and expose help through `uv run python -m agentic_env.<module> --help`.
 4. Binary checks pass for:
    - `agentic-*` entry points incl. `agentic-stack-doctor`
    - `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory`
@@ -296,4 +297,4 @@ The run is successful only if all checks pass:
 - `node:20-bullseye-slim` was the original minimum; the image moved to `bookworm-slim` in `b49fa8f` when it gained `xz-utils`/`libatomic1`/`unzip` for Hermes' Node 26 + bun runtime (ADR-0001 records the bullseye-era measurements).
 - `alpine` images were rejected due installer/runtime incompatibilities (`omp`/Hermes path).
 ## Dependencies
-- `rich` is required and is installed automatically through package dependencies or uv script metadata.
+- `rich` is required and is installed automatically as a package dependency.

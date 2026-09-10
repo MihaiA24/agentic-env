@@ -18,7 +18,7 @@
 
 ```mermaid
 flowchart LR
-  OMP[OMP 18.1.4 — primary harness] --> IO[Context I/O: native read/grep/glob/edit + LSP + scouts]
+  OMP[OMP 18.1.14 — primary harness] --> IO[Context I/O: native read/grep/glob/edit + LSP + scouts]
   OMP --> CMP[Compaction: handoff @150K, idle, save-to-disk]
   OMP --> MEM[Memory: Mnemopi, polyphonicRecall off]
   OMP --> HK[Hooks: verification-recorder, retention-canary]
@@ -49,7 +49,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
 
 ### 1. Harness — OMP
 
-- **Decided:** OMP, pinned `18.1.4` (`stack_metadata.OMP_VERSION`; host validated on it, installer hash unchanged).
+- **Decided:** OMP, pinned `18.1.14` (`stack_metadata.OMP_VERSION`; release assets and contract settings reviewed at `v18.1.14`; installer hash unchanged).
 - **Why:** best model access + LSP + edit anchors. The alternatives lost on tooling, not on model.
 - **Rejected as primary:** Hermes, Claude Code, opencode, Codex. A paired OMP/Hermes benchmark is parked — only if OMP-primary ever needs to be definitive.
 - **Revisit:** never unless OMP fails. OMP major bump → re-verify converge keys against `packages/coding-agent/src/config/settings-schema.ts` at the new tag, re-pin, re-run the docker smoke.

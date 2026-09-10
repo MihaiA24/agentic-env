@@ -14,13 +14,14 @@ from .remote_install_contract import (
 )
 
 # Reviewed stack release. Install and update must converge to these identities.
-# Bumped 2026-09-02: Hermes v2026.8.31, Codex 0.152.1, Claude 2.1.258, agentmemory 0.9.29;
-# installer script SHA256s re-verified unchanged that day.
+# Reviewed 2026-09-09: OMP v18.1.14 and Codex 0.153.4; OMP installer
+# SHA256 re-verified unchanged. Other pins last reviewed 2026-09-02:
+# Hermes v2026.8.31, Claude 2.1.258, and agentmemory 0.9.29.
 HERMES_VERSION: Final[str] = "0.21.0"
 HERMES_COMMIT: Final[str] = "29112bef099274229cadff79cdff7bf7b99c4b77"
-OMP_VERSION: Final[str] = "18.1.4"
+OMP_VERSION: Final[str] = "18.1.14"
 OMP_REF: Final[str] = f"v{OMP_VERSION}"
-OPENAI_CODEX_VERSION: Final[str] = "0.152.1"
+OPENAI_CODEX_VERSION: Final[str] = "0.153.4"
 OPENAI_CODEX_PACKAGE: Final[str] = f"@openai/codex@{OPENAI_CODEX_VERSION}"
 CLAUDE_VERSION: Final[str] = "2.1.258"
 CODEBASE_MEMORY_VERSION: Final[str] = "0.9.0"

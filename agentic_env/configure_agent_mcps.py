@@ -182,33 +182,35 @@ def _select_many(
 
 def _parse_yaml_scalar(raw: str, line_no: int) -> object:
     text = raw.strip()
-    if not text:
+    if not text or text.startswith("#"):
         raise ValueError(f"line {line_no}: malformed YAML scalar")
 
-    if text.startswith("#"):
-        raise ValueError(f"line {line_no}: inline comment without value")
-
-    if text.startswith(("'", '"')) and text.endswith(text[0]):
-        return text[1:-1]
-
-    if text.startswith("[") and text.endswith("]"):
+    if text.startswith(('"', "[", "{")):
         try:
-            value = json.loads(text)
-        except json.JSONDecodeError:
-            # YAML flow lists allow unquoted scalars (`[hermes-cli]`); parse
-            # each comma-separated item as a scalar instead of failing.
+            value, end = json.JSONDecoder().raw_decode(text)
+        except json.JSONDecodeError as exc:
+            if not (text.startswith("[") and text.endswith("]")):
+                raise ValueError(f"line {line_no}: unsupported YAML scalar: {exc}") from None
+            # YAML flow lists also allow unquoted scalars (`[hermes-cli]`).
             inner = text[1:-1].strip()
-            if not inner:
-                return []
-            return [
-                _parse_yaml_scalar(item, line_no) for item in inner.split(",")
-            ]
-        if not isinstance(value, list):
-            raise ValueError(f"line {line_no}: list value expected")
+            return [_parse_yaml_scalar(item, line_no) for item in inner.split(",")] if inner else []
+        if text[end:] and not re.fullmatch(r"\s+#.*", text[end:]):
+            raise ValueError(f"line {line_no}: unexpected content after YAML scalar")
         return value
 
-    if text in {"true", "false", "null", "~"}:
-        return {"true": True, "false": False, "null": None, "~": None}[text]
+    if text.startswith("'"):
+        match = re.fullmatch(r"'((?:[^']|'')*)'(?:\s+#.*)?", text)
+        if not match:
+            raise ValueError(f"line {line_no}: malformed quoted scalar")
+        return match[1].replace("''", "'")
+
+    text = re.split(r"\s+#", text, maxsplit=1)[0].rstrip()
+    if text in {"true", "True", "TRUE", "yes", "Yes", "YES", "on", "On", "ON"}:
+        return True
+    if text in {"false", "False", "FALSE", "no", "No", "NO", "off", "Off", "OFF"}:
+        return False
+    if text in {"null", "Null", "NULL", "~"}:
+        return None
 
     try:
         return int(text)
@@ -218,22 +220,11 @@ def _parse_yaml_scalar(raw: str, line_no: int) -> object:
         return float(text)
     except ValueError:
         pass
-
-    if (text.startswith("{") and text.endswith("}")) or (
-        text.startswith('"') and text.endswith('"')
-    ):
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"line {line_no}: invalid JSON value: {exc}") from None
-
     return text
 
 
 def _parse_yaml_config(path: str) -> dict[str, object]:
-    result: dict[str, object] = {}
-    stack: list[tuple[int, dict[str, object]]] = [(-1, result)]
-
+    lines: list[tuple[int, int, str]] = []
     for line_no, raw_line in enumerate(path.splitlines(), start=1):
         stripped_line = raw_line.rstrip()
         if not stripped_line.strip() or stripped_line.lstrip().startswith("#"):
@@ -243,49 +234,100 @@ def _parse_yaml_config(path: str) -> dict[str, object]:
         indentation = stripped_line[:indent]
         if "\t" in indentation:
             raise ValueError(f"line {line_no}: tabs are not supported in Hermes config")
+        lines.append((line_no, indent, stripped_line[indent:]))
 
-        if ":" not in stripped_line.strip():
-            raise ValueError(f"line {line_no}: malformed key/value pair")
+    def parse_sequence(start: int, indent: int) -> tuple[list[object], int]:
+        values: list[object] = []
+        index = start
+        while index < len(lines):
+            line_no, current_indent, text = lines[index]
+            if current_indent < indent:
+                break
+            if current_indent > indent:
+                raise ValueError(
+                    f"line {line_no}: nested block collections are not supported"
+                )
+            if text != "-" and not text.startswith("- "):
+                break
 
-        while indent <= stack[-1][0]:
-            stack.pop()
-        parent_indent, parent = stack[-1]
+            item = text[1:].strip()
+            if not item:
+                raise ValueError(f"line {line_no}: empty block-list item is not supported")
+            if item == "-" or item.startswith("- "):
+                raise ValueError(
+                    f"line {line_no}: nested block collections are not supported"
+                )
+            if not item.startswith(("'", '"')) and re.search(r"\s#", item):
+                raise ValueError(f"line {line_no}: inline list comments are not supported")
+            if not item.startswith(("'", '"')) and (
+                item.startswith(("&", "*", "!", "|", ">", "[", "]", "{", "}"))
+                or item == "?"
+                or item.startswith("? ")
+            ):
+                raise ValueError(
+                    f"line {line_no}: structured block-list item is not supported"
+                )
+            if not item.startswith(("'", '"')) and re.search(r":(?:\s|$)", item):
+                raise ValueError(f"line {line_no}: list mappings are not supported")
 
-        raw_key, raw_value = stripped_line.strip().split(":", 1)
-        if not raw_key:
-            raise ValueError(f"line {line_no}: missing key")
-        key = raw_key.strip()
-        if key in parent:
-            raise ValueError(f"line {line_no}: duplicate key '{key}'")
+            value = _parse_yaml_scalar(item, line_no)
+            if isinstance(value, (dict, list)):
+                raise ValueError(
+                    f"line {line_no}: nested block collections are not supported"
+                )
+            values.append(value)
+            index += 1
+        return values, index
 
-        if not raw_value.strip():
-            value: object = {}
-            parent[key] = value
-            stack.append((indent, value))
-            continue
+    def parse_mapping(start: int, indent: int) -> tuple[dict[str, object], int]:
+        result: dict[str, object] = {}
+        index = start
+        while index < len(lines):
+            line_no, current_indent, text = lines[index]
+            if current_indent < indent:
+                break
+            if current_indent > indent:
+                raise ValueError(f"line {line_no}: unexpected indentation")
+            if text == "-" or text.startswith("- "):
+                break
+            if ":" not in text:
+                raise ValueError(f"line {line_no}: malformed key/value pair")
 
-        parent[key] = _parse_yaml_scalar(raw_value.strip(), line_no)
+            raw_key, raw_value = text.split(":", 1)
+            if not raw_key:
+                raise ValueError(f"line {line_no}: missing key")
+            key = raw_key.strip()
+            if key in result:
+                raise ValueError(f"line {line_no}: duplicate key '{key}'")
+            index += 1
 
+            if raw_value.strip():
+                result[key] = _parse_yaml_scalar(raw_value.strip(), line_no)
+                continue
+
+            if index < len(lines):
+                _, next_indent, next_text = lines[index]
+                if (
+                    next_indent >= current_indent
+                    and (next_text == "-" or next_text.startswith("- "))
+                ):
+                    result[key], index = parse_sequence(index, next_indent)
+                    continue
+                if next_indent > current_indent:
+                    result[key], index = parse_mapping(index, next_indent)
+                    continue
+            result[key] = None
+        return result, index
+
+    if not lines:
+        return {}
+    result, index = parse_mapping(0, lines[0][1])
+    if index != len(lines):
+        line_no, _, text = lines[index]
+        if text == "-" or text.startswith("- "):
+            raise ValueError(f"line {line_no}: block list has no mapping key")
+        raise ValueError(f"line {line_no}: malformed mixed collection")
     return result
-
-
-def _yaml_scalar(value: object) -> str:
-    if isinstance(value, str):
-        needs_quotes = (
-            not value
-            or value.startswith(" ")
-            or value.endswith(" ")
-            or any(ch.isspace() for ch in value)
-            or any(ch in ":#{}[]@" for ch in value)
-        )
-        return json.dumps(value) if needs_quotes else value
-
-    if isinstance(value, (bool, int, float)) or value is None:
-        return json.dumps(value)
-    if isinstance(value, list):
-        return json.dumps(value)
-
-    return json.dumps(value)
 
 
 def _dump_yaml_config(data: dict[str, object], *, indent: int = 0) -> str:
@@ -293,13 +335,12 @@ def _dump_yaml_config(data: dict[str, object], *, indent: int = 0) -> str:
     prefix = " " * indent
 
     for key, value in data.items():
-        if isinstance(value, dict):
+        if isinstance(value, dict) and value:
             lines.append(f"{prefix}{key}:")
-            if value:
-                lines.append(_dump_yaml_config(value, indent=indent + 2))
+            lines.append(_dump_yaml_config(value, indent=indent + 2))
             continue
 
-        lines.append(f"{prefix}{key}: {_yaml_scalar(value)}")
+        lines.append(f"{prefix}{key}: {json.dumps(value)}")
 
     return "\n".join(lines)
 
@@ -826,9 +867,8 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
             ok(f"{path}: agent config seeded from stack contract")
         return True
 
-    # Existing config is user-owned YAML this module cannot safely rewrite
-    # (block lists and quoted scalars do not survive the built-in parser),
-    # so verify the contract markers and report drift instead of editing.
+    # Existing config is user-owned YAML; OMP convergence is deliberately read-only.
+    # Verify the contract markers and report drift instead of rewriting syntax/comments.
     missing = omp_config_drift(path.read_text(encoding="utf-8"))
     if not missing:
         skip(f"{path}: agent config matches stack contract")

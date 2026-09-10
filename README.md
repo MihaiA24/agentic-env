@@ -37,6 +37,7 @@ Docs:
 - `agentic-configure-agent-mcps`
   - Adds selected project-memory MCP servers when missing:
     - Hermes: `codebase-memory-mcp` and `agentmemory`
+      - Accepts scalar block lists, including Hermes/PyYAML's indentless style. List mappings, nested lists, and unsupported list syntax are rejected without writing. When entries are added, the writer preserves scalar types and empty mappings but normalizes formatting and drops comments.
     - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are excluded — stale entries are removed and both names stay in `disabledServers` so OMP's `~/.claude.json` import cannot mount them (ADR-0006/ADR-0009)
   - Adds matching global skills, with the same OMP exclusions.
   - Converges `~/.omp/agent/config.yml` to the stack contract: seeds it when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableClaudeUser: true` + `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.

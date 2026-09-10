@@ -63,8 +63,7 @@ nullish: null
         self.assertIsNone(parsed["nullish"])
 
         dumped = configure_agent_mcps._dump_yaml_config(parsed)
-        self.assertIn("agentmemory:", dumped)
-        self.assertIn('args: ["-y", "@agentmemory/mcp"]', dumped)
+        self.assertEqual(configure_agent_mcps._parse_yaml_config(dumped), parsed)
 
     def test_configure_hermes_is_idempotent_when_already_compliant(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -129,6 +128,89 @@ memory:
             )
             self.assertEqual(parsed["memory"]["provider"], "agentmemory")
 
+    def test_configure_hermes_preserves_scalar_block_lists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "config.yaml"
+            path.write_text(
+                """toolsets:
+- hermes-cli
+- terminal
+platform_toolsets:
+  darwin:
+    - browser
+  linux:
+  - shell
+mcp_servers:
+  user-owned:
+    command: user-mcp
+    args:
+    - --endpoint=https://example.test:443
+    - 'Authorization: user-owned'
+    - 'it''s quoted'
+    - "line\\nfeed # literal"  # trailing comment
+    transport: stdio
+discord:
+  allowed_channels:
+  - "guild:channel"
+display:
+  hidden_tools:
+    - terminal
+  memory_notifications: 'off'  # string, not a boolean
+auxiliary:
+  extra_body: {}
+database:
+  journal_mode: "wal"  # Supported values: "wal", "delete"
+  timeout: 60  # seconds
+gateway:
+known_plugin_toolsets:
+- custom-plugin
+""",
+                encoding="utf-8",
+            )
+            with patch(
+                "agentic_env.configure_agent_mcps._HERMES_CONFIG_ADAPTER",
+                configure_agent_mcps._HermesConfigAdapter(path=path),
+            ):
+                assert configure_agent_mcps.configure_hermes(
+                    [configure_agent_mcps.MCP_SERVERS["agentmemory"]],
+                    dry_run=False,
+                )
+
+            parsed = configure_agent_mcps._parse_yaml_config(
+                path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(parsed["toolsets"], ["hermes-cli", "terminal"])
+            self.assertEqual(
+                parsed["platform_toolsets"],
+                {"darwin": ["browser"], "linux": ["shell"]},
+            )
+            self.assertEqual(
+                parsed["mcp_servers"]["user-owned"],
+                {
+                    "command": "user-mcp",
+                    "args": [
+                        "--endpoint=https://example.test:443",
+                        "Authorization: user-owned",
+                        "it's quoted",
+                        "line\nfeed # literal",
+                    ],
+                    "transport": "stdio",
+                },
+            )
+            self.assertEqual(
+                parsed["mcp_servers"]["agentmemory"]["args"],
+                ["-y", f"@agentmemory/mcp@{AGENTMEMORY_VERSION}"],
+            )
+            self.assertEqual(
+                parsed["discord"]["allowed_channels"], ["guild:channel"]
+            )
+            self.assertEqual(parsed["display"]["hidden_tools"], ["terminal"])
+            self.assertEqual(parsed["known_plugin_toolsets"], ["custom-plugin"])
+            self.assertEqual(parsed["display"]["memory_notifications"], "off")
+            self.assertEqual(parsed["auxiliary"]["extra_body"], {})
+            self.assertEqual(parsed["database"], {"journal_mode": "wal", "timeout": 60})
+            self.assertIsNone(parsed["gateway"])
+
     def test_configure_hermes_rejects_malformed_yaml_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "config.yaml"
@@ -145,6 +227,41 @@ memory:
                     )
                 )
             self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+    def test_configure_hermes_rejects_non_scalar_block_lists_without_writing(
+        self,
+    ) -> None:
+        originals = (
+            """toolsets:
+- name: hermes-cli
+""",
+            """toolsets:
+  - hermes-cli
+  unexpected: mapping
+""",
+        )
+        for original in originals:
+            with (
+                self.subTest(original=original),
+                tempfile.TemporaryDirectory() as temp_dir,
+            ):
+                path = Path(temp_dir) / "config.yaml"
+                path.write_text(original, encoding="utf-8")
+                with patch(
+                    "agentic_env.configure_agent_mcps._HERMES_CONFIG_ADAPTER",
+                    configure_agent_mcps._HermesConfigAdapter(path=path),
+                ):
+                    self.assertFalse(
+                        configure_agent_mcps.configure_hermes(
+                            [
+                                configure_agent_mcps.MCP_SERVERS[
+                                    "codebase-memory-mcp"
+                                ]
+                            ],
+                            dry_run=False,
+                        )
+                    )
+                self.assertEqual(path.read_text(encoding="utf-8"), original)
 
     def test_configure_omp_only_adds_codebase_memory(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

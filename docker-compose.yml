@@ -11,3 +11,17 @@ services:
     volumes:
       - .:/workspace
       - ..:/dotfiles:ro
+  fresh-install-arch:
+    profiles:
+      - arch
+    build:
+      context: .
+      dockerfile: Dockerfile.arch
+    working_dir: /workspace
+    command: ["/bin/sh", "./docker-smoke-test.sh"]
+    stdin_open: false
+    tty: false
+    environment:
+      AGENTIC_DOTFILES_ROOT: /dotfiles
+    volumes:
+      - ../omp/hooks:/dotfiles/omp/hooks:ro

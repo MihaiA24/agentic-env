@@ -232,10 +232,11 @@ Ponytail (`ponytail`) is installed as a **global, language-agnostic skill bundle
 `agentic-install-skills-mcps` and is available to all supported harnesses that read user
 global skills.
 
-## Fresh environment in Docker (smoke-test enabled)
+## Clean-host acceptance
 
 Files:
 - `Dockerfile.agentic` – minimal container base and runtime dependencies
+- `Dockerfile.arch` – Arch prerequisites and an unprivileged user, without an installed agent stack
 - `docker-compose.yml` – build + run contract
 - `docker-smoke-test.sh` – verification script (fails non-zero if checks fail)
 - `.dockerignore` – trims compose build context for faster local/CI builds
@@ -243,13 +244,78 @@ Files:
 
 
 ### CI contract
-- `.github/workflows/agentic-env-smoke-test.yml` runs the full fresh-install smoke test on:
-  - `push` / `pull_request` when files under `agentic-env/` change
-  - `workflow_dispatch` for on-demand checks from Actions
-  - Manual run:
-    - GitHub UI: **Actions → Agentic env smoke test → Run workflow** (select branch, optional).
-  - Command: `docker compose up --build --exit-code-from fresh-install`
-  - Any failing check exits non-zero and fails the workflow.
+
+`.github/workflows/agentic-env-smoke-test.yml` preserves `push` / `pull_request`
+triggers for changes under `agentic-env/`, `omp/hooks/`, or the workflow itself,
+plus `workflow_dispatch`. Every job runs the same `docker-smoke-test.sh`;
+bootstrap, CLI, doctor, and Hermes assertions are not relaxed by platform.
+
+| Job | Environment | Architecture |
+|---|---|---|
+| Existing Debian smoke | `node:20-bookworm-slim` container on `ubuntu-latest` | x86_64 |
+| Arch fresh install | `archlinux:base` container on `ubuntu-latest` | x86_64 |
+| Native macOS fresh install | `macos-15` GitHub-hosted runner, no Linux container | arm64 |
+
+Arch installs prerequisites with pacman: Python, Node/npm, uv, curl, git, CA
+certificates, base-devel, unzip, and xz. Bootstrap runs as the unprivileged
+`agentic` user with a user-writable npm prefix. Package sources are copied into
+the image; host virtual environments, installed agents, and configuration are
+not mounted. Only `omp/hooks` is mounted read-only. The `arch` profile keeps this
+service out of the existing default Debian command.
+
+macOS uses a new temporary HOME and XDG directories, a user-local npm prefix,
+Node 20, and uv with Python 3.12 available. It does not restore a uv cache and
+rejects preinstalled agent-stack commands on PATH. The runner provides curl,
+git, certificates, and Xcode command-line tools. Neither added job needs
+agent-provider credentials or configuration from a workstation.
+
+Arch container evidence covers Arch userland, not a CachyOS image, CachyOS
+kernel, or a clean CachyOS machine. A checks-only run on an existing CachyOS
+device is separate evidence, not a fresh install. Intel macOS is not covered.
+Both added environments print OS, architecture, and user identity in their logs.
+
+### Run the Arch clean install locally
+
+```bash
+cd /path/to/your/dotfiles/agentic-env
+docker compose --profile arch run --rm --build -T fresh-install-arch
+```
+
+Every invocation creates a fresh container and removes it on exit; no installed
+stack state is cached in the image. `archlinux:base` and pacman packages roll:
+retain the image digest and logged OS identity when recording a run.
+
+### Run native macOS acceptance
+
+After the workflow change is present on a GitHub branch, use **Actions →
+Agentic env smoke test → Run workflow**, or run from the repository:
+
+```bash
+gh workflow run agentic-env-smoke-test.yml --ref <branch>
+```
+
+This starts all three jobs, including native macOS. A local Linux container
+cannot substitute for that Mac run; its success must be recorded separately.
+
+### Recorded verification — 2026-09-11
+
+| Environment | Result |
+|---|---|
+| Clean Arch container, x86_64, UID 1000 | **Passed:** the local Arch command above exited 0 with `Smoke test complete`, including bootstrap, all CLI checks, stack-doctor, and Hermes YAML assertions. |
+| Existing CachyOS device, x86_64, kernel `7.2.4-1-cachyos` | **Failed:** checks-only command exited 1 with 12 mandatory doctor failures and missing `agentmemory`. This was not a clean install; no host bootstrap or repair was run. |
+| Native macOS 15, arm64 | **Not executed:** workflow added and validated with actionlint; native provisioning requires a Mac runner. No successful macOS install is claimed. |
+
+Arch reported `VERSION_ID=20260906.0.587075`; pacman supplied Python 3.14.7,
+Node 26.8.2, and uv 0.12.13. The base image digest was
+`archlinux:base@sha256:b944cc65c5f28665dfd5fdbf5ed2997c88f5bb4a0aefac7ee8a7ef01893e5ed9`.
+The initial attempt passed bootstrap but failed to create `/workspace/.venv`;
+making the copied workspace directory user-owned fixed the test environment,
+and the complete fresh-install run then passed without changing stack pins.
+
+The device failures included an OMP version mismatch, missing OMP MCP files,
+configuration drift, unregistered hooks, missing curated skills/descriptors,
+and stale `lean-ctx` configuration/skills. The script stopped at the doctor;
+the separate Hermes YAML assertions did not run on the device.
 
 ### CI badge / workflow links
 - Workflow page: https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml
@@ -263,16 +329,18 @@ cd /path/to/your/dotfiles/agentic-env
 docker compose up --build --force-recreate --exit-code-from fresh-install
 ```
 
-### Run checks only (skip installs)
+### Check the existing device without installing the stack
+
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-SKIP_INSTALL=1 docker compose up --build --force-recreate --exit-code-from fresh-install
+SKIP_INSTALL=1 uv run --frozen sh ./docker-smoke-test.sh
 ```
 
-You can also run the script directly:
-```bash
-docker run --rm -v "$PWD":/workspace agentic-env-fresh-install /bin/sh ./docker-smoke-test.sh
-```
+`uv run` supplies the provisioner's checkout entry points; `SKIP_INSTALL=1`
+skips stack installation and configuration. Existing binaries must be on PATH.
+This checks the current device, not a clean host. The script exits nonzero on
+failure and does not repair drift; a doctor failure stops before the separate
+Hermes YAML assertions.
 
 ### Current smoke contract
 The run is successful only if all checks pass:

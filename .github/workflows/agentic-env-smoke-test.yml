@@ -30,3 +30,107 @@ jobs:
 
       - name: Run fresh-install smoke test
         run: docker compose up --build --exit-code-from fresh-install
+
+  agentic-smoke-test-arch:
+    name: Fresh install smoke test (Arch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: agentic-env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify docker compose available
+        run: docker compose version
+
+      - name: Run fresh-install smoke test
+        run: docker compose --profile arch run --rm --build fresh-install-arch </dev/null
+
+  agentic-smoke-test-macos:
+    name: Native macOS fresh install smoke test
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      AGENTIC_DOTFILES_ROOT: ${{ github.workspace }}
+      CI: 'true'
+    defaults:
+      run:
+        working-directory: agentic-env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Record runner identity
+        run: |
+          sw_vers
+          uname -m
+          id
+
+      - name: Prepare clean native environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          home="$(mktemp -d "${RUNNER_TEMP}/agentic-home.XXXXXX")"
+          mkdir -p \
+            "$home/.config" \
+            "$home/.local/bin" \
+            "$home/.local/share" \
+            "$home/.local/state" \
+            "$home/.cache"
+          {
+            echo "HOME=$home"
+            echo "XDG_CONFIG_HOME=$home/.config"
+            echo "XDG_DATA_HOME=$home/.local/share"
+            echo "XDG_STATE_HOME=$home/.local/state"
+            echo "XDG_CACHE_HOME=$home/.cache"
+            echo "NPM_CONFIG_PREFIX=$home/.local"
+            echo "UV_TOOL_BIN_DIR=$home/.local/bin"
+            echo "PATH=$home/.local/bin:$PATH"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Reject preinstalled agent stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+          for cli in \
+            agentic-bootstrap \
+            agentic-install-agents \
+            agentic-install-skills-mcps \
+            agentic-configure-agent-mcps \
+            agentic-update-stack \
+            agentic-stack-doctor \
+            hermes \
+            omp \
+            codex \
+            claude \
+            skills \
+            codebase-memory-mcp \
+            agentmemory
+          do
+            if command -v "$cli" >/dev/null 2>&1; then
+              echo "Preinstalled agent-stack CLI on PATH: $cli ($(command -v "$cli"))" >&2
+              found=1
+            fi
+          done
+          if [ "$found" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Run fresh-install smoke test
+        run: sh ./docker-smoke-test.sh </dev/null

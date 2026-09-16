@@ -1,27 +1,35 @@
 services:
   fresh-install:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.agentic
-    working_dir: /workspace
-    command: ["/bin/sh", "./docker-smoke-test.sh"]
+    working_dir: /dotfiles/agentic-env
+    command: ["/bin/sh", "./clean-acceptance.sh"]
     environment:
-      # Hook extensions live at the dotfiles root, one level above this package.
-      AGENTIC_DOTFILES_ROOT: /dotfiles
+      AGENTIC_SMOKE_HOME: /home/node/acceptance
+      SKIP_INSTALL: ${SKIP_INSTALL:-0}
+      VERBOSE: ${VERBOSE:-0}
+      GITHUB_RUN_ID: ${GITHUB_RUN_ID:-local}
+      GITHUB_RUN_ATTEMPT: ${GITHUB_RUN_ATTEMPT:-1}
+      GITHUB_SHA: ${GITHUB_SHA:-}
     volumes:
-      - .:/workspace
       - ..:/dotfiles:ro
+
   fresh-install-arch:
-    profiles:
-      - arch
+    profiles: ["arch"]
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.arch
-    working_dir: /workspace
-    command: ["/bin/sh", "./docker-smoke-test.sh"]
-    stdin_open: false
-    tty: false
+    working_dir: /dotfiles/agentic-env
+    command: ["/bin/sh", "./clean-acceptance.sh"]
     environment:
-      AGENTIC_DOTFILES_ROOT: /dotfiles
+      AGENTIC_SMOKE_HOME: /home/node/acceptance
+      SKIP_INSTALL: ${SKIP_INSTALL:-0}
+      VERBOSE: ${VERBOSE:-0}
+      GITHUB_RUN_ID: ${GITHUB_RUN_ID:-local}
+      GITHUB_RUN_ATTEMPT: ${GITHUB_RUN_ATTEMPT:-1}
+      GITHUB_SHA: ${GITHUB_SHA:-}
     volumes:
-      - ../omp/hooks:/dotfiles/omp/hooks:ro
+      - ..:/dotfiles:ro

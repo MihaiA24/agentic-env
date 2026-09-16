@@ -10,19 +10,6 @@ from agentic_env import install_skills_mcps
 
 
 class InstallSkillsMcpsTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self._state = (
-            install_skills_mcps._SKILL_PACKS,
-            install_skills_mcps._SKILL_PACK_ALIASES,
-            install_skills_mcps._SKILL_PACK_PROFILES,
-        )
-
-    def tearDown(self) -> None:
-        (
-            install_skills_mcps._SKILL_PACKS,
-            install_skills_mcps._SKILL_PACK_ALIASES,
-            install_skills_mcps._SKILL_PACK_PROFILES,
-        ) = self._state
 
     def test_load_skill_pack_config_rejects_invalid_profiles_and_duplicates(self) -> None:
         invalid_profiles = {
@@ -52,16 +39,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 path = Path(temp_dir) / "skill-packs.json"
                 path.write_text(json.dumps(payload), encoding="utf-8")
 
-                self.assertFalse(install_skills_mcps._load_skill_pack_config(path))
-                self.assertEqual(install_skills_mcps._SKILL_PACKS, self._state[0])
-                self.assertEqual(
-                    install_skills_mcps._SKILL_PACK_ALIASES,
-                    self._state[1],
-                )
-                self.assertEqual(
-                    install_skills_mcps._SKILL_PACK_PROFILES,
-                    self._state[2],
-                )
+                self.assertIsNone(install_skills_mcps.load_skill_manifest(path))
 
     def test_parse_skill_selectors_resolves_aliases_and_validates_agents(self) -> None:
         payload = {
@@ -85,10 +63,11 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "skill-packs.json"
             path.write_text(json.dumps(payload), encoding="utf-8")
-            self.assertTrue(install_skills_mcps._load_skill_pack_config(path))
+            manifest = install_skills_mcps.load_skill_manifest(path)
+            assert manifest is not None
 
             pack_selection = install_skills_mcps._parse_skill_packs(
-                ["mattpocock", "dietrichgebert/ponytail", "missing"]
+                ["mattpocock", "dietrichgebert/ponytail", "missing"], manifest
             )
             self.assertEqual(
                 pack_selection.selected,
@@ -104,6 +83,20 @@ class InstallSkillsMcpsTests(unittest.TestCase):
 
             skill_names = install_skills_mcps._parse_skill_names(["tdd,wayfinder", "tdd"])
             self.assertEqual(skill_names.selected, ("tdd", "wayfinder"))
+
+    def test_vendored_pack_skills_exist_at_resolved_source(self) -> None:
+        """A `./` source must resolve inside the package and carry every
+        roster skill; a bad re-copy would otherwise fail only at install time."""
+        manifest = install_skills_mcps.load_skill_manifest(install_skills_mcps._SKILL_PACK_CONFIG_PATH)
+        assert manifest is not None
+        vendored = [pack for pack in manifest.packs.values() if pack.source.startswith("./")]
+        self.assertTrue(vendored)
+        for pack in vendored:
+            source = Path(manifest.source(pack.name))
+            self.assertTrue(source.is_absolute())
+            self.assertTrue(source.is_relative_to(install_skills_mcps._SKILL_PACK_CONFIG_PATH.parent))
+            missing = [s for s in pack.skills if not (source / s / "SKILL.md").is_file()]
+            self.assertEqual(missing, [], f"{pack.name}: roster skills missing from {source}")
 
     @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
     @patch("agentic_env.install_skills_mcps._install_skills")

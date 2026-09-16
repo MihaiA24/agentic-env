@@ -3,6 +3,7 @@
 This folder packages commands that provision and update a local multi-agent tooling stack.
 
 Docs:
+- [Stack overview](docs/stack-overview.md) – plain-language summary of what the stack is, why each layer was chosen, what is pinned, and what would change it.
 - [Project memory stack](docs/project-memory-stack.md) – guide and one-repo template for `codebase-memory-mcp`, `agentmemory`, `CONTEXT.md`, and ADR usage.
 - [Decisions](DECISIONS_AI_TOOLING.md) – the operative stack contract, one section per layer (Decided → Why → Rejected → Revisit → Wiring); `lean-ctx` was removed stack-wide (ADR-0009).
 
@@ -16,11 +17,12 @@ Docs:
   - Installs:
     - mattpocock skills pack (global)
     - ponytail skill bundle (global, agent-dispatch)
+    - caveman and the vendored pstack skills (global)
     - `codebase-memory-mcp` (UI install supported)
     - `agentmemory` (CLI + Hermes MCP config)
   - Skill packs are driven by the bundled `agentic_env/skill-packs.json` default with:
-    - `packs` entries whose `source` is `owner/repo#<tag>` (pinned; `skills add` clones that tag) and which can define optional `skills` (array of specific skill names)
-      to install only those from that pack by default. `cursor/plugins` (pstack) publishes no tags and floats on `main`.
+    - `packs` entries whose `source` is `owner/repo#<tag>` (pinned; `skills add` clones that tag) or `./<dir>` (a copy vendored inside the package, installed as a local path; pstack lives at `agentic_env/vendored/pstack`, provenance in its `UPSTREAM.md`, ADR-0010). Each pack can define optional `skills` (array of specific skill names) to install only those from that pack by default.
+      The roster's roles, triggers and exclusions: `DECISIONS_AI_TOOLING.md` §6; review standards: `CODING_STANDARDS.md`.
     - `profiles` (named pack sets).
   - Supported options:
     - `--skill-pack` (comma-separated, repeated) to choose packs.
@@ -37,10 +39,11 @@ Docs:
 - `agentic-configure-agent-mcps`
   - Adds selected project-memory MCP servers when missing:
     - Hermes: `codebase-memory-mcp` and `agentmemory`
-      - Accepts scalar block lists, including Hermes/PyYAML's indentless style. List mappings, nested lists, and unsupported list syntax are rejected without writing. When entries are added, the writer preserves scalar types and empty mappings but normalizes formatting and drops comments.
+      - `~/.hermes/config.yaml` is parsed with PyYAML (the same library Hermes writes it with); malformed YAML or a non-mapping root is rejected without writing. When entries are added, the file is re-serialized: scalar types and structure are preserved, formatting is normalized and comments are dropped (a `.agentic-env.bak` copy is kept).
     - OMP: `codebase-memory-mcp` only, written gated (kept in `disabledServers`, enable per session); `agentmemory` and `lean-ctx` are excluded — stale entries are removed and both names stay in `disabledServers` so OMP's `~/.claude.json` import cannot mount them (ADR-0006/ADR-0009)
+  - Existing selected MCP entries are validated, not repaired: a mismatched command, arguments, or Hermes memory provider is reported for manual correction and fails configuration without rewriting that file. Missing entries are added only when the file is otherwise valid; unrelated settings are preserved.
   - Adds matching global skills, with the same OMP exclusions.
-  - Converges `~/.omp/agent/config.yml` to the stack contract: seeds it when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableClaudeUser: true` + `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.
+  - Seeds `~/.omp/agent/config.yml` from the stack contract when absent (mnemopi memory, compaction handoff @ 150K, verification/canary hook extensions, `enableClaudeUser: true` + `enableAgentsUser: false`); when present, verifies the contract settings and reports drift without rewriting user YAML.
 - `agentic-bootstrap`
   - One-shot onboarding in phase order:
     - installs agent CLIs
@@ -63,7 +66,8 @@ Docs:
   - Ends with `agentic-stack-doctor`; a mandatory-check failure makes the update exit non-zero.
   - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
 - `agentic-stack-doctor`
-  - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated incl. the `node_repl` built-in, excluded servers absent there and in `~/.claude.json`, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes wiring (incl. a stale `lean-ctx` entry) and the Hermes / Claude Code / Codex binaries only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints the corrective command per failure; never repairs.
+  - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated incl. the `node_repl` built-in, excluded servers absent there and in `~/.claude.json`, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes wiring (incl. a stale `lean-ctx` entry) and secondary-agent binaries only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints corrective guidance per failure; never repairs.
+  - Checks actual managed MCP definitions and the compaction method order (`handoff`, `remote`, `soft`), not just entry names. Existing definition mismatches require manual correction; rerunning the add-missing-only configurator does not repair them.
 - Checkout development runs the package modules through `uv run python -m agentic_env.<module>`; installed workflows use the `agentic-*` commands.
 - `setup_helpers.sh`
   - Shared quiet/verbose `run_cmd` helper used by shell setup scripts and the Docker smoke test.
@@ -95,6 +99,8 @@ uv run python -m agentic_env.update_agentic_stack
 uv run python -m agentic_env.stack_doctor
 ```
 
+Unit tests: `uv run pytest -q` (pytest comes from the `dev` dependency group in `pyproject.toml`).
+
 ### Update policy
 
 `agentic-update-stack` is an unattended convergence command, not a latest-version updater.
@@ -114,15 +120,15 @@ uv run python -m agentic_env.stack_doctor
 
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-docker compose up --build --force-recreate --exit-code-from fresh-install
+docker compose up --build --force-recreate --exit-code-from fresh-install fresh-install
 ```
 
-`--force-recreate` matters: with unchanged image layers, `compose up` restarts the previous container and its `/root` state, which is no longer a fresh install.
+`--force-recreate` matters: otherwise Compose restarts the previous container with its retained installation. Acceptance runs as an ordinary user in an isolated HOME, with a user-writable npm prefix and the checkout mounted read-only. No provider credentials are required.
 
-If a GitHub clone fails inside the container with "Authentication failed" / "could not read Username" for a public repo while the host clones fine (the Hermes installer's `hermes-agent` clone and `skills add` both hit it), the container's git 2.39 is getting HTTP 401 on `git-upload-pack` over HTTP/2 from your network (seen 2026-09-02, not in CI). Run once with git forced to HTTP/1.1:
+For Arch Linux x86_64:
 
 ```bash
-docker compose run --rm --build -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=http.version -e GIT_CONFIG_VALUE_0=HTTP/1.1 fresh-install
+docker compose --profile arch up --build --force-recreate --exit-code-from fresh-install-arch fresh-install-arch
 ```
 
 What this runbook validates:
@@ -137,30 +143,15 @@ cd /path/to/your/dotfiles/agentic-env
 docker compose run --rm --entrypoint sh fresh-install
 ```
 
-Important: this opens a **fresh image**. It does not pre-install `hermes` or any MCP tooling.
-Run install/configure commands first, then smoke checks.
+This starts a fresh image, not a provisioned stack. Inside that same container:
 
-Inside container:
-
-```bash
-cd /workspace
-# Install all components into the container first
-uv tool install --force .
-agentic-bootstrap
-
-# Quick runtime checks for each CLI
-hermes --help
-omp --help
-agentic-stack-doctor
-agentmemory doctor
-codebase-memory-mcp --version
+```sh
+sh ./clean-acceptance.sh
+# Recheck the retained installation without installing again:
+SKIP_INSTALL=1 sh ./clean-acceptance.sh
 ```
 
-You can also run all steps in one command:
-
-```bash
-docker compose run --rm --entrypoint sh fresh-install -lc "cd /workspace && uv tool install --force . && agentic-bootstrap && hermes --help && omp --help && agentmemory doctor && codebase-memory-mcp --version"
-```
+The wrapper prints its isolated HOME. Exiting the `--rm` container discards it.
 
 ### 3) Host-side install + configure smoke (no docker)
 
@@ -177,7 +168,7 @@ hermes --help
 omp --help
 ```
 
-Use `./docker-smoke-test.sh` when you want the strict full contract assertions from one command.
+Use `SKIP_INSTALL=1 sh ./docker-smoke-test.sh` for strict checks against this already-provisioned host. For native acceptance without using existing workstation configuration, use the isolated macOS procedure below.
 
 
 ### 4) Check MCP visibility inside Hermes
@@ -199,8 +190,9 @@ hermes mcp test agentmemory
 hermes mcp test codebase-memory-mcp
 ```
 
-If `hermes mcp list` crashes, your `~/.hermes/config.yaml` likely has malformed MCP YAML.
-Repair by adding clean blocks:
+If configuration reports malformed YAML or an existing MCP definition mismatch, correct the named fields in `~/.hermes/config.yaml` manually. The expected commands and pinned arguments are defined by `MCP_SERVERS` in `agentic_env/configure_agent_mcps.py`; the configurator does not repair existing entries.
+
+To explicitly select the memory provider and then add any missing entries:
 
 ```bash
 hermes config set memory.provider agentmemory
@@ -232,90 +224,44 @@ Ponytail (`ponytail`) is installed as a **global, language-agnostic skill bundle
 `agentic-install-skills-mcps` and is available to all supported harnesses that read user
 global skills.
 
-## Clean-host acceptance
+## Clean-platform acceptance
 
 Files:
-- `Dockerfile.agentic` – minimal container base and runtime dependencies
-- `Dockerfile.arch` – Arch prerequisites and an unprivileged user, without an installed agent stack
-- `docker-compose.yml` – build + run contract
-- `docker-smoke-test.sh` – verification script (fails non-zero if checks fail)
+- `Dockerfile.agentic` – Debian bookworm prerequisites
+- `Dockerfile.arch` – Arch Linux rolling prerequisites
+- `docker-compose.yml` – ordinary-user container runs with a read-only checkout
+- `clean-acceptance.sh` – isolated HOME, PATH, npm/uv/XDG state, and clean preconditions
+- `docker-smoke-test.sh` – shared installation and verification contract
 - `.dockerignore` – trims compose build context for faster local/CI builds
 
 
+### Verified acceptance
+
+[Run 34526778331](https://github.com/MihaiA24/.dotfiles/actions/runs/34526778331) passed on 2026-09-10 at code commit [`2cb1f08f9d0a7538ecef12e7532dfaee554a6400`](https://github.com/MihaiA24/.dotfiles/commit/2cb1f08f9d0a7538ecef12e7532dfaee554a6400). Each job provisioned an empty, isolated HOME as an ordinary user, then repeated the complete checks with `SKIP_INSTALL=1` against the retained installation.
+
+| Recorded environment | Architecture | Fresh install | Checks-only |
+| --- | --- | --- | --- |
+| Native macOS 15.7.9, build 24G830 | arm64 | Passed | Passed |
+| Arch Linux rolling container, `VERSION_ID=20260906.0.587075` | x86_64 | Passed | Passed |
+| Debian GNU/Linux 12 (bookworm) container | x86_64 | Passed | Passed |
+
+Both Linux containers used the Ubuntu runner's `6.17.0-1022-azure` kernel; this is distro-userland evidence, not native distro-boot evidence. Direct CachyOS verification remains deferred. Intel macOS is outside acceptance scope. Reviewed component versions and installer checksums were unchanged.
 
 ### CI contract
 
-`.github/workflows/agentic-env-smoke-test.yml` preserves `push` / `pull_request`
-triggers for changes under `agentic-env/`, `omp/hooks/`, or the workflow itself,
-plus `workflow_dispatch`. Every job runs the same `docker-smoke-test.sh`;
-bootstrap, CLI, doctor, and Hermes assertions are not relaxed by platform.
+`.github/workflows/agentic-env-smoke-test.yml` defines:
 
-| Job | Environment | Architecture |
-|---|---|---|
-| Existing Debian smoke | `node:20-bookworm-slim` container on `ubuntu-latest` | x86_64 |
-| Arch fresh install | `archlinux:base` container on `ubuntu-latest` | x86_64 |
-| Native macOS fresh install | `macos-15` GitHub-hosted runner, no Linux container | arm64 |
+| Environment | Execution | Coverage |
+| --- | --- | --- |
+| Debian bookworm x86_64 | `node:20-bookworm-slim` container on Ubuntu | Existing Linux baseline |
+| macOS 15 arm64 | Native `macos-15` GitHub runner | Apple Silicon only |
+| Arch Linux x86_64 | Official `archlinux:base` container on Ubuntu | Arch-family proxy, not direct CachyOS verification |
 
-Arch installs prerequisites with pacman: Python, Node/npm, uv, curl, git, CA
-certificates, base-devel, unzip, and xz. Bootstrap runs as the unprivileged
-`agentic` user with a user-writable npm prefix. Package sources are copied into
-the image; host virtual environments, installed agents, and configuration are
-not mounted. Only `omp/hooks` is mounted read-only. The `arch` profile keeps this
-service out of the existing default Debian command.
+Push and pull-request triggers cover `agentic-env/**`, `omp/hooks/**`, and the workflow itself. `workflow_dispatch` remains available through **Actions → Agentic env smoke test → Run workflow**. A `unit` job (`uv run --frozen pytest -q` in `agentic-env/`) gates the three acceptance jobs: they are skipped when it fails (#38). Every acceptance job runs the same smoke contract twice: a fresh installation, then checks-only against that retained installation; a failed check fails its job.
 
-macOS uses a new temporary HOME and XDG directories, a user-local npm prefix,
-Node 20, and uv with Python 3.12 available. It does not restore a uv cache and
-rejects preinstalled agent-stack commands on PATH. The runner provides curl,
-git, certificates, and Xcode command-line tools. Neither added job needs
-agent-provider credentials or configuration from a workstation.
+Prerequisites are prepared before provisioning: Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, and C/C++ build tools. Arch uses `pacman -Syu` because it is rolling. Containers require Docker Engine and Compose with amd64 support (native or emulated). Native macOS requires working Command Line Tools/Xcode.
 
-Arch container evidence covers Arch userland, not a CachyOS image, CachyOS
-kernel, or a clean CachyOS machine. A checks-only run on an existing CachyOS
-device is separate evidence, not a fresh install. Intel macOS is not covered.
-Both added environments print OS, architecture, and user identity in their logs.
-
-### Run the Arch clean install locally
-
-```bash
-cd /path/to/your/dotfiles/agentic-env
-docker compose --profile arch run --rm --build -T fresh-install-arch
-```
-
-Every invocation creates a fresh container and removes it on exit; no installed
-stack state is cached in the image. `archlinux:base` and pacman packages roll:
-retain the image digest and logged OS identity when recording a run.
-
-### Run native macOS acceptance
-
-After the workflow change is present on a GitHub branch, use **Actions →
-Agentic env smoke test → Run workflow**, or run from the repository:
-
-```bash
-gh workflow run agentic-env-smoke-test.yml --ref <branch>
-```
-
-This starts all three jobs, including native macOS. A local Linux container
-cannot substitute for that Mac run; its success must be recorded separately.
-
-### Recorded verification — 2026-09-11
-
-| Environment | Result |
-|---|---|
-| Clean Arch container, x86_64, UID 1000 | **Passed:** the local Arch command above exited 0 with `Smoke test complete`, including bootstrap, all CLI checks, stack-doctor, and Hermes YAML assertions. |
-| Existing CachyOS device, x86_64, kernel `7.2.4-1-cachyos` | **Failed:** checks-only command exited 1 with 12 mandatory doctor failures and missing `agentmemory`. This was not a clean install; no host bootstrap or repair was run. |
-| Native macOS 15, arm64 | **Not executed:** workflow added and validated with actionlint; native provisioning requires a Mac runner. No successful macOS install is claimed. |
-
-Arch reported `VERSION_ID=20260906.0.587075`; pacman supplied Python 3.14.7,
-Node 26.8.2, and uv 0.12.13. The base image digest was
-`archlinux:base@sha256:b944cc65c5f28665dfd5fdbf5ed2997c88f5bb4a0aefac7ee8a7ef01893e5ed9`.
-The initial attempt passed bootstrap but failed to create `/workspace/.venv`;
-making the copied workspace directory user-owned fixed the test environment,
-and the complete fresh-install run then passed without changing stack pins.
-
-The device failures included an OMP version mismatch, missing OMP MCP files,
-configuration drift, unregistered hooks, missing curated skills/descriptors,
-and stale `lean-ctx` configuration/skills. The script stopped at the doctor;
-the separate Hermes YAML assertions did not run on the device.
+The wrapper rejects root, the caller's real HOME, nonempty fresh acceptance directories, and preexisting agent commands. It clears inherited credentials/configuration, redirects user installation and cache paths, and uses hook resources from the checkout through `AGENTIC_DOTFILES_ROOT`. OS release, architecture, revision, run identity, and component versions are printed in the job log. No provider API key is required.
 
 ### CI badge / workflow links
 - Workflow page: https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml
@@ -324,45 +270,63 @@ the separate Hermes YAML assertions did not run on the device.
     - `[![Agentic env smoke test](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml/badge.svg)](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml)`
 
 ### Run full fresh install test
+
+Use the Debian or Arch commands in Runbook 1 above. Both force a new container; neither relies on an already-installed stack.
+
+### Run native Apple Silicon acceptance
+
+On a macOS arm64 machine with Homebrew and working Command Line Tools:
+
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-docker compose up --build --force-recreate --exit-code-from fresh-install
+test "$(uname -m)" = arm64
+brew install uv python@3.12 node@20 xz ca-certificates
+export AGENTIC_PREREQ_PATH="$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@20)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export AGENTIC_SMOKE_HOME="$(mktemp -d "${TMPDIR:-/tmp}/agentic-env-acceptance.XXXXXX")"
+sh ./clean-acceptance.sh
+# Same HOME and prerequisite PATH, no reinstall:
+SKIP_INSTALL=1 sh ./clean-acceptance.sh
 ```
 
-### Check the existing device without installing the stack
+The acceptance HOME is retained for inspection/checks-only. Start another fresh acceptance run with a new empty directory. The hosted job prepares Python, Node, and uv with their setup actions instead of Homebrew; it asserts native arm64 before provisioning.
+
+### Run checks only (skip installs)
+
+Checks-only needs the **same already-provisioned environment**. It cannot validate an installation discarded by container recreation. For a retained Debian container:
 
 ```bash
 cd /path/to/your/dotfiles/agentic-env
-SKIP_INSTALL=1 uv run --frozen sh ./docker-smoke-test.sh
+docker compose run --build -d --name agentic-env-debian fresh-install sleep infinity
+docker exec agentic-env-debian /bin/sh ./clean-acceptance.sh
+docker exec -e SKIP_INSTALL=1 agentic-env-debian /bin/sh ./clean-acceptance.sh
+# Remove only this disposable acceptance container when finished:
+docker rm -f agentic-env-debian
 ```
 
-`uv run` supplies the provisioner's checkout entry points; `SKIP_INSTALL=1`
-skips stack installation and configuration. Existing binaries must be on PATH.
-This checks the current device, not a clean host. The script exits nonzero on
-failure and does not repair drift; a doctor failure stops before the separate
-Hermes YAML assertions.
+For Arch, use `docker compose --profile arch run --build -d --name agentic-env-arch fresh-install-arch sleep infinity`, then the same `docker exec` commands with `agentic-env-arch`. Compose forwards `SKIP_INSTALL`, but setting it while creating a fresh container is not valid checks-only evidence.
 
 ### Current smoke contract
 The run is successful only if all checks pass:
-1. `uv tool install --force .` succeeds.
+1. `uv tool install --force .` succeeds using the absolute prerequisite Python path captured before bootstrap.
 2. `agentic-bootstrap` succeeds (its final phase is `agentic-stack-doctor`).
-3. All six package module entry points load and expose help through `uv run python -m agentic_env.<module> --help`.
+3. All six package module entry points load and expose help through `uv run --frozen ... python -m agentic_env.<module> --help`, using that same interpreter rather than Hermes' managed Python 3.11.
 4. Binary checks pass for:
    - `agentic-*` entry points incl. `agentic-stack-doctor`
    - `hermes`, `omp`, `codex`, `claude`, `codebase-memory-mcp`, `agentmemory`
 5. `agentic-stack-doctor` exits 0 — the OMP mandatory contract:
-   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain `codebase-memory-mcp`, gated in `disabledServers` together with the `node_repl` built-in; `agentmemory` and `lean-ctx` absent from `mcpServers` (also in `~/.claude.json`)
+   - `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` contain the reviewed `codebase-memory-mcp` command/arguments, gated in `disabledServers` together with the `node_repl` built-in; `agentmemory` and `lean-ctx` are absent from `mcpServers` (also in `~/.claude.json`) and remain disabled on both OMP roots
    - no read-interception prose in the OMP MCP files or `~/.claude.json`
-   - `~/.omp/agent/config.yml` matches the contract; each hook registered once with its file present
+   - `~/.omp/agent/config.yml` matches the contract, including compaction method order `handoff`, `remote`, `soft`; each hook is registered once with its file present
    - curated `default` skill roster present; `codebase-memory-mcp` and `ponytail` descriptors in the OMP skill roots; no `lean-ctx` skill dir
 6. Hermes config checks pass:
-   - `~/.hermes/config.yaml` contains `codebase-memory-mcp` and `agentmemory` MCP entries and `memory.provider: agentmemory` (a stale `lean-ctx` entry is a doctor warning, not a smoke failure)
+   - `~/.hermes/config.yaml` contains the reviewed commands and arguments for `codebase-memory-mcp` and `agentmemory`, plus `memory.provider: agentmemory` (a stale `lean-ctx` entry is a doctor warning, not a smoke failure)
+   - matching `codebase-memory-mcp`, `agentmemory`, and `ponytail` descriptors exist under `~/.hermes/skills`; missing descriptors fail smoke even though the doctor only warns
+7. The pinned skills CLI reports the reviewed version through `npx --yes skills@<reviewed-version> --version`; fresh provisioning does not require a global `skills` binary.
 
 ## Design and tradeoffs
-- **Chosen base image:** `node:20-bookworm-slim` (Debian bookworm; the Linux smoke environment)
-- **Measured image size:** about **329MB** for `agentic-env-fresh-install` on the earlier `bullseye-slim` base; not re-measured after the bookworm switch.
+- **Container bases:** `node:20-bookworm-slim` for the Debian baseline and official `archlinux:base` for rolling Arch x86_64; macOS acceptance executes natively.
 - `.dockerignore` in `agentic-env/` trims compose build context for faster local/CI builds.
 - `node:20-bullseye-slim` was the original minimum; the image moved to `bookworm-slim` in `b49fa8f` when it gained `xz-utils`/`libatomic1`/`unzip` for Hermes' Node 26 + bun runtime (ADR-0001 records the bullseye-era measurements).
 - `alpine` images were rejected due installer/runtime incompatibilities (`omp`/Hermes path).
 ## Dependencies
-- `rich` is required and is installed automatically as a package dependency.
+- `rich` and `pyyaml` are required and are installed automatically as package dependencies.

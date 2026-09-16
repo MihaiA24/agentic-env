@@ -1,6 +1,6 @@
 # Agent Stack — Decisions
 
-> Sole operative doc. 2026-08-19: absorbed `AGENT_STACK.md` + `TOOLS_RESEARCH.md` (deleted); the frozen evidence ledger `AI_CONTEXT_TOOLING_COMPARISON.md` was deleted the same day — full evidence, grades, and methods live in its git history. Binding ADRs: `agentic-env/docs/adr/0006`–`0009`.
+> Sole operative doc. 2026-08-19: absorbed `AGENT_STACK.md` + `TOOLS_RESEARCH.md` (deleted); the frozen evidence ledger `AI_CONTEXT_TOOLING_COMPARISON.md` was deleted the same day — full evidence, grades, and methods live in its git history. Binding ADRs: `agentic-env/docs/adr/0006`–`0010`. Review standards: `CODING_STANDARDS.md`.
 >
 > Layout (2026-09-02): the summary table, the measured rules every layer cites, then one section per layer — **Decided → Why → Rejected → Revisit → Wiring** — so a reader can follow each decision from evidence to config line. Cross-cutting contract in "Live wiring", pre-registered triggers in "Upstream watch". Vocabulary: `docs/CONTEXT.md`.
 
@@ -13,7 +13,7 @@
 | Compaction | handoff @ 150K, idle on, save-to-disk | −43–50% tokens, quality held | 120K threshold | End-green < 88% → revert |
 | Memory | Mnemopi + retention-canary hook | Recall good, keyless, zero infra; canary covers silent-loss defect | Hindsight (sole challenger), mem0, agentmemory, Letta, Zep | Cross-project memory sharing needed → Hindsight |
 | Code graph | codebase-memory-mcp gated off | Costs quality, 10× tokens | GitNexus, GraphRAG, Serena, etc. | Litmus fires weekly |
-| Skills | Fit-curated roster (see Skills section): Pocock spine + Ponytail forced + Caveman/Graphify on demand + 4 pstack picks | Fit-judged by user; audits prune | Full Pocock 25 + pstack 44 stores | Fit audit flags stale |
+| Skills | Fit-curated roster (see Skills section): Pocock core + Ponytail forced + Caveman on demand + 9 pstack skills vendored | Fit-judged per recipe job; usage is diagnostic only | Full Pocock 25 + pstack 44 stores | A recipe step has no fitting skill; an Excluded trigger fires |
 | Hooks | verification-recorder, retention-canary | Pass-rate read-outs; silent-memory-loss tripwire | cadence-governor (rejected 08-19), external monitoring | Recorder DB unread by next read-out; canary false-warns |
 
 ```mermaid
@@ -108,28 +108,54 @@ What the rules bought: every rejection below names the pre-registered threshold 
 - **Revisit:** litmus 0× by **2026-10-01** → remove `codebase-memory-mcp` from the OMP roots (keep installed for per-project on-demand mounting). Upstream 0.10.8 available vs pin 0.9.0; bump only on promotion.
 - **Wiring:** `mcpServers: {codebase-memory-mcp}` gated by `disabledServers: [agentmemory, node_repl, codebase-memory-mcp, lean-ctx]` on `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` (`OMP_GATED_SERVERS`; bak `mcp.json.bak-leanctx-drop`, `.bak-gate`). Hermes wired too (unmeasured).
 
-### 6. Skills — fit-curated roster (settled 2026-08-22)
+### 6. Skills — fit-curated roster (settled 2026-08-22; roles and recipes 2026-09-15)
 
-- **Decided:** Pocock spine + Ponytail forced-injected + Caveman/Graphify on demand + 4 pstack picks. Criterion: workflow fit, judged by the user (Rule 8).
-- **Why:** measured — Ponytail −10.3% cost (must force-inject), Caveman −8.5% (on demand); Graphify on demand. The 2026-08-20 fit audits (`docs/pocock-skills-fit-report.html`, `docs/pstack-skills-audit.html`) are diagnostic input, committed with adjudication addenda.
-- **Audit adjudication (08-22, raw DBs):** both reports honest, units systematically mixed. 567 OMP "sessions" = 226 main + 341 subagent. grill-with-docs: 74 OMP session files / 215 Hermes sessions user-invoked (413 = registry loads). tdd/code-review: 0 user-invoked vs 108/320 model-invoked — the model reaches for them, the user never does; don't force slash commands. Only verification DBs reproduced exactly (OMP 527 @ 87.3% pass, Hermes 248): dedicated event tables beat string scans. Counting units: `docs/CONTEXT.md`.
-- **Adopted 08-22 (vanilla first; adapt only after real friction):**
-  - `resolving-merge-conflicts`, `diagnosing-bugs` (Pocock) — sat on measured pains (merge churn: 64+ merges with conflict fallout; repeat-diagnosis loops) while structurally unavailable in OMP (skill store only, `enableAgentsUser: false`). Their low use was availability, not misfit.
-  - `create-verification-skill` (pstack) — the only genuine capability gap either audit found: verification is test/lint-centric; no user-journey checks on Paw app/portal/course sites.
-  - `show-me-your-work` (pstack) — decision trails (Run Records, sealed proofs) are hand-rolled per repo today.
-  - `reflect` (pstack) — the manual retrospective→skill-patch loop (137 patches on code-review), automated.
-  - `recall` (pstack) — installed manual-only (ships `disable-model-invocation: true`). Forensic tool for canary-fires events; never wired (Rule 4, single memory owner).
-- **Pruned from pack:** `to-spec`, `to-tickets` — 1 use each in 5 months; grill-with-docs + wayfinder already emit specs and tickets.
-- **Rejected:**
-  - pstack duplication cluster (poteto-mode, laziness-protocol, subtract-before-you-add, minimize-reader-load, no-comments) — duplicates benchmarked ponytail / caveman; double style injection = paid prompt weight; no-comments contradicts load-bearing `ponytail:` ceiling markers. Novel fragments fold into ponytail text, never a second skill.
-  - pstack blast-radius, swarm — OMP-native subagent fan-out already covers both; a skill adds prompt weight over a proven native flow.
-  - grill-me — grill-with-docs is a proven superset, including non-code decisions (this decision session ran on it).
-  - handoff-as-deliberate-habit — covered mechanically by compaction (layer 3). Skill stays installed for on-demand use.
-  - writing-for-agents — doc-drift pain is real but the skill is prose discipline, no mechanism; revisit if drift persists.
-  - pstack recall-as-wired-hedge — Rule 4 violation; retention-canary covers detection; upstream #8940 telemetry would retire even the canary.
-  - wait-what, to-questionnaire, ask-matt, wizard — no observed need in 5 months / 1,000+ sessions.
-- **Revisit:** next fit audit, or when a pruned skill's pain resurfaces. pstack Tier 1 leftovers (why, automate-me, interrogate, arena, technical-writing) reopen only if an adopted pstack pick earns its keep. mattpocock `retro` ships → fit audit against pstack `reflect` (same job; keep one).
-- **Wiring:** curated at install time via `skill-packs.json` (packs list their skills explicitly; the `default` profile is the roster the doctor checks under `~/.claude/skills`, the root OMP loads). Packs pinned to upstream tags in `source` (`mattpocock/skills#v1.2.3`; `JuliusBrussee/caveman#v2.3.1` — the benchmarked text, v2.4.0+ not taken; `DietrichGebert/ponytail#v4.9.0`); `cursor/plugins` (pstack) publishes no tags and floats on `main`. `skills.enableClaudeUser: true` + `skills.enableAgentsUser: false` — `~/.agents/skills` is the skill store: the canonical copy that `~/.claude/skills` and `~/.hermes/skills` symlink into, loaded once via the Claude root. `enableClaudeUser` must be set explicitly: it defaults to `false` in the inspected OMP 18.1.13 schema, which silently left the whole pack invisible to OMP (found 2026-09-07 via missing `grill-with-docs`; only plugin + `~/.omp/agent/skills` skills loaded). Local one-off skills (graphify) live in the agent skill roots directly, outside packs.
+- **Decided:** every installed skill is either **Core** (named in a recipe's default step) or an **Escalation** (runs only on its trigger); everything else is **Excluded** with its reopen condition. Criterion: fit for a named job, judged by the user (Rule 8, `docs/CONTEXT.md` _Adopted_). Usage history is a diagnostic footnote, never the criterion. Packs: Pocock (upstream tag), ponytail force-injected (tag), caveman on demand (tag), pstack **vendored** in this repo (`agentic_env/vendored/pstack`, ADR-0010).
+- **Why:** measured — ponytail −10.3% cost (must force-inject), caveman −8.5% (on demand). Fit evidence: `docs/pocock-skills-fit-report.html`, `docs/pstack-skills-audit.html` (2026-08-20), `docs/skills-development-comparison.md` (2026-09-13, per-job Matt vs pstack; where its recommendations differ from this section, this section is operative). Invocation mode is a separate property from role: every pstack skill ships `disable-model-invocation: true` (`/`-only), Pocock/ponytail/caveman skills are model-invocable.
+- **Roster (2026-09-15).** Recipe letters refer to the routing below.
+
+  | Skill | Pack | Role | Job | Trigger → work product |
+  |---|---|---|---|---|
+  | wayfinder | Pocock | Core | entry routing for any multi-step task | — |
+  | grilling, domain-modeling (= grill-with-docs) | Pocock | Core | B, D: settle behaviour, invariants, terms | → decision map, `CONTEXT.md` terms |
+  | codebase-design | Pocock | Core | B, D: interface shape; loaded by `tdd` | → deep-module seams |
+  | tdd | Pocock | Core | A, B when test-first is requested | → red-green at agreed seams |
+  | diagnosing-bugs | Pocock | Core | C | → observable failure, narrowed cause |
+  | code-review | Pocock | Core | A–D close: Standards (`CODING_STANDARDS.md`) + Spec axes | commit first (WIP fine): it diffs `<fixed-point>...HEAD` |
+  | how | pstack | Core | E; A/C/D when the mechanism is unclear | → architectural explanation |
+  | ponytail (+audit, debt, gain, help, review) | ponytail | Core | every task, force-injected | — |
+  | research | Pocock | Escalation | B, E | external facts block a choice → findings file |
+  | prototype | Pocock | Escalation | B | interaction or state model still uncertain → throwaway |
+  | to-spec | Pocock | Escalation | B, D | work must survive a handoff → spec |
+  | to-tickets | Pocock | Escalation | B, D, F | ≥ 2 independently verifiable slices → tickets |
+  | resolving-merge-conflicts | Pocock | Escalation | any | conflict in progress → resolved tree |
+  | handoff | Pocock | Escalation | any | context replacement (compaction covers it mechanically) → handoff doc |
+  | teach | Pocock | Escalation | E | multi-session learning program wanted → lessons |
+  | why | pstack | Escalation | C, D, E | historical intent affects the decision → sourced motivation |
+  | blast-radius | pstack | Escalation | C, D | change touches lifecycle, concurrency, shared state, downstream → one safety fact proven by running code |
+  | interrogate | pstack | Escalation | any close | consequential residual uncertainty after review → adversarial verdict |
+  | unslop | pstack | Escalation | any prose deliverable | docs, PR body, report → cleaned text (dependency of show-me-your-work, reflect) |
+  | create-verification-skill | pstack | Escalation | A, F | repo has no scripted user-journey check → project-local verification skill |
+  | show-me-your-work | pstack | Escalation | F | someone must audit the run afterwards → decision log |
+  | reflect | pstack | Escalation | any close | costly detour suggests a reusable fix → skill patch |
+  | recall | pstack | Escalation | forensics | canary fire → read of the memory bank; never wired (Rule 4) |
+  | caveman, caveman-commit | caveman | Escalation | any | terse output wanted → same content, fewer tokens |
+
+- **Recipes** (routing guidance, never a mandatory chain; start from the task's unresolved uncertainty): **A** small well-specified change — read, state the acceptance condition, smallest change, exercise the real path, `code-review`; no spec, tickets, or retrospective. **B** uncertain feature — grill-with-docs, then `prototype`/`research` if still uncertain, `to-spec`/`to-tickets` if it must survive handoff, `codebase-design`, one vertical slice, review against the spec. **C** bug — `diagnosing-bugs`, `why` if intent matters, failing-before check (harness Verify rule), shared-cause fix, `blast-radius` if lifecycle/concurrency/shared state changed. **D** risky migration — `how` for producers/consumers, `why` for compatibility history, grilling for policy, `to-spec`/`to-tickets` for the cutover contract, codemod over hand edits, OMP-native fan-out for caller groups, `blast-radius`, remove obsolete paths. **E** unfamiliar repo or PR — `how`, narrow `why`, `research` for outside facts; end with the traced model, never a silent refactor. **F** long parallel delivery — falsifiable finish condition, `to-tickets`, OMP-native worktree fan-out with one integration owner, `show-me-your-work`, integrate and run the real behaviour, `reflect` only on a costly detour.
+- **Excluded** (deliberately not installed; reopen condition stated):
+  - `implement` (Pocock) — its pre-commit `/code-review` composes with the HEAD-ended diff and silently omits the WIP it was meant to review; the chain (tdd → tests → review → commit) is already the harness Verify rule. Replaced by the roster line "commit before `code-review`". Reopen: never (structural).
+  - `architect` + `arena` (pstack) — `architect` needs `arena` and `how`, implements by default, and a four-agent panel on one model family is not four families. Reopen: a new module with ≥ 2 viable, structurally different shapes that are expensive to reverse → install both for that task only, run "design-only, checkpoint before code".
+  - `swarm` (pstack) — OMP-native `task` batches with worktrees cover bounded coverage jobs. Reopen: a coverage job where native fan-out demonstrably fails.
+  - pstack `tdd` — name collision with Pocock `tdd` in the flat store (`~/.agents/skills/<name>`, the CLI has no rename); its failing-before procedure is already the harness Verify rule. Reopen: Pocock `tdd` dropped.
+  - pstack `teach` — collision with Pocock `teach`; the layered explanation it produces is `how`'s output. Reopen: never while `how` is installed.
+  - `implement-spec` (Pocock, beta) — a second scheduler over the same ticket graph. Reopen: leaves beta and a full spec-to-one-PR run is wanted.
+  - `retro` (Pocock, stub) — reopen: ships → fit audit against `reflect` (same job; keep one).
+  - `principle-*` (pstack, 23) — `/`-only, so as skills they never warn unprompted; the six that fit are condensed into `CODING_STANDARDS.md` and applied by `code-review`'s Standards axis. Reopen: never as skills.
+  - pstack style cluster (poteto-mode, laziness-protocol, subtract-before-you-add, minimize-reader-load, no-comments) — duplicates benchmarked ponytail/caveman; double style injection is paid prompt weight; no-comments contradicts load-bearing `ponytail:` ceiling markers. Novel fragments fold into ponytail text, never a second skill.
+  - `grill-me` — grill-with-docs is a proven superset including non-code decisions. `writing-for-agents` — prose discipline, no mechanism; reopen if doc drift persists. `wait-what`, `to-questionnaire`, `ask-matt`, `wizard` — no recipe step names their job (wizard: no human-only provisioning step in any recipe). `graphify` — local one-off, outside packs.
+- **Diagnostic footnote (usage, 08-22 raw DBs):** 567 OMP "sessions" = 226 main + 341 subagent; grill-with-docs 74 OMP / 215 Hermes user-invoked (413 = registry loads); tdd/code-review 0 user-invoked vs 108/320 model-invoked — the model reaches for them, the user never does, so nothing is forced to a slash command; `resolving-merge-conflicts`/`diagnosing-bugs` sat on measured pains (64+ conflicted merges, repeat-diagnosis loops) while structurally invisible to OMP (`enableAgentsUser: false`) — low use was availability, not misfit; `to-spec`/`to-tickets` 1 use each in 5 months, which the 08-22 pass read as misfit and the 09-15 pass re-read as "no recipe named their trigger". Counting units: `docs/CONTEXT.md`.
+- **Revisit:** a recipe step with no fitting skill; an Excluded trigger firing; next fit audit.
+- **Wiring:** curated at install time via `skill-packs.json` (packs list their skills explicitly; the `default` profile is the roster the doctor checks under `~/.claude/skills`, the root OMP loads). Upstream-pinned packs use `owner/repo#<tag>` in `source` (`mattpocock/skills#v1.2.3`; `JuliusBrussee/caveman#v2.3.1` — the benchmarked text, v2.4.0+ not taken; `DietrichGebert/ponytail#v4.9.0`). pstack is vendored: `source: ./vendored/pstack/skills`, resolved by the installer against the package directory and passed to the `skills` CLI as a local path; the copy's provenance (commit `c1c0a32`, 2026-09-14) is `agentic_env/vendored/pstack/UPSTREAM.md`, and `tests/test_install_skills_mcps.py` fails if the roster names a skill the copy lacks. `skills.enableClaudeUser: true` + `skills.enableAgentsUser: false` — `~/.agents/skills` is the skill store: the canonical copy that `~/.claude/skills` and `~/.hermes/skills` symlink into, loaded once via the Claude root. `enableClaudeUser` must be set explicitly: it defaults to `false` in the inspected OMP 18.1.13 schema, which silently left the whole pack invisible to OMP (found 2026-09-07 via missing `grill-with-docs`; only plugin + `~/.omp/agent/skills` skills loaded). Local one-off skills (graphify) live in the agent skill roots directly, outside packs. Review standards: `CODING_STANDARDS.md` next to this file.
 
 ### 7. Hooks — verification-recorder + retention-canary
 
@@ -139,7 +165,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
   - cadence-governor (2026-08-19, measured non-adherence). Across 589 session logs: verification nudge 16.4% adherence within 10 calls, declining by fire number (17.5% → 10.6% → 8.7%) — at or below the ~22% chance rate of any 10-call window containing a verification command; overwrite-steer 15% immediate switch (n=20). The 08-11 read-out's sole positive signal (first-fire 59% verify ≤25 calls) came with 60% of all fired nudges being spam beyond N=75 — the 3-strike cap treated the symptom. Prose doesn't route (Rule 5). Reopen bar: a mechanism that routes (blocks/redirects) rather than nudges.
   - External monitoring — no mechanism inside the harness.
 - **Revisit:** recorder DB unread by the next read-out; canary false-warns; canary fire-rate on 18.1.x read at the next read-out (zero fires and #8940 still open = keep); #8940 ships → retire the canary.
-- **Observation (2026-09-09, unverified):** the retention canary reported an empty/never-retained bank while `recall` returned stored memories from that bank. Recall success does not establish what the canary measures or prove a false warning. Compare the observation with the canary's measurement at the next read-out; no hook change or investigation in this pass.
+- **Observation (2026-09-09) → resolved 2026-09-15 (#43):** the canary reported an empty/never-retained bank while `recall` returned memories from it. Cause: `episodic_memory.created_at` is ISO `T…Z` while `working_memory`/`facts` use `YYYY-MM-DD HH:MM:SS`; the lexical SQL `max()` over the union picked the ISO row, the parser appended a second `Z`, `Date.parse` gave `NaN`, and `null` read as "never" — so the canary fired in every project with one episodic memory and two sessions. Fix: `max(julianday(created_at))` (both formats parsed and ordered numerically), regression test in `retention-canary.test.ts`. The Revisit trigger "canary false-warns" fired and is closed by this; the 07-19→08-10 gap it guards remains real.
 - **Wiring:** each hook registered exactly once in `extensions:` with its file present (doctor-enforced). Hook files are diagnosed, never written (machine-provisioning boundary); the installer finds them via `$AGENTIC_DOTFILES_ROOT`, then `~/.dotfiles`, then the cwd/package ancestors, and refuses to seed `config.yml` without them (a half-seeded config is three doctor failures later).
 
 ## Live wiring (this machine)
@@ -148,6 +174,9 @@ Mandatory contract = the OMP layer. Installer-enforced (`agentic-configure-agent
 
 - Clean-host contract (2026-09-02): `uv tool install --force . && agentic-bootstrap` on a host with a `~/.dotfiles` checkout yields exactly this stack; version drift above the pins is tolerated, skill/MCP/hook drift is not.
 - Fresh-machine reproducibility: `agentic-configure-agent-mcps` seeds `~/.omp/agent/config.yml` from this contract when absent and verifies it when present (`converge_omp_agent_config`; existing user YAML is never rewritten).
+- Configuration ownership (2026-09-10): notify-only for existing MCP definitions. Add missing entries; report mismatched commands/arguments and Hermes memory-provider conflicts for manual correction without rewriting the affected file. Existing OMP settings YAML remains read-only. The explicit OMP exclusion/default-gating policy is unchanged; it is not general repair authority.
+- Hermes severity split (2026-09-13): `agentic-configure-agent-mcps` hard-fails on Hermes drift (it refuses an unsafe write to a user-owned file), while `agentic-stack-doctor` only warns for Hermes (it diagnoses a secondary agent; exit code is the OMP contract). Same drift, two verbs: refuse to write vs report.
+- Acceptance scope (2026-09-10): native Apple Silicon macOS and Arch Linux x86_64, with the existing Debian container retained. Intel macOS is out of scope; direct CachyOS verification is deferred. An Arch run is Arch-family proxy evidence, not a verified CachyOS run; successful runs and exact OS/architecture coverage are recorded in the README.
 - The concrete settings are the **Wiring** line of each layer above: harness (pin, contract keys, `node_repl`), context I/O (excluded servers, prose ban), compaction (`compaction.*`), memory (`memory.backend`, `mnemopi.polyphonicRecall`), code graph (`mcp.json` gate), skills (`skill-packs.json`, `skills.enableClaudeUser`, `skills.enableAgentsUser`), hooks (`extensions`).
 
 ## Upstream watch
@@ -156,9 +185,12 @@ Pre-registered triggers; nothing here is acted on without the trigger firing. Ea
 
 - oh-my-pi #8940 (retain-attempt telemetry) ships → retire the retention canary.
 - OMP major bump → re-verify converge keys against `settings-schema.ts` at the new tag, re-pin, re-run the docker smoke.
+- Hermes installer (2026-09-15, #39): fetched at commit `95d42656` of `NousResearch/hermes-agent` (the bytes reviewed 2026-09-02), never from the floating `hermes-agent.nousresearch.com/install.sh`, which drifted 2026-09-13 and turned every acceptance job red. Hermes pin bump → move `HERMES_INSTALL_COMMIT` alongside it and re-verify the SHA256. `omp.sh/install` and `claude.ai/install.sh` remain floating + hash-pinned; first drift → same treatment if the vendor publishes a versioned URL.
+- OMP installer (2026-09-15): `scripts/install.sh:245` at the pinned SHA looks the release up on `api.github.com` unauthenticated even with `--ref`, only to echo the tag back; the binary URL (`:266`) needs no lookup. Shared `macos-15` runner IPs exhaust the 60 req/h limit → `curl 403`, "Release tag not found: v18.1.14", macOS acceptance job red while Debian/Arch pass (six in a row 21:05–21:45 UTC; tag exists). Not fixable here: `clean-acceptance.sh` forbids credentials in the smoke HOME by contract. Drop this line when upstream skips the lookup for pinned refs or honours `GITHUB_TOKEN`; re-verify `OMP_INSTALL_SHA256` then. Until then a red macOS job with that transcript is a re-run, not a defect.
 - Canary fire-rate on 18.1.x → read at the next read-out; zero fires and #8940 still open = keep.
 - codebase-memory litmus 0× by **2026-10-01** → remove `codebase-memory-mcp` from the OMP roots (keep installed for per-project on-demand mounting). Upstream 0.10.8 available vs pin 0.9.0; bump only on promotion.
 - mattpocock `retro` ships → fit audit against pstack `reflect` (same job; keep one).
+- pstack vendored copy (`c1c0a32`, 2026-09-14) → re-copy only when a roster skill's upstream body fixes a defect hit here, or an Excluded trigger reopens a skill; each re-copy updates `UPSTREAM.md` and the commit in §6 Wiring. `cursor/plugins` starts tagging → switch `source` back to `cursor/plugins#<tag>` and delete the copy (ADR-0010 reopen).
 - lean-ctx need fires (semantic search visibly missing on a real task) → reinstall ≥ 3.10.0 per ADR-0009.
 - Cross-project memory becomes a live need → Hindsight vs mem0 bake-off.
 - Trendshift screening: **Retired** as a routine (0 adoptions across two sweeps); on-demand reruns only.

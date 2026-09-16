@@ -1,18 +1,32 @@
 FROM node:20-bookworm-slim
 
-ENV PATH="/root/.local/bin:/usr/local/bin:${PATH}"
-
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+      bash \
+      build-essential \
+      coreutils \
+      findutils \
+      grep \
+      sed \
+      gawk \
       ca-certificates \
       curl \
       git \
       xz-utils \
+      procps \
+      tar \
+      gzip \
       libatomic1 \
+      libffi-dev \
       unzip \
     && rm -rf /var/lib/apt/lists/*
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+RUN curl -LsSf https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
+    && UV_UNMANAGED_INSTALL=/usr/local/bin sh /tmp/install-uv.sh \
+    && rm /tmp/install-uv.sh \
+    && UV_PYTHON_INSTALL_DIR=/opt/python uv python install 3.12 \
+    && ln -s "$(UV_PYTHON_INSTALL_DIR=/opt/python uv python find 3.12)" /usr/local/bin/python3
 
-WORKDIR /workspace
+USER node
+ENV HOME=/home/node
+WORKDIR /dotfiles/agentic-env
 CMD ["/bin/sh"]

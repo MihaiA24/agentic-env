@@ -55,6 +55,17 @@ test("fresh bank stays silent despite old sessions", () => {
 	expect(checkRetention({ cwd: "/x/fresh", sessionFile: current, banksDir })).toBeNull();
 });
 
+test("ISO episodic row (T…Z, as mnemopi writes episodic_memory) is read as fresh, not never", () => {
+	// #43: the lexical max over mixed formats is the ISO string; appending a second Z made it NaN → "never".
+	makeBank("episodic-abc123", 30);
+	const db = new Database(join(banksDir, "episodic-abc123", "mnemopi.db"));
+	db.run("insert into episodic_memory values (?)", [new Date().toISOString()]);
+	db.close();
+	makeSession("ep1.jsonl", 20);
+	makeSession("ep2.jsonl", 10);
+	expect(checkRetention({ cwd: "/x/episodic", sessionFile: current, banksDir })).toBeNull();
+});
+
 test("stale bank with sessions since fires a loud warning", () => {
 	makeBank("stale-abc123", 30);
 	const dir = join(root, "sessions", "-stale");

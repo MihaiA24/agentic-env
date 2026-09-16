@@ -1,30 +1,15 @@
 FROM archlinux:base
 
 RUN pacman-key --init \
+    && pacman-key --populate archlinux \
     && pacman -Syu --noconfirm --needed \
-      base-devel \
-      ca-certificates \
-      curl \
-      git \
-      nodejs \
-      npm \
-      python \
-      unzip \
-      uv \
-      xz \
-    && pacman -Scc --noconfirm
+      ca-certificates curl git uv python nodejs npm \
+      bash coreutils findutils grep sed gawk procps-ng tar gzip xz unzip \
+      base-devel libffi \
+    && pacman -Scc --noconfirm \
+    && useradd --create-home --shell /bin/bash node
 
-RUN useradd --create-home --shell /bin/bash agentic \
-    && install -d -o agentic -g agentic /workspace
-
-WORKDIR /workspace
-COPY --chown=agentic:agentic . /workspace
-
-ENV HOME=/home/agentic \
-    npm_config_prefix=/home/agentic/.local \
-    PATH=/home/agentic/.local/bin:${PATH}
-
-USER agentic
-
-ENTRYPOINT ["/bin/sh", "-c", "cat /etc/os-release; uname -m; id; exec \"$@\"", "--"]
-CMD ["/bin/sh", "./docker-smoke-test.sh"]
+USER node
+ENV HOME=/home/node
+WORKDIR /dotfiles/agentic-env
+CMD ["/bin/sh"]

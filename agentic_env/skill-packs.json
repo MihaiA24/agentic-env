@@ -15,7 +15,9 @@
         "domain-modeling",
         "research",
         "prototype",
-        "implement",
+        "to-spec",
+        "to-tickets",
+        "codebase-design",
         "tdd",
         "code-review",
         "teach",
@@ -39,14 +41,19 @@
     },
     {
       "name": "pstack",
-      "source": "cursor/plugins",
-      "note": "unpinned: cursor/plugins publishes no tags, so this pack floats on main",
+      "source": "./vendored/pstack/skills",
+      "note": "vendored copy of cursor/plugins pstack (see vendored/pstack/UPSTREAM.md); the repo publishes no tags and the skills CLI clones by branch only",
       "label": "pstack skills",
       "aliases": [
         "pstack",
         "cursor/plugins"
       ],
       "skills": [
+        "how",
+        "why",
+        "blast-radius",
+        "interrogate",
+        "unslop",
         "create-verification-skill",
         "show-me-your-work",
         "reflect",

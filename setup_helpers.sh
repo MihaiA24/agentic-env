@@ -13,7 +13,7 @@ for arg in "$@"; do
 done
 export VERBOSE
 
-_run_log="$(mktemp -t dotfiles-run.XXXXXX)"
+_run_log="$(mktemp "${TMPDIR:-/tmp}/dotfiles-run.XXXXXX")"
 cleanup_run_log() {
   rm -f "$_run_log"
 }

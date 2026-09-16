@@ -34,18 +34,20 @@ export function newestMemoryMs(dbPath: string): number | null {
 		const db = new Database(dbPath, { readonly: true });
 		try {
 			// Union of all three stores: consolidation prunes working_memory rows, so any
-			// single table can false-fire.
+			// single table can false-fire. julianday() parses both stored formats —
+			// 'YYYY-MM-DD HH:MM:SS' (working, facts) and ISO 'T…Z' (episodic) — and orders
+			// them numerically; a lexical max() over the mixed strings picked the ISO row and
+			// the old 'append Z' parse turned it into NaN → "never retained" (#43).
 			const row = db
 				.query(
-					`select max(created_at) m from (
+					`select max(julianday(created_at)) jd from (
 						select created_at from working_memory
 						union all select created_at from episodic_memory
 						union all select created_at from facts)`,
 				)
-				.get() as { m: string | null } | null;
-			if (!row?.m) return null;
-			const ms = Date.parse(`${row.m.replace(" ", "T")}Z`); // stored as UTC 'YYYY-MM-DD HH:MM:SS'
-			return Number.isNaN(ms) ? null : ms;
+				.get() as { jd: number | null } | null;
+			if (row?.jd == null) return null;
+			return Math.round((row.jd - 2_440_587.5) * DAY_MS); // Julian day of the Unix epoch
 		} finally {
 			db.close();
 		}

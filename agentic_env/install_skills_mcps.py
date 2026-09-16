@@ -40,10 +40,6 @@ from .stack_metadata import (
 
 _REMOTE_INSTALL_CONTRACT = SKILLS_INSTALL_REMOTE_CONTRACT
 _SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
-_SKILL_PACKS: tuple[SkillPack, ...] = ()
-_SKILL_PACK_ALIASES: tuple[SkillPackAlias, ...] = ()
-_SKILL_PACK_PROFILES: tuple[SkillProfile, ...] = ()
-
 
 
 def _collect_unique(values: list[str]) -> tuple[str, ...]:
@@ -55,24 +51,35 @@ def _collect_unique(values: list[str]) -> tuple[str, ...]:
 
 
 @dataclass(frozen=True)
-class SkillPackAlias:
-    alias: str
-    pack_name: str
-
-
-@dataclass(frozen=True)
 class SkillPack:
     name: str
     source: str
     label: str
-    aliases: tuple[str, ...]
     skills: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class SkillProfile:
-    name: str
-    packs: tuple[str, ...]
+class SkillManifest:
+    """Parsed `skill-packs.json`: packs in manifest order, alias → pack name, profile → pack names."""
+
+    packs: dict[str, SkillPack]
+    aliases: dict[str, str]
+    profiles: dict[str, tuple[str, ...]]
+
+    def source(self, pack: str) -> str:
+        """Vendored packs use a `./` source relative to this package; the skills CLI
+        takes the absolute path. Anything else is an upstream ref passed through."""
+        source = self.packs[pack].source
+        if source.startswith("./"):
+            return str(_SKILL_PACK_CONFIG_PATH.parent / source[2:])
+        return source
+
+    def profile_skills(self, profile: str) -> list[str]:
+        """Curated skill roster: union of every pack filter in `profile` (manifest order)."""
+        names: list[str] = []
+        for pack in self.profiles[profile]:
+            names.extend(skill for skill in self.packs[pack].skills if skill not in names)
+        return names
 
 
 @dataclass(frozen=True)
@@ -115,9 +122,7 @@ def _split_csv(values: list[str] | None) -> list[str]:
     return parsed
 
 
-def _parse_skill_pack_config(
-    payload: object, path: Path
-) -> tuple[tuple[SkillPack, ...], tuple[SkillPackAlias, ...], tuple[SkillProfile, ...]] | None:
+def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | None:
     if not isinstance(payload, dict):
         warn(f"Invalid skill-pack config in {path}: expected object")
         return None
@@ -127,10 +132,7 @@ def _parse_skill_pack_config(
         warn(f"Invalid skill-pack config in {path}: 'packs' must be a non-empty list")
         return None
 
-    packs: list[SkillPack] = []
-    aliases: list[SkillPackAlias] = []
-    profiles: list[SkillProfile] = []
-    pack_names: set[str] = set()
+    packs: dict[str, SkillPack] = {}
     alias_lookup: dict[str, str] = {}
 
     for item in packs_payload:
@@ -156,10 +158,9 @@ def _parse_skill_pack_config(
         source_value = source.strip()
         label_value = label.strip()
 
-        if canonical_name in pack_names:
+        if canonical_name in packs:
             warn(f"Duplicate pack '{canonical_name}' in {path}")
             return None
-        pack_names.add(canonical_name)
 
         aliases_payload = item.get("aliases", [])
         if not isinstance(aliases_payload, list):
@@ -195,28 +196,25 @@ def _parse_skill_pack_config(
             existing = alias_lookup.get(alias)
             if existing is None:
                 alias_lookup[alias] = canonical_name
-                aliases.append(SkillPackAlias(alias=alias, pack_name=canonical_name))
             elif existing != canonical_name:
                 warn(
                     f"Alias '{alias}' maps to both '{existing}' and '{canonical_name}' in {path}"
                 )
                 return None
 
-        packs.append(
-            SkillPack(
-                name=canonical_name,
-                source=source_value,
-                label=label_value,
-                aliases=tuple(_collect_unique(raw_aliases)),
-                skills=tuple(skill_values),
-            )
+        packs[canonical_name] = SkillPack(
+            name=canonical_name,
+            source=source_value,
+            label=label_value,
+            skills=tuple(skill_values),
         )
 
-    profiles_payload = payload.get("profiles", {"default": [pack.name for pack in packs]})
+    profiles_payload = payload.get("profiles", {"default": list(packs)})
     if not isinstance(profiles_payload, dict):
         warn(f"Invalid 'profiles' in {path}: expected object")
         return None
 
+    profiles: dict[str, tuple[str, ...]] = {}
     for profile_name, pack_values in profiles_payload.items():
         if not isinstance(profile_name, str) or not profile_name.strip():
             warn(f"Invalid profile name in {path}: {profile_name!r}")
@@ -232,81 +230,38 @@ def _parse_skill_pack_config(
             if not canonical_pack:
                 warn(f"Profile '{profile_name}' references unknown pack '{raw_pack}' in {path}")
                 return None
-            if canonical_pack not in pack_names:
+            if canonical_pack not in packs:
                 warn(f"Profile '{profile_name}' references unknown pack '{raw_pack}' in {path}")
                 return None
             if canonical_pack not in selected:
                 selected.append(canonical_pack)
 
-        profiles.append(SkillProfile(name=profile_name.strip(), packs=tuple(selected)))
+        profiles[profile_name.strip()] = tuple(selected)
 
-    return tuple(packs), tuple(aliases), tuple(profiles)
+    return SkillManifest(packs=packs, aliases=alias_lookup, profiles=profiles)
 
 
-def _load_skill_pack_config(path: Path) -> bool:
-    global _SKILL_PACKS, _SKILL_PACK_ALIASES, _SKILL_PACK_PROFILES
-
+def load_skill_manifest(path: Path) -> SkillManifest | None:
     if not path.exists():
         warn(f"Skill pack config not found: {path}")
-        return False
+        return None
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         warn(f"Invalid JSON in {path}: {exc}")
-        return False
+        return None
     except OSError as exc:
         warn(f"Cannot read {path}: {exc}")
-        return False
+        return None
 
-    parsed = _parse_skill_pack_config(payload, path)
-    if parsed is None:
-        return False
-
-    _SKILL_PACKS, _SKILL_PACK_ALIASES, _SKILL_PACK_PROFILES = parsed
-    return True
-
-
-def _pack_aliases() -> dict[str, str]:
-    return {alias.alias: alias.pack_name for alias in _SKILL_PACK_ALIASES}
-
-
-def _pack_profiles() -> dict[str, SkillProfile]:
-    return {profile.name: profile for profile in _SKILL_PACK_PROFILES}
-
-
-def _pack_lookup() -> dict[str, SkillPack]:
-    return {pack.name: pack for pack in _SKILL_PACKS}
-
-
-def _all_skill_packs() -> list[str]:
-    return [pack.name for pack in _SKILL_PACKS]
-
-
-def _all_skill_profiles() -> list[str]:
-    return [profile.name for profile in _SKILL_PACK_PROFILES]
-
-
-def _skill_pack_source(name: str) -> str:
-    return _pack_lookup()[name].source
-
-
-def _skill_pack_label(name: str) -> str:
-    return _pack_lookup()[name].label
-
-
-def _skill_pack_skills(name: str) -> list[str]:
-    return list(_pack_lookup()[name].skills)
+    return _parse_skill_pack_config(payload, path)
 
 
 def profile_skills(profile: str, path: Path = _SKILL_PACK_CONFIG_PATH) -> list[str]:
-    """Curated skill roster: union of every pack filter in `profile` (manifest order)."""
-    if not _load_skill_pack_config(path):
-        return []
-    names: list[str] = []
-    for pack in _pack_profiles()[profile].packs:
-        names.extend(skill for skill in _skill_pack_skills(pack) if skill not in names)
-    return names
+    """Roster of `profile` from the manifest at `path`, or [] when it does not load."""
+    manifest = load_skill_manifest(path)
+    return manifest.profile_skills(profile) if manifest else []
 
 
 def _validate_remote_contract() -> bool:
@@ -315,10 +270,10 @@ def _validate_remote_contract() -> bool:
     )
 
 
-def _parse_skill_packs(values: list[str] | None) -> SkillPackSelection:
+def _parse_skill_packs(values: list[str] | None, manifest: SkillManifest) -> SkillPackSelection:
     selected: list[str] = []
     unknown: list[str] = []
-    aliases = _pack_aliases()
+    aliases = manifest.aliases
 
     for raw in _split_csv(values):
         name = raw.strip().lower()
@@ -371,11 +326,13 @@ def _skill_agent_label(agent: str) -> str:
     return SKILL_AGENT_CLI_NAMES[agent]
 
 
-def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> SkillInstallPlan | None:
-    pack_selection = _parse_skill_packs(args.skill_pack)
+def _build_install_plan(
+    args: argparse.Namespace, manifest: SkillManifest, *, non_interactive: bool
+) -> SkillInstallPlan | None:
+    pack_selection = _parse_skill_packs(args.skill_pack, manifest)
     if pack_selection.unknown:
         warn(f"Unknown skill pack(s): {', '.join(sorted(pack_selection.unknown))}")
-        warn(f"Available: {', '.join(_all_skill_packs())}")
+        warn(f"Available: {', '.join(manifest.packs)}")
         return None
 
     selected_skill_agents = _parse_skill_agents(args.skill_agent)
@@ -387,7 +344,7 @@ def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> S
     skill_names = _parse_skill_names(args.skill)
 
     if args.all_skills:
-        selected_skill_packs = _all_skill_packs()
+        selected_skill_packs = list(manifest.packs)
     elif pack_selection.selected:
         selected_skill_packs = list(pack_selection.selected)
     elif args.skill_profile:
@@ -396,13 +353,13 @@ def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> S
             warn("Empty --skill-profile value")
             return None
 
-        profile = _pack_profiles().get(profile_name)
+        profile = manifest.profiles.get(profile_name)
         if profile is None:
             warn(f"Unknown skill profile: {profile_name}")
-            warn(f"Available: {', '.join(_all_skill_profiles())}")
+            warn(f"Available: {', '.join(manifest.profiles)}")
             return None
 
-        selected_skill_packs = list(profile.packs)
+        selected_skill_packs = list(profile)
     elif non_interactive:
         selected_skill_packs = []
     else:
@@ -417,9 +374,9 @@ def _build_install_plan(args: argparse.Namespace, *, non_interactive: bool) -> S
     )
 
 
-def _select_skill_packs(non_interactive: bool) -> list[str]:
+def _select_skill_packs(manifest: SkillManifest, non_interactive: bool) -> list[str]:
     selected: list[str] = []
-    for pack in _SKILL_PACKS:
+    for pack in manifest.packs.values():
         if ask(
             f"Install skill pack: {pack.label}?",
             default=False,
@@ -565,7 +522,10 @@ def _configure_hermes_agentmemory() -> bool:
 
 
 def _install_skills(
-    skill_packs: list[str], requested_skills: list[str], skill_agents: list[str]
+    manifest: SkillManifest,
+    skill_packs: list[str],
+    requested_skills: list[str],
+    skill_agents: list[str],
 ) -> bool:
     if not cmd_exists("skills") and not cmd_exists("npm"):
         warn("skills CLI requires npm or a global skills binary")
@@ -575,27 +535,21 @@ def _install_skills(
         warn("No target agents selected for skill installation")
         return False
 
-    for pack in skill_packs:
-        source = _skill_pack_source(pack)
-        configured_skills = _skill_pack_skills(pack)
-
-        if configured_skills:
+    for name in skill_packs:
+        pack = manifest.packs[name]
+        if pack.skills:
             if requested_skills:
-                filtered_skills = [
-                    skill for skill in requested_skills if skill in configured_skills
-                ]
+                filtered_skills = [skill for skill in requested_skills if skill in pack.skills]
                 if not filtered_skills:
-                    warn(
-                        f"{_skill_pack_label(pack)}: no requested skills matched this pack's filter; skipped"
-                    )
+                    warn(f"{pack.label}: no requested skills matched this pack's filter; skipped")
                     continue
             else:
-                filtered_skills = configured_skills
+                filtered_skills = list(pack.skills)
         else:
             filtered_skills = requested_skills
 
-        if not _install_skill_package(source, filtered_skills, skill_agents):
-            warn(f"{_skill_pack_label(pack)}: installation failed")
+        if not _install_skill_package(manifest.source(name), filtered_skills, skill_agents):
+            warn(f"{pack.label}: installation failed")
             return False
     return True
 
@@ -744,10 +698,11 @@ def main(argv: list[str] | None = None) -> int:
         ok("agentic-install-skills-mcps: remote contract check passed")
         return 0
 
-    if not _load_skill_pack_config(Path(args.skill_config)):
+    manifest = load_skill_manifest(Path(args.skill_config))
+    if manifest is None:
         return 1
 
-    plan = _build_install_plan(args, non_interactive=non_interactive)
+    plan = _build_install_plan(args, manifest, non_interactive=non_interactive)
     if plan is None:
         return 1
 
@@ -766,7 +721,7 @@ def main(argv: list[str] | None = None) -> int:
             non_interactive=non_interactive,
         )
         if do_skills:
-            selected_skill_packs = _select_skill_packs(non_interactive)
+            selected_skill_packs = _select_skill_packs(manifest, non_interactive)
             do_skills = bool(selected_skill_packs)
         do_codebase = ask(
             "Install MCP: codebase-memory-mcp",
@@ -783,7 +738,7 @@ def main(argv: list[str] | None = None) -> int:
     if do_skills:
         ok_all = (
             _install_skills(
-                selected_skill_packs, requested_skill_names, selected_skill_agents
+                manifest, selected_skill_packs, requested_skill_names, selected_skill_agents
             )
             and ok_all
         )

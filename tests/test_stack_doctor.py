@@ -31,13 +31,13 @@ class _Host:
         self.hermes_skills = root / "hermes" / "skills"
         hooks = root / "hooks"
         hooks.mkdir()
-        for name in configure_agent_mcps._OMP_HOOK_FILES:
+        for name in configure_agent_mcps.OMP_HOOK_FILES:
             (hooks / name).write_text("// hook\n", encoding="utf-8")
         for path in self.mcp_paths:
             path.parent.mkdir(parents=True, exist_ok=True)
             self.write_mcp(path, gated=True)
         extensions = "extensions:\n" + "".join(
-            f"  - {hooks / name}\n" for name in configure_agent_mcps._OMP_HOOK_FILES
+            f"  - {hooks / name}\n" for name in configure_agent_mcps.OMP_HOOK_FILES
         )
         self.agent_config.write_text(
             configure_agent_mcps._OMP_AGENT_CONFIG_TEMPLATE.format(extensions=extensions),
@@ -52,7 +52,8 @@ class _Host:
         self.hermes_config.parent.mkdir(parents=True)
         self.hermes_config.write_text(
             "mcp_servers:\n  codebase-memory-mcp:\n    command: codebase-memory-mcp\n"
-            "  agentmemory:\n    command: npx\n",
+            f"  agentmemory:\n    command: npx\n    args: {json.dumps(list(configure_agent_mcps.MCP_SERVERS['agentmemory'].args))}\n"
+            "memory:\n  provider: agentmemory\n",
             encoding="utf-8",
         )
         for name in configure_agent_mcps.SKILLS:
@@ -69,7 +70,7 @@ class _Host:
         servers: dict[str, object] = {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}
         servers.update(extra or {})
         if disabled is None:
-            disabled = ["codebase-memory-mcp", "node_repl"] if gated else []
+            disabled = ["codebase-memory-mcp", "node_repl", *configure_agent_mcps.OMP_EXCLUDED_SERVERS] if gated else []
         data = {"mcpServers": servers, "disabledServers": disabled}
         path.write_text(json.dumps(data), encoding="utf-8")
 
@@ -101,10 +102,11 @@ def _run(host: _Host, **kwargs: object) -> tuple[int, str]:
 class StackDoctorTests(unittest.TestCase):
     def test_compliant_host_passes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            code, output = _run(_Host(Path(temp_dir)))
-        self.assertEqual(code, 0)
-        self.assertIn("stack OK", output)
-        self.assertNotIn("TODO secondary", output)
+            host = _Host(Path(temp_dir))
+            with host.patched():
+                checks = stack_doctor.run_checks()
+                self.assertEqual(stack_doctor.report(checks), 0)
+            self.assertEqual([check for check in checks if not check.ok], [])
 
     def test_ungated_server_fails_with_corrective_command(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -141,22 +143,69 @@ class StackDoctorTests(unittest.TestCase):
     def test_node_repl_builtin_must_be_gated(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             host = _Host(Path(temp_dir))
-            host.write_mcp(host.mcp_paths[0], gated=True, disabled=["codebase-memory-mcp"])
+            host.write_mcp(
+                host.mcp_paths[0], gated=True,
+                disabled=["codebase-memory-mcp", *configure_agent_mcps.OMP_EXCLUDED_SERVERS],
+            )
             code, output = _run(host)
         self.assertEqual(code, 1)
         self.assertIn("node_repl gated", output)
 
-    def test_agent_config_missing_method_order_fails(self) -> None:
+    def test_excluded_names_must_stay_disabled_even_when_absent(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             host = _Host(Path(temp_dir))
-            text = host.agent_config.read_text(encoding="utf-8")
-            host.agent_config.write_text(
-                "\n".join(line for line in text.splitlines() if "methodOrder" not in line) + "\n",
-                encoding="utf-8",
-            )
-            code, output = _run(host)
-        self.assertEqual(code, 1)
-        self.assertIn("compaction.methodOrder:", output)
+            host.write_mcp(host.mcp_paths[0], gated=True, disabled=["codebase-memory-mcp", "node_repl"])
+            original = host.mcp_paths[0].read_bytes()
+            with host.patched():
+                failures = [check for check in stack_doctor.run_checks() if not check.ok]
+                self.assertEqual(stack_doctor.report(failures), 1)
+            for name in configure_agent_mcps.OMP_EXCLUDED_SERVERS:
+                self.assertTrue(any(name in check.detail and check.mandatory for check in failures))
+            self.assertEqual(host.mcp_paths[0].read_bytes(), original)
+
+    def test_wrong_omp_definition_fails_without_repair(self) -> None:
+        for entry in (
+            {"command": "wrong-binary"},
+            {"command": "codebase-memory-mcp", "args": ["--wrong"]},
+            "not-a-mapping",
+        ):
+            with self.subTest(entry=entry), tempfile.TemporaryDirectory() as temp_dir:
+                host = _Host(Path(temp_dir))
+                path = host.mcp_paths[0]
+                host.write_mcp(path, gated=True, extra={"codebase-memory-mcp": entry})
+                original = path.read_bytes()
+                with host.patched():
+                    failures = [check for check in stack_doctor.run_checks() if not check.ok]
+                    self.assertEqual(stack_doctor.report(failures), 1)
+                self.assertTrue(any(check.mandatory and "mcpServers.codebase-memory-mcp" in check.fix for check in failures))
+                self.assertTrue(all(stack_doctor.FIX_CONFIGURE not in check.fix for check in failures))
+                self.assertEqual(path.read_bytes(), original)
+
+    def test_method_order_requires_exact_sequence_but_accepts_yaml_forms(self) -> None:
+        method_block = "  methodOrder:\n    - handoff\n    - remote\n    - soft\n"
+        cases = (
+            ("", False),
+            ("  methodOrder: []\n", False),
+            ("  methodOrder: [remote, handoff, soft]\n", False),
+            ("  methodOrder: [handoff, remote]\n", False),
+            ("  methodOrder: '[handoff, remote, soft]'\n", False),
+            ("  methodOrder: [handoff, remote, soft] # ordered fallback\n", True),
+            ("  'methodOrder': ['handoff', \"remote\", soft]\n", True),
+            ("  methodOrder: # fallback order\n    - 'handoff' # primary\n    - \"remote\"\n    - soft # final\n", True),
+            ("  methodOrder:\n  - handoff\n  - remote\n  - soft\n", True),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            template = host.agent_config.read_text(encoding="utf-8")
+            # Unrelated user-owned YAML structures must be tolerated, not rejected.
+            template += "custom:\n  jobs:\n    - name: user-owned\n      prompt: |\n        Keep my config\n"
+            for replacement, compliant in cases:
+                with self.subTest(replacement=replacement):
+                    original = template.replace(method_block, replacement).encode()
+                    host.agent_config.write_bytes(original)
+                    code, _ = _run(host)
+                    self.assertEqual(code, 0 if compliant else 1)
+                    self.assertEqual(host.agent_config.read_bytes(), original)
 
     def test_claude_skill_root_must_be_enabled_without_rewriting_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -230,13 +279,64 @@ class StackDoctorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             host = _Host(Path(temp_dir))
             host.hermes_config.write_text(
-                host.hermes_config.read_text(encoding="utf-8") + "  lean-ctx:\n    command: lean-ctx\n",
+                host.hermes_config.read_text(encoding="utf-8").replace(
+                    "\nmemory:\n", "\n  lean-ctx:\n    command: lean-ctx\nmemory:\n"
+                ),
                 encoding="utf-8",
             )
             code, output = _run(host)
         self.assertEqual(code, 0)
         self.assertIn("TODO secondary", output)
         self.assertIn("no lean-ctx", output)
+
+    def test_hermes_definition_and_provider_drift_only_warn_without_repair(self) -> None:
+        cases = (
+            ("    command: npx\n", "    command: wrong-binary\n", "mcp_servers.agentmemory"),
+            (
+                json.dumps(list(configure_agent_mcps.MCP_SERVERS["agentmemory"].args)),
+                '["-y", "@agentmemory/mcp"]',
+                "mcp_servers.agentmemory",
+            ),
+            ("  provider: agentmemory\n", "  provider: user-memory\n", "memory.provider"),
+            ("  provider: agentmemory\n", "", "memory.provider"),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            template = host.hermes_config.read_text(encoding="utf-8")
+            for old, new, entry in cases:
+                with self.subTest(entry=entry, replacement=new):
+                    original = template.replace(old, new).encode()
+                    host.hermes_config.write_bytes(original)
+                    with host.patched():
+                        failures = [check for check in stack_doctor.run_checks() if not check.ok]
+                        self.assertEqual(stack_doctor.report(failures), 0)
+                    self.assertTrue(failures)
+                    self.assertTrue(all(not check.mandatory for check in failures))
+                    self.assertTrue(any(entry in check.detail or entry in check.name for check in failures))
+                    if new:
+                        self.assertTrue(any(entry in check.fix for check in failures))
+                        self.assertTrue(all(stack_doctor.FIX_CONFIGURE not in check.fix for check in failures))
+                    self.assertEqual(host.hermes_config.read_bytes(), original)
+
+    def test_hermes_names_in_comments_or_non_mappings_are_not_wiring(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            original = b"""# mcp_servers: codebase-memory-mcp, agentmemory
+# memory.provider: agentmemory
+mcp_servers:
+  codebase-memory-mcp: disabled
+  agentmemory: false
+memory:
+  provider: agentmemory
+"""
+            host.hermes_config.write_bytes(original)
+            with host.patched():
+                failures = [check for check in stack_doctor.run_checks() if not check.ok]
+                self.assertEqual(stack_doctor.report(failures), 0)
+            self.assertTrue(all(not check.mandatory for check in failures))
+            for name in configure_agent_mcps.MCP_SERVERS:
+                self.assertTrue(any(name in check.name or name in check.detail for check in failures))
+            self.assertEqual(host.hermes_config.read_bytes(), original)
 
     def test_missing_secondary_only_warns(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

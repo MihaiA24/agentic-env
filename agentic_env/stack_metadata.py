@@ -33,7 +33,14 @@ SKILLS_CLI_PACKAGE: Final[str] = f"skills@{SKILLS_CLI_VERSION}"
 AGENTMEMORY_VERSION: Final[str] = "0.9.29"
 AGENTMEMORY_NPM_PACKAGE: Final[str] = f"@agentmemory/agentmemory@{AGENTMEMORY_VERSION}"
 
-HERMES_INSTALL_URL: Final[str] = "https://hermes-agent.nousresearch.com/install.sh"
+# Installer fetched from the reviewed commit, not the floating endpoint: the
+# endpoint changed on 2026-09-13 (issue #39) and every acceptance job went red.
+# Bump = pick a new commit, re-verify the SHA256, record it in DECISIONS.
+HERMES_INSTALL_COMMIT: Final[str] = "95d42656021a22f20201c618a67da07a618d16f3"
+HERMES_INSTALL_URL: Final[str] = (
+    "https://raw.githubusercontent.com/NousResearch/hermes-agent/"
+    f"{HERMES_INSTALL_COMMIT}/scripts/install.sh"
+)
 HERMES_INSTALL_SHA256: Final[str] = (
     "5854b15670b51a8daae8f59ddfa917062de9f74be261eb73b4b8d719710f8968"
 )
@@ -121,7 +128,8 @@ AGENTS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "kind": REMOTE_KIND_SCRIPT,
         "pinned": True,
         "sha256": HERMES_INSTALL_SHA256,
-        "reason": "Floating script endpoint is hash-pinned for reproducibility.",
+        "reason": "Fetched at a fixed upstream commit and hash-pinned; "
+        "the floating endpoint drifted (#39).",
     },
     "omp": {
         "label": "OMP / Oh My Pi installer script",

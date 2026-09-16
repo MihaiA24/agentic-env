@@ -21,6 +21,10 @@
   - A supported host being provisioned from scratch, with no prior agent-stack installation or agent-specific configuration. It is the target of a fresh install, independent of any existing workstation’s installed tools or configuration.
   - _Avoid_: Fresh machine (unqualified), blank VM
 
+- **Native host acceptance**
+  - Verification of clean provisioning on the target host's own operating system and kernel, with acceptance state isolated from any existing agent stack. This is distinct from distro-container evidence, which exercises a container's userland on its host's kernel.
+  - _Avoid_: Container acceptance, existing-stack health check
+
 - **Machine provisioning**
   - The product boundary of `agentic-env`: install, configure, update, and diagnose the user-level agent stack. Repository initialization, indexing, project-memory maintenance, uninstall, and rollback remain outside the product boundary. Agent hook files are diagnosed but never written; the tools that install them own them.
   - _Avoid_: Project onboarding, project lifecycle management
@@ -78,8 +82,8 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Project memory, skill install
 
 - **Managed MCP entry**
-  - A user-level MCP configuration entry named `codebase-memory-mcp` or `agentmemory` that `agentic-env` owns and converges to its curated definition while preserving unrelated agent settings. On OMP roots, `agentmemory` and `lean-ctx` are excluded entries: purged from `mcpServers` and kept in `disabledServers` so a re-import cannot mount them. Malformed configuration is rejected without modification.
-  - _Avoid_: Any MCP entry, user-owned configuration
+  - A user-level MCP entry whose expected definition is tracked by `agentic-env`: missing entries are added, while mismatches in existing entries are reported for manual correction without overwriting them. Explicit primary-harness exclusion and gating policies still apply; malformed configuration is rejected without modification.
+  - _Avoid_: Automatically repaired entry, any MCP entry
 
 - **Read-interception policy**
   - A hook or instruction block that gates or redirects an agent's file reads and searches toward a query-first tool. Scoped per supported agent, counted across every configuration file that agent loads rather than the files in its own directory. At most one may be active for a given agent.
@@ -124,7 +128,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Per-script command wrapper copies
 
 - **Smoke test**
-  - The fresh-install contract exercised in the Docker smoke environment (Debian bookworm) and on the supported hosts (macOS, CachyOS); it must pass before a host is accepted as supported.
+  - The same fresh-install acceptance contract applied to each declared OS/architecture target; passing on one target does not establish support for another.
 
 - **Smoke contract**
   - Process succeeds when: tools are installed, binaries are callable, `agentic-stack-doctor` exits successfully (the OMP mandatory checks), and Hermes has its project memory stack servers and matching global skills.
@@ -134,15 +138,15 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Line coverage, mocked installer success
 
 - **Stack doctor**
-  - A read-only host diagnostic (`agentic-stack-doctor`) with two tiers. Mandatory checks cover the primary harness: OMP binaries and versions, both OMP `mcp.json` roots wired and gated (including the `node_repl` built-in) with excluded servers absent, `~/.claude.json` free of excluded servers and of read-interception prose (OMP imports it), the `config.yml` contract, each hook registered exactly once with its file present, the curated skill roster, and no `lean-ctx` skill directory. Secondary checks (Hermes wiring; Hermes, Claude Code, Codex, agentmemory binaries) only warn with a `TODO secondary` tag. It exits unsuccessfully with corrective commands only on a mandatory failure, never repairs, and runs as the final phase of `agentic-bootstrap` and `agentic-update-stack`.
+  - Read-only diagnosis of the primary-harness wiring contract: OMP failures are mandatory, while Hermes wiring and secondary-agent binaries only warn. It runs at the end of bootstrap/update, exits unsuccessfully only for mandatory failures, and gives corrective guidance without repairing configurations.
   - _Avoid_: Smoke test, automatic repair
 
 - **Supported host**
-  - A macOS or Arch Linux-family machine, including CachyOS, on which the complete machine-provisioning and stack-doctor contracts are verified.
-  - _Avoid_: Any Unix-like host, Debian-compatible host
+  - An OS/architecture target with successful clean-host provisioning evidence, not merely a compatible release asset. The intended targets are Apple Silicon macOS and Arch Linux x86_64; direct CachyOS verification is deferred, and Intel macOS is outside acceptance scope.
+  - _Avoid_: Any Unix-like host, unverified compatible host
 
 - **Compatibility floor**
-  - Host prerequisites required by the agent stack: Python 3.12+, Node.js 20+, `curl`, `git`, and trusted CA certificates. The Linux fresh-install smoke environment is Debian bookworm (`node:20-bookworm-slim`); supported hosts stay macOS and CachyOS.
+  - The prerequisites needed before machine provisioning: Python 3.12+, Node.js 20+ with npm, uv, curl, git, trusted CA certificates, and writable user-level installation paths. Platform-specific preparation and acceptance evidence belong in the runbook.
 
 - **Documentation scope**
   - `agentic-env/README.md`: runbook and operating instructions.
@@ -166,9 +170,29 @@ Skill-specific states, distinct from the component lifecycle states above: a com
   - Kept in the curated skill default because it fits the user's workflows: a fit judgment by the user, never a usage-count threshold. Usage audits are diagnostic — they flag stale or duplicate skills for re-review.
   - _Avoid_: Proven, validated
 
+- **Core (skill)**
+  - An adopted skill named in a recipe's default step for its job. Who invokes it (model or user) is a separate property: _Wired_.
+  - _Avoid_: Default, primary, spine
+
+- **Escalation (skill)**
+  - An adopted skill outside every recipe's default step; runs only when its named trigger fires, producing a stated work product. Distinct from _Gated_: gated is wired but off, escalation is on but not routed.
+  - _Avoid_: Optional, conditional, gated
+
+- **Excluded (skill)**
+  - A skill deliberately not installed, with the reason and the condition that reopens it.
+  - _Avoid_: Rejected (that is the component state), removed, pruned
+
 - **Skill store**
   - `~/.agents/skills` — the canonical copy of every installed skill. `skills add` writes here and symlinks `~/.claude/skills/<name>` and `~/.hermes/skills/<name>` into it; Codex reads it directly. OMP mounts it through `~/.claude/skills` (`enableClaudeUser`), never as its own root (`enableAgentsUser: false`), so each skill is loaded once.
   - _Avoid_: Recovery store, backup, archive
+
+- **Vendored pack**
+  - A skill pack whose installed source is a copy kept in this repository, carrying the upstream commit it was taken from and the upstream licence. Pinned by the copy, not by an upstream ref; a bump is a deliberate re-copy. Contrast: an upstream-pinned pack installs from the author's repository at a tag.
+  - _Avoid_: Fork, mirror, local pack
+
+- **Recipe**
+  - The per-job routing of skills for one kind of development task: which core skill runs, which escalations exist and what triggers them. Routing guidance, never a mandatory command chain.
+  - _Avoid_: Pipeline, workflow chain, mode
 
 ## Skill usage measurement
 

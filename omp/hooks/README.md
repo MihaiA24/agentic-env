@@ -73,8 +73,9 @@ https://github.com/can1357/oh-my-pi/issues/8940
 ### Behaviour
 
 - Runs once per session, on the first `tool_result` (no `session_start` event exists).
-- Compares the project bank's newest row (`max(created_at)` over `working_memory ∪
-  episodic_memory ∪ facts` — union because consolidation prunes working rows) against sibling
+- Compares the project bank's newest row (`max(julianday(created_at))` over `working_memory ∪
+  episodic_memory ∪ facts` — union because consolidation prunes working rows; `julianday` because
+  episodic rows are ISO `T…Z` while the other two are `YYYY-MM-DD HH:MM:SS`, #43) against sibling
   session jsonl mtimes, current session excluded.
 - Fires when the newest prior session is ≥7 days newer than the newest memory row AND ≥2
   sessions ran since. Replayed against the real gap it fires 07-26 instead of 08-11.

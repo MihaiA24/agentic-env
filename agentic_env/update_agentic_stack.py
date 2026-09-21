@@ -9,7 +9,7 @@ from collections.abc import Callable
 from . import install_agents, install_skills_mcps, stack_doctor
 from .common import (
     cmd_exists,
-    cmd_version_matches,
+    cmd_version_at_least,
     info,
     ok,
     run,
@@ -21,7 +21,7 @@ from .remote_install_contract import validate_remote_contract
 from .stack_metadata import (
     AGENTMEMORY_NPM_PACKAGE,
     SKILLS_CLI_PACKAGE,
-    STACK_VERSION_FRAGMENTS,
+    STACK_VERSION_FLOORS,
     UPDATE_REMOTE_CONTRACT,
 )
 
@@ -63,16 +63,15 @@ def _parse(argv: list[str]) -> argparse.Namespace:
 
 def _update_codex() -> bool:
     return _update_if_present(
-        "OpenAI Codex CLI", "codex", lambda: install_agents._install_codex(True)
+        "OpenAI Codex CLI",
+        "codex",
+        lambda: install_agents._install_codex(True, force=True),
     )
 
 
 def _update_agentmemory() -> bool:
     if not cmd_exists("agentmemory"):
         skip("agentmemory: not installed")
-        return True
-    if cmd_version_matches("agentmemory", STACK_VERSION_FRAGMENTS["agentmemory"]):
-        skip("agentmemory CLI: curated version already installed")
         return True
     if not cmd_exists("npm"):
         warn("agentmemory: npm not installed")
@@ -83,9 +82,7 @@ def _update_agentmemory() -> bool:
             AGENTMEMORY_NPM_PACKAGE, "agentmemory"
         ):
             return False
-        return cmd_version_matches(
-            "agentmemory", STACK_VERSION_FRAGMENTS["agentmemory"]
-        )
+        return cmd_version_at_least("agentmemory", STACK_VERSION_FLOORS["agentmemory"])
 
     return _update("agentmemory CLI", install)
 
@@ -94,16 +91,13 @@ def _update_skills() -> bool:
     if not cmd_exists("skills"):
         skip("skills CLI: not installed")
         return True
-    if cmd_version_matches("skills", STACK_VERSION_FRAGMENTS["skills"]):
-        skip("skills CLI: curated version already installed")
-        return True
     if not cmd_exists("npm"):
         warn("skills CLI: npm not installed")
         return False
 
     def install() -> bool:
         run(["npm", "install", "-g", SKILLS_CLI_PACKAGE])
-        return cmd_version_matches("skills", STACK_VERSION_FRAGMENTS["skills"])
+        return cmd_version_at_least("skills", STACK_VERSION_FLOORS["skills"])
 
     return _update("skills CLI", install)
 
@@ -124,10 +118,13 @@ def main(argv: list[str] | None = None) -> int:
         ok("agentic-update-stack: remote contract check passed")
         return 0
 
+    # Update pulls the latest release for every component that floats; Hermes
+    # and codebase-memory-mcp are fetched at fixed identities, so they only move
+    # when this repo's reviewed metadata does.
     steps: tuple[tuple[str, str, Callable[[], bool]], ...] = (
         ("Hermes Agent", "hermes", lambda: install_agents._install_hermes(True)),
-        ("OMP / Oh My Pi", "omp", lambda: install_agents._install_omp(True)),
-        ("Claude Code", "claude", lambda: install_agents._install_claude(True)),
+        ("OMP / Oh My Pi", "omp", lambda: install_agents._install_omp(True, force=True)),
+        ("Claude Code", "claude", lambda: install_agents._install_claude(True, force=True)),
         (
             "codebase-memory-mcp",
             "codebase-memory-mcp",

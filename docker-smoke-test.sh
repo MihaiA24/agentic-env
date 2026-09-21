@@ -58,6 +58,7 @@ import subprocess
 from agentic_env.configure_agent_mcps import (
     HERMES_SKILL_ROOT, MCP_SERVERS, SKILLS, HermesConfigAdapter, load_yaml_object,
 )
+from agentic_env.common import version_at_least
 from agentic_env.stack_metadata import SKILLS_CLI_PACKAGE, SKILLS_CLI_VERSION
 
 config_path = Path.home() / ".hermes" / "config.yaml"
@@ -79,7 +80,9 @@ print("Hermes MCP wiring and matching skill descriptors verified")
 version = subprocess.check_output(
     ["npx", "--yes", SKILLS_CLI_PACKAGE, "--version"], text=True,
 ).strip()
-assert version == SKILLS_CLI_VERSION, f"skills CLI version mismatch: {version}"
+assert version_at_least(version, SKILLS_CLI_VERSION), (
+    f"skills CLI below the reviewed floor {SKILLS_CLI_VERSION}: {version}"
+)
 print(f"skills CLI: {version}")
 PY
 
@@ -139,6 +142,14 @@ for command in hermes omp codex claude codebase-memory-mcp agentmemory; do
 done
 
 echo "[5/5] Verifying stack wiring (agentic-stack-doctor) and Hermes artifacts"
+if [ "$SKIP_INSTALL" = "1" ] && [ "$(uname -s)" != Darwin ]; then
+  # Force path on an already-compliant host: every floating component must
+  # reinstall to the current latest and the run must stay green (with floors and
+  # no force, update would be a permanent no-op). Skipped on macOS: the shared
+  # runner IP already trips api.github.com 403 on a single OMP install, so do
+  # not double the remote fetches there.
+  run_cmd "agentic-update-stack"
+fi
 run_cmd "agentic-stack-doctor"
 run_cmd "uv run --frozen --python \"$_python\" python \"$_python_script\""
 

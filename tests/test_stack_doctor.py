@@ -89,7 +89,7 @@ class _Host:
         stack.enter_context(
             patch("agentic_env.stack_doctor.cmd_exists", lambda name: name not in missing_commands)
         )
-        stack.enter_context(patch("agentic_env.stack_doctor.cmd_version_matches", lambda *_: True))
+        stack.enter_context(patch("agentic_env.stack_doctor.cmd_version_at_least", lambda *_: True))
         return stack
 
 

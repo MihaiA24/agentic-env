@@ -3,7 +3,8 @@
 Mandatory checks cover the OMP-primary layer (DECISIONS_AI_TOOLING.md "Live
 wiring"): any failure exits 1 and names the corrective command. Hermes (the
 other supported agent) only warns; Claude Code and Codex are installed agents
-(pinned CLI + skills, no managed config) and get a binary check only.
+(CLI + skills, no managed config) and get a binary check only. Binary checks
+are floors: at or above STACK_VERSION_FLOORS passes, below fails.
 Nothing is written.
 """
 
@@ -17,9 +18,9 @@ from pathlib import Path
 from rich.table import Table
 
 from . import configure_agent_mcps as cfg
-from .common import cmd_exists, cmd_version_matches, console
+from .common import cmd_exists, cmd_version_at_least, console
 from .install_skills_mcps import profile_skills
-from .stack_metadata import STACK_VERSION_FRAGMENTS
+from .stack_metadata import STACK_VERSION_FLOORS
 
 CLAUDE_USER_CONFIG_PATH = Path.home() / ".claude.json"
 # OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
@@ -47,11 +48,11 @@ class Check:
 
 
 def _check_binary(name: str, *, fix: str, mandatory: bool) -> Check:
-    want = " ".join(STACK_VERSION_FRAGMENTS[name])
+    want = f">= {STACK_VERSION_FLOORS[name]}"
     if not cmd_exists(name):
         return Check(f"{name} on PATH", False, "missing", fix, mandatory)
-    if not cmd_version_matches(name, STACK_VERSION_FRAGMENTS[name]):
-        return Check(f"{name} on PATH", False, f"version != {want}", fix, mandatory)
+    if not cmd_version_at_least(name, STACK_VERSION_FLOORS[name]):
+        return Check(f"{name} on PATH", False, f"version {want} required", fix, mandatory)
     return Check(f"{name} on PATH", True, want, mandatory=mandatory)
 
 

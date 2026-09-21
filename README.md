@@ -3,7 +3,7 @@
 This folder packages commands that provision and update a local multi-agent tooling stack.
 
 Docs:
-- [Stack overview](docs/stack-overview.md) – plain-language summary of what the stack is, why each layer was chosen, what is pinned, and what would change it.
+- [Stack overview](docs/stack-overview.md) – the landscape: which layers the stack has, which alternatives were surveyed per layer, and where each survey lives.
 - [Project memory stack](docs/project-memory-stack.md) – guide and one-repo template for `codebase-memory-mcp`, `agentmemory`, `CONTEXT.md`, and ADR usage.
 - [Decisions](DECISIONS_AI_TOOLING.md) – the operative stack contract, one section per layer (Decided → Why → Rejected → Revisit → Wiring); `lean-ctx` was removed stack-wide (ADR-0009).
 
@@ -61,12 +61,12 @@ Docs:
     - `--skip-doctor`
     - `--configure-no-skills`
 - `agentic-update-stack`
-  - Converges installed components to the reviewed versions in `agentic_env/stack_metadata.py` without interactive prompts:
+  - Reinstalls installed components without interactive prompts: floating ones move to the current latest, fixed-identity ones (Hermes, `codebase-memory-mcp`) stay at the reviewed artifact:
     - `hermes`, `omp`, `codex`, `claude`, `skills` CLI, `codebase-memory-mcp`, `agentmemory` CLI
   - Ends with `agentic-stack-doctor`; a mandatory-check failure makes the update exit non-zero.
   - Does not self-update `agentic-env`; use `uv tool upgrade agentic-env`.
 - `agentic-stack-doctor`
-  - Read-only diagnosis of the stack contract. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated incl. the `node_repl` built-in, excluded servers absent there and in `~/.claude.json`, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes wiring (incl. a stale `lean-ctx` entry) and secondary-agent binaries only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints corrective guidance per failure; never repairs.
+  - Read-only diagnosis of the stack contract. Binary checks are version floors: at or above the reviewed version passes, below fails. Mandatory = the OMP layer (binaries, both `mcp.json` roots wired + gated incl. the `node_repl` built-in, excluded servers absent there and in `~/.claude.json`, no read-interception prose incl. `~/.claude.json`, `config.yml` contract, hooks registered once and present, curated skill roster, no `lean-ctx` skill dir). Hermes wiring (incl. a stale `lean-ctx` entry) and secondary-agent binaries only warn (`TODO secondary`). Exit 1 only on a mandatory failure; prints corrective guidance per failure; never repairs.
   - Checks actual managed MCP definitions and the compaction method order (`handoff`, `remote`, `soft`), not just entry names. Existing definition mismatches require manual correction; rerunning the add-missing-only configurator does not repair them.
 - Checkout development runs the package modules through `uv run python -m agentic_env.<module>`; installed workflows use the `agentic-*` commands.
 - `setup_helpers.sh`
@@ -101,15 +101,17 @@ uv run python -m agentic_env.stack_doctor
 
 Unit tests: `uv run pytest -q` (pytest comes from the `dev` dependency group in `pyproject.toml`).
 
-### Update policy
+### Version policy
 
-`agentic-update-stack` is an unattended convergence command, not a latest-version updater.
+Reviewed versions in `agentic_env/stack_metadata.py` are **floors** (`STACK_VERSION_FLOORS`), not exact pins.
 
-- Install and update use the same immutable commit, release, or npm package pins from `agentic_env/stack_metadata.py`.
-- Every changed component is checked with its version command; a mismatch fails the run.
-- Exception: a Hermes checkout already *ahead* of `HERMES_COMMIT` is left alone (the Hermes installer refuses to roll an install backwards; drift above the pin is tolerated). The doctor still warns until the pin catches up.
-- Upgrading the curated stack requires a reviewed metadata, installer checksum, and release-asset checksum change.
-- `skills` refers to the pinned CLI only; installed skill-pack contents are not advanced to floating upstream revisions.
+- Install fetches the latest release of each floating component and fails if the result is below the floor; a host running ahead of the review is compliant. The `npx` skills fallback verifies its CLI version before installing any skill pack and fails closed if the version cannot be read.
+- Claude Code installs from its `latest` channel, not the delayed `stable` channel.
+- `agentic-update-stack` reinstalls the floating components unconditionally, so every run lands on the current latest.
+- Two components do not float: Hermes (installer fetched at commit `HERMES_INSTALL_COMMIT`, which refuses to roll a checkout backwards) and `codebase-memory-mcp` (per-arch SHA256-pinned release archives). They move only when this repo's reviewed metadata does.
+- Remote install scripts stay checksum-pinned regardless of which version they install; npm references install `@latest` and carry a written reason in the remote contract.
+- Floors are raised at review time to the latest stable release, together with any installer checksum and release-asset checksum change.
+- Installed skill-pack contents are not advanced to floating upstream revisions; packs move by tag (or by re-copy, for the vendored pstack pack).
 - Do not call `agentmemory upgrade` here. That command prompts to re-run the `iii-engine` installer and can mutate the current workspace when `package.json` is present. Run it manually when intentionally refreshing the `iii-engine` runtime.
 
 
@@ -321,7 +323,8 @@ The run is successful only if all checks pass:
 6. Hermes config checks pass:
    - `~/.hermes/config.yaml` contains the reviewed commands and arguments for `codebase-memory-mcp` and `agentmemory`, plus `memory.provider: agentmemory` (a stale `lean-ctx` entry is a doctor warning, not a smoke failure)
    - matching `codebase-memory-mcp`, `agentmemory`, and `ponytail` descriptors exist under `~/.hermes/skills`; missing descriptors fail smoke even though the doctor only warns
-7. The pinned skills CLI reports the reviewed version through `npx --yes skills@<reviewed-version> --version`; fresh provisioning does not require a global `skills` binary.
+7. The skills CLI reports a version at or above the reviewed floor through `npx --yes skills@latest --version`; fresh provisioning does not require a global `skills` binary.
+8. On Linux checks-only runs (`SKIP_INSTALL=1`), `agentic-update-stack` exits 0 against the already-provisioned HOME: every floating component reinstalls to the current latest and stays at or above its floor. Skipped on macOS so the shared runner IP does not make a second unauthenticated `api.github.com` request per run.
 
 ## Design and tradeoffs
 - **Container bases:** `node:20-bookworm-slim` for the Debian baseline and official `archlinux:base` for rolling Arch x86_64; macOS acceptance executes natively.

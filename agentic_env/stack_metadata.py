@@ -13,25 +13,26 @@ from .remote_install_contract import (
     REMOTE_KIND_SCRIPT,
 )
 
-# Reviewed stack release. Install and update must converge to these identities.
+# Reviewed stack release. These are version floors, not pins: install and update
+# fetch the latest release and verify it is at or above the floor. At each
+# review, take the latest stable version and record it here.
 # Reviewed 2026-09-09: OMP v18.1.14 and Codex 0.153.4; OMP installer
-# SHA256 re-verified unchanged. Other pins last reviewed 2026-09-02:
+# SHA256 re-verified unchanged. Other floors last reviewed 2026-09-02:
 # Hermes v2026.8.31, Claude 2.1.258, and agentmemory 0.9.29.
 HERMES_VERSION: Final[str] = "0.21.0"
 HERMES_COMMIT: Final[str] = "29112bef099274229cadff79cdff7bf7b99c4b77"
 OMP_VERSION: Final[str] = "18.1.14"
-OMP_REF: Final[str] = f"v{OMP_VERSION}"
 OPENAI_CODEX_VERSION: Final[str] = "0.153.4"
-OPENAI_CODEX_PACKAGE: Final[str] = f"@openai/codex@{OPENAI_CODEX_VERSION}"
+OPENAI_CODEX_PACKAGE: Final[str] = "@openai/codex@latest"
 CLAUDE_VERSION: Final[str] = "2.1.258"
 CODEBASE_MEMORY_VERSION: Final[str] = "0.9.0"
 # lean-ctx is Rejected (ADR-0009). Reinstall pointer if semantic search need ever
 # fires: https://github.com/yvgude/lean-ctx v3.10.0 or newer — never 3.9.x (lossy
 # read-path default).
 SKILLS_CLI_VERSION: Final[str] = "1.5.16"
-SKILLS_CLI_PACKAGE: Final[str] = f"skills@{SKILLS_CLI_VERSION}"
+SKILLS_CLI_PACKAGE: Final[str] = "skills@latest"
 AGENTMEMORY_VERSION: Final[str] = "0.9.29"
-AGENTMEMORY_NPM_PACKAGE: Final[str] = f"@agentmemory/agentmemory@{AGENTMEMORY_VERSION}"
+AGENTMEMORY_NPM_PACKAGE: Final[str] = "@agentmemory/agentmemory@latest"
 
 # Installer fetched from the reviewed commit, not the floating endpoint: the
 # endpoint changed on 2026-09-13 (issue #39) and every acceptance job went red.
@@ -92,16 +93,16 @@ CODEBASE_MEMORY_ARCHIVES: Final[dict[tuple[str, str, bool], tuple[str, str]]] = 
     ),
 }
 
-STACK_VERSION_FRAGMENTS: Final[dict[str, tuple[str, ...]]] = {
-    # Hermes version output labels the pinned checkout "local <hash>" since the
-    # 2026-08 installer; match the bare hash to stay robust to label churn.
-    "hermes": (f"Hermes Agent v{HERMES_VERSION}", HERMES_COMMIT[:8]),
-    "omp": (f"omp/{OMP_VERSION}",),
-    "codex": (f"codex-cli {OPENAI_CODEX_VERSION}",),
-    "claude": (CLAUDE_VERSION,),
-    "codebase-memory-mcp": (f"codebase-memory-mcp {CODEBASE_MEMORY_VERSION}",),
-    "agentmemory": (AGENTMEMORY_VERSION,),
-    "skills": (SKILLS_CLI_VERSION,),
+# Minimum acceptable installed version per binary. Installers fetch the latest
+# release and verify it against this floor; the doctor reports anything below it.
+STACK_VERSION_FLOORS: Final[dict[str, str]] = {
+    "hermes": HERMES_VERSION,
+    "omp": OMP_VERSION,
+    "codex": OPENAI_CODEX_VERSION,
+    "claude": CLAUDE_VERSION,
+    "codebase-memory-mcp": CODEBASE_MEMORY_VERSION,
+    "agentmemory": AGENTMEMORY_VERSION,
+    "skills": SKILLS_CLI_VERSION,
 }
 # Shared agent/skill identities used by install_skills and configuration flows.
 SKILL_AGENTS: Final[tuple[tuple[str, str, str], ...]] = (
@@ -143,8 +144,9 @@ AGENTS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "label": "OpenAI Codex npm package",
         "reference": OPENAI_CODEX_PACKAGE,
         "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
+        "pinned": False,
+        "reason": "Installs the latest release; the version floor "
+        "(STACK_VERSION_FLOORS) is verified after install.",
     },
     "claude": {
         "label": "Claude installer script",
@@ -161,15 +163,17 @@ SKILLS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "label": "skills CLI",
         "reference": SKILLS_CLI_PACKAGE,
         "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
+        "pinned": False,
+        "reason": "Installs the latest release; the version floor "
+        "(STACK_VERSION_FLOORS) is verified after install.",
     },
     "agentmemory_npm": {
         "label": "agentmemory npm package",
         "reference": AGENTMEMORY_NPM_PACKAGE,
         "kind": REMOTE_KIND_NPM,
-        "pinned": True,
-        "reason": "",
+        "pinned": False,
+        "reason": "Installs the latest release; the version floor "
+        "(STACK_VERSION_FLOORS) is verified after install.",
     },
 }
 
@@ -178,8 +182,9 @@ UPDATE_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
     **SKILLS_INSTALL_REMOTE_CONTRACT,
 }
 
-# Update execution deliberately reuses the canonical install paths; native latest-only
-# updater commands cannot satisfy the curated stack contract.
+# Update execution deliberately reuses the canonical install paths with
+# force=True, so every run pulls the latest release rather than stopping at the
+# floor; native updater commands cannot satisfy the curated stack contract.
 
 # Agents supported by configure-agent-mcps.
 CONFIGURE_AGENT_CHOICES: Final[tuple[str, ...]] = ("hermes", "omp")

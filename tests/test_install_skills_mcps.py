@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,6 +100,41 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             missing = [s for s in pack.skills if not (source / s / "SKILL.md").is_file()]
             self.assertEqual(missing, [], f"{pack.name}: roster skills missing from {source}")
 
+    def test_npx_skills_floor_is_checked_before_installing(self) -> None:
+        floor = install_skills_mcps.STACK_VERSION_FLOORS["skills"]
+        for version, status, expected in (
+            ("0.0.0", 0, False),
+            ("unknown", 0, False),
+            (floor, 1, False),
+            (floor, 0, True),
+            ("999.0.0", 0, True),
+        ):
+            with self.subTest(version=version, status=status), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                npx = root / "npx"
+                npx.write_text(
+                    f"#!{sys.executable}\n"
+                    "import os, sys\n"
+                    "from pathlib import Path\n"
+                    "if '--version' in sys.argv:\n"
+                    "    print(os.environ['SKILLS_TEST_VERSION'])\n"
+                    "    sys.exit(int(os.environ['SKILLS_TEST_STATUS']))\n"
+                    "Path(__file__).with_name('installed').touch()\n",
+                    encoding="utf-8",
+                )
+                npx.chmod(0o755)
+                (root / "npm").symlink_to(npx)
+                with patch.dict(os.environ, {
+                    "PATH": temp,
+                    "SKILLS_TEST_VERSION": version,
+                    "SKILLS_TEST_STATUS": str(status),
+                }):
+                    result = install_skills_mcps._install_skill_package(
+                        "example/pack#v1", ["example"], ["claude"]
+                    )
+                self.assertEqual(result, expected)
+                self.assertEqual((root / "installed").exists(), expected)
+
     @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
     @patch("agentic_env.install_skills_mcps._install_skills")
     @patch("agentic_env.install_skills_mcps._install_codebase_memory")
@@ -135,17 +172,17 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         mock_install_agentmemory.assert_not_called()
 
     @patch("agentic_env.install_skills_mcps._configure_hermes_agentmemory", return_value=True)
-    @patch("agentic_env.install_skills_mcps.cmd_version_matches")
+    @patch("agentic_env.install_skills_mcps.cmd_version_at_least")
     @patch("agentic_env.install_skills_mcps._install_npm_global", return_value=True)
     @patch("agentic_env.install_skills_mcps.cmd_exists", return_value=True)
     def test_install_agentmemory_only_configures_hermes(
         self,
         _mock_cmd_exists,
         _mock_install_npm_global,
-        _mock_version_matches,
+        _mock_version_at_least,
         mock_configure_hermes,
     ) -> None:
-        _mock_version_matches.side_effect = [False, True]
+        _mock_version_at_least.side_effect = [False, True]
         self.assertTrue(install_skills_mcps._install_agentmemory(non_interactive=True))
 
         mock_configure_hermes.assert_called_once_with()

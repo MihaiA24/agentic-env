@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
-from pathlib import Path
 
 from .common import (
     ask,
     cmd_exists,
-    cmd_version_matches,
+    cmd_version_at_least,
     info,
     ok,
     run,
@@ -22,17 +20,15 @@ from .common import (
 from .remote_install_contract import validate_remote_contract
 from .stack_metadata import (
     AGENTS_INSTALL_REMOTE_CONTRACT,
-    CLAUDE_VERSION,
     CLAUDE_INSTALL_SHA256,
     CLAUDE_INSTALL_URL,
     HERMES_COMMIT,
     HERMES_INSTALL_SHA256,
     HERMES_INSTALL_URL,
     OMP_INSTALL_SHA256,
-    OMP_REF,
     OMP_INSTALL_URL,
     OPENAI_CODEX_PACKAGE,
-    STACK_VERSION_FRAGMENTS,
+    STACK_VERSION_FLOORS,
 )
 
 _REMOTE_INSTALL_CONTRACT = AGENTS_INSTALL_REMOTE_CONTRACT
@@ -44,40 +40,18 @@ def _validate_remote_contract() -> bool:
     )
 
 
-_HERMES_CHECKOUT = Path.home() / ".hermes" / "hermes-agent"
-
-
-def _hermes_checkout_ahead_of_pin() -> bool:
-    """True when the managed checkout already contains HERMES_COMMIT.
-
-    The Hermes installer refuses to roll an existing install backwards
-    (`--commit` is ignored without `--force-commit`), and the stack contract
-    tolerates version drift above the pins, so a newer checkout is not drift
-    to converge — just a doctor warning."""
-    if not (_HERMES_CHECKOUT / ".git").exists():
-        return False
-    return (
-        subprocess.run(
-            ["git", "-C", str(_HERMES_CHECKOUT), "merge-base", "--is-ancestor", HERMES_COMMIT, "HEAD"],
-            capture_output=True,
-            check=False,
-        ).returncode
-        == 0
-    )
-
-
 def _install_hermes(non_interactive: bool) -> bool:
-    if cmd_version_matches("hermes", STACK_VERSION_FRAGMENTS["hermes"]):
+    # Hermes is the one agent still fetched at a fixed identity: the installer
+    # runs from a pinned commit (#39) and refuses to roll an existing checkout
+    # backwards, so "install latest" is not available here.
+    if cmd_version_at_least("hermes", STACK_VERSION_FLOORS["hermes"]):
         if not ask(
             "Reinstall Hermes Agent", default=False, non_interactive=non_interactive
         ):
-            skip("Hermes Agent: curated version already installed")
+            skip("Hermes Agent: at or above the reviewed version")
             return True
     elif cmd_exists("hermes"):
-        if _hermes_checkout_ahead_of_pin():
-            warn("Hermes Agent: checkout is ahead of the curated release; drift above the pin is tolerated")
-            return True
-        warn("Hermes Agent: installed version differs; converging")
+        warn("Hermes Agent: below the reviewed version; converging")
 
     info("Installing Hermes...")
     if not run_remote_script(
@@ -88,22 +62,22 @@ def _install_hermes(non_interactive: bool) -> bool:
         interpreter_args=["--skip-setup", "--commit", HERMES_COMMIT],
     ):
         return False
-    if not cmd_version_matches("hermes", STACK_VERSION_FRAGMENTS["hermes"]):
-        warn("Hermes Agent: installed version does not match curated release")
+    if not cmd_version_at_least("hermes", STACK_VERSION_FLOORS["hermes"]):
+        warn("Hermes Agent: installed version is below the reviewed version")
         return False
     ok("Hermes Agent: installed")
     return True
 
 
-def _install_omp(non_interactive: bool) -> bool:
-    if cmd_version_matches("omp", STACK_VERSION_FRAGMENTS["omp"]):
+def _install_omp(non_interactive: bool, *, force: bool = False) -> bool:
+    if not force and cmd_version_at_least("omp", STACK_VERSION_FLOORS["omp"]):
         if not ask(
             "Reinstall OMP / Oh My Pi", default=False, non_interactive=non_interactive
         ):
-            skip("OMP / Oh My Pi: curated version already installed")
+            skip("OMP / Oh My Pi: at or above the reviewed version")
             return True
     elif cmd_exists("omp"):
-        warn("OMP / Oh My Pi: installed version differs; converging")
+        warn("OMP / Oh My Pi: below the reviewed version; installing the latest release")
 
     info("Installing OMP / Oh My Pi...")
     if not run_remote_script(
@@ -112,50 +86,50 @@ def _install_omp(non_interactive: bool) -> bool:
         expected_sha256=OMP_INSTALL_SHA256,
         interpreter="sh",
         # --binary: the installer's source path (bun install -g on a workspace
-        # member) cannot resolve catalog: deps for pinned refs; the prebuilt
-        # release binary for the exact tag avoids bun entirely.
-        interpreter_args=["--binary", "--ref", OMP_REF],
+        # member) cannot resolve catalog: deps; the prebuilt release binary
+        # avoids bun entirely. No --ref: the latest release is what we want.
+        interpreter_args=["--binary"],
     ):
         return False
-    if not cmd_version_matches("omp", STACK_VERSION_FRAGMENTS["omp"]):
-        warn("OMP / Oh My Pi: installed version does not match curated release")
+    if not cmd_version_at_least("omp", STACK_VERSION_FLOORS["omp"]):
+        warn("OMP / Oh My Pi: installed version is below the reviewed version")
         return False
     ok("OMP / Oh My Pi: installed")
     return True
 
 
-def _install_codex(non_interactive: bool) -> bool:
+def _install_codex(non_interactive: bool, *, force: bool = False) -> bool:
     if not cmd_exists("npm"):
         warn("npm is required to install OpenAI Codex CLI")
         return False
 
-    if cmd_version_matches("codex", STACK_VERSION_FRAGMENTS["codex"]):
+    if not force and cmd_version_at_least("codex", STACK_VERSION_FLOORS["codex"]):
         if not ask(
             "Reinstall OpenAI Codex CLI", default=False, non_interactive=non_interactive
         ):
-            skip("OpenAI Codex CLI: curated version already installed")
+            skip("OpenAI Codex CLI: at or above the reviewed version")
             return True
     elif cmd_exists("codex"):
-        warn("OpenAI Codex CLI: installed version differs; converging")
+        warn("OpenAI Codex CLI: below the reviewed version; installing the latest release")
 
     info("Installing OpenAI Codex CLI...")
     run(["npm", "install", "-g", "--force", OPENAI_CODEX_PACKAGE])
-    if not cmd_version_matches("codex", STACK_VERSION_FRAGMENTS["codex"]):
-        warn("OpenAI Codex CLI: installed version does not match curated release")
+    if not cmd_version_at_least("codex", STACK_VERSION_FLOORS["codex"]):
+        warn("OpenAI Codex CLI: installed version is below the reviewed version")
         return False
     ok("OpenAI Codex CLI: installed")
     return True
 
 
-def _install_claude(non_interactive: bool) -> bool:
-    if cmd_version_matches("claude", STACK_VERSION_FRAGMENTS["claude"]):
+def _install_claude(non_interactive: bool, *, force: bool = False) -> bool:
+    if not force and cmd_version_at_least("claude", STACK_VERSION_FLOORS["claude"]):
         if not ask(
             "Reinstall Claude Code", default=False, non_interactive=non_interactive
         ):
-            skip("Claude Code: curated version already installed")
+            skip("Claude Code: at or above the reviewed version")
             return True
     elif cmd_exists("claude"):
-        warn("Claude Code: installed version differs; converging")
+        warn("Claude Code: below the reviewed version; installing the latest release")
 
     info("Installing Claude Code...")
     if not run_remote_script(
@@ -163,11 +137,11 @@ def _install_claude(non_interactive: bool) -> bool:
         url=CLAUDE_INSTALL_URL,
         expected_sha256=CLAUDE_INSTALL_SHA256,
         interpreter="bash",
-        interpreter_args=[CLAUDE_VERSION],
+        interpreter_args=["latest"],
     ):
         return False
-    if not cmd_version_matches("claude", STACK_VERSION_FRAGMENTS["claude"]):
-        warn("Claude Code: installed version does not match curated release")
+    if not cmd_version_at_least("claude", STACK_VERSION_FLOORS["claude"]):
+        warn("Claude Code: installed version is below the reviewed version")
         return False
     ok("Claude Code: installed")
     return True

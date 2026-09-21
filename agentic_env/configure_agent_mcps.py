@@ -570,7 +570,7 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
 OMP_HOOK_FILES = ("verification-recorder.ts", "retention-canary.ts")
 
 # Settings that must hold in ~/.omp/agent/config.yml as (top-level block, key,
-# value), keyed per settings-schema.ts at the pinned OMP_VERSION
+# value), keyed per settings-schema.ts as reviewed at OMP_VERSION
 # (DECISIONS_AI_TOOLING.md "Live wiring": compaction tuning, single memory
 # owner, skill-store discipline). omp_config_drift also requires every
 # OMP_HOOK_FILES entry under extensions:.

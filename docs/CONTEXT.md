@@ -14,7 +14,7 @@
   - _Avoid_: Partially supported agent, authenticated agent
 
 - **Installed agent**
-  - An agent for which `agentic-env` installs a pinned CLI and the curated skills, and nothing more: no MCP configuration is written or diagnosed, and the doctor only warns when the binary is missing. The installed agents are Claude Code and Codex (measured need for managed wiring: zero; `DECISIONS_AI_TOOLING.md` Harness → "Agent tiers").
+  - An agent for which `agentic-env` installs the CLI (latest release, verified against its reviewed version floor) and the curated skills, and nothing more: no MCP configuration is written or diagnosed, and the doctor only warns when the binary is missing. The installed agents are Claude Code and Codex (measured need for managed wiring: zero; `DECISIONS_AI_TOOLING.md` Harness → "Agent tiers").
   - _Avoid_: Supported agent, secondary agent (unqualified)
 
 - **Clean host**
@@ -116,8 +116,16 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Deployment (unqualified — means either fresh install or curated stack update)
 
 - **Curated stack update**
-  - A non-interactive maintenance run that converges every installed agent-stack component to the reviewed versions declared by `agentic-env`.
-  - _Avoid_: Latest-available update, mixed pinned/latest update, fresh install, deployment (unqualified)
+  - A non-interactive maintenance run that reinstalls every installed agent-stack component: floating components land on the current latest release, fixed-identity components stay at the reviewed artifact. The run fails if any result is below its reviewed version floor.
+  - _Avoid_: Convergence to exact versions, mixed pinned/latest update, fresh install, deployment (unqualified)
+
+- **Reviewed version floor**
+  - The minimum acceptable installed version of a stack binary, declared in `stack_metadata.STACK_VERSION_FLOORS` and set to the latest stable release at review time. At or above the floor is compliant; below it fails install and the doctor. Distinct from _Compatibility floor_, which is about host prerequisites, not stack components.
+  - _Avoid_: Version pin, exact-version match, tolerated drift
+
+- **Fixed-identity artifact**
+  - A stack component fetched by an identity that cannot float — an installer commit (Hermes) or a per-architecture SHA256-pinned release archive (`codebase-memory-mcp`) — because its fetch path is untrustworthy or its assets must be verified byte-for-byte. It moves only when this repo's reviewed metadata moves. Orthogonal to the version floor, which every component has.
+  - _Avoid_: Pin (unqualified — ambiguous between the fetched artifact and the version floor)
 
 - **Provisioner upgrade**
   - Replacement of the installed `agentic-env` tool through `uv`, kept separate from a curated stack update because `uv` owns the provisioner's installation source and lifecycle.

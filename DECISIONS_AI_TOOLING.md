@@ -49,21 +49,21 @@ What the rules bought: every rejection below names the pre-registered threshold 
 
 ### 1. Harness — OMP
 
-- **Decided:** OMP, pinned `18.1.14` (`stack_metadata.OMP_VERSION`; release assets and contract settings reviewed at `v18.1.14`; installer hash unchanged).
+- **Decided:** OMP, floor `18.1.14` (`stack_metadata.OMP_VERSION`; release assets and contract settings reviewed at `v18.1.14`; installer hash unchanged). The installer fetches the latest release binary and the floor is verified after install.
 - **Why:** best model access + LSP + edit anchors. The alternatives lost on tooling, not on model.
 - **Rejected as primary:** Hermes, Claude Code, opencode, Codex. A paired OMP/Hermes benchmark is parked — only if OMP-primary ever needs to be definitive.
-- **Revisit:** never unless OMP fails. OMP major bump → re-verify converge keys against `packages/coding-agent/src/config/settings-schema.ts` at the new tag, re-pin, re-run the docker smoke.
+- **Revisit:** never unless OMP fails. OMP major bump → re-verify converge keys against `packages/coding-agent/src/config/settings-schema.ts` at the new tag, raise the floor, re-run the docker smoke.
 - **Wiring:** contract keys verified at the pinned tag: `memory.backend`, `compaction.{thresholdTokens,idleEnabled,handoffSaveToDisk,methodOrder}`, `skills.{enableClaudeUser,enableAgentsUser}`, `extensions`; drift check is block-scoped (`OMP_AGENT_CONFIG_CONTRACT`), not substring. `node_repl` built-in disabled on both OMP roots (0 calls; `OMP_GATED_BUILTINS`, doctor-enforced). MCP + skill roster bind at instance start: after any `mcp.json` edit → `/mcp reload` or restart live omp instances.
 
 #### Agent tiers (2026-09-02)
 
 - **Primary harness — OMP.** Installer-enforced, smoke-verified, doctor failure.
 - **Supported agent — Hermes.** CLI, skills, MCP config, and health checks managed; doctor warns only (`TODO secondary`). Keeps `codebase-memory-mcp` + `agentmemory` entries (behaviour unmeasured).
-- **Installed agent — Claude Code, Codex.** Pinned CLI + curated skills via the skill store; no MCP config written or diagnosed; doctor warns only when the binary is missing.
+- **Installed agent — Claude Code, Codex.** Latest CLI above the reviewed floor + curated skills via the skill store; no MCP config written or diagnosed; doctor warns only when the binary is missing.
 
 #### Secondary agents TODO (closed 2026-09-02)
 
-1. Hermes install correctness — **closed by `chore/agentic-env-bump-pins`**: pin moved to release v2026.8.31 (`0.21.0`, `29112bef`); `_install_hermes` converges to `HERMES_COMMIT` on fresh or behind checkouts and leaves a checkout ahead of the pin alone (the installer refuses rollbacks without `--force-commit`; drift above the pin is tolerated, doctor warns).
+1. Hermes install correctness — **closed by `chore/agentic-env-bump-pins`**: reviewed release v2026.8.31 (`0.21.0`, `29112bef`); `_install_hermes` converges to `HERMES_COMMIT` on fresh or behind checkouts and leaves a checkout at or above the floor alone (the installer refuses rollbacks without `--force-commit`).
 2. `agentmemory` + `codebase-memory-mcp` wiring on Claude/Codex — **not pursued**: Claude Code and Codex are installed agents; measured need for managed wiring is zero (agentmemory 0 calls in 934 sessions, codebase-memory litmus 0×). Hermes keeps its entries; the `@agentmemory/mcp` shim is pinned to `AGENTMEMORY_VERSION`.
 3. Codex per-tool approval filters — **not pursued**: no managed Codex MCP config exists to filter.
 4. Claude/Codex pin refresh — **closed by `chore/agentic-env-bump-pins`**: Codex 0.152.1, Claude 2.1.258, agentmemory 0.9.29; installer script checksums re-verified unchanged.
@@ -105,7 +105,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
 - **Why:** costs quality and 10× tokens on ordinary tasks.
 - **Litmus:** the task needs >10 native calls, crosses repo boundaries, or aggregates the whole graph → `/mcp enable` + `fast` reindex. Fired 0× since 08-05. Promotion: fires ~weekly in a project → default-on there.
 - **Rejected:** GitNexus, GraphRAG, cognee, Graphiti, Semantica, Serena — no coding evidence, license, or paid.
-- **Revisit:** litmus 0× by **2026-10-01** → remove `codebase-memory-mcp` from the OMP roots (keep installed for per-project on-demand mounting). Upstream 0.10.8 available vs pin 0.9.0; bump only on promotion.
+- **Revisit:** litmus 0× by **2026-10-01** → remove `codebase-memory-mcp` from the OMP roots (keep installed for per-project on-demand mounting). Upstream 0.11.0 available vs floor 0.9.0; bump only on promotion.
 - **Wiring:** `mcpServers: {codebase-memory-mcp}` gated by `disabledServers: [agentmemory, node_repl, codebase-memory-mcp, lean-ctx]` on `~/.omp/agent/mcp.json` and `~/.pi/agent/mcp.json` (`OMP_GATED_SERVERS`; bak `mcp.json.bak-leanctx-drop`, `.bak-gate`). Hermes wired too (unmeasured).
 
 ### 6. Skills — fit-curated roster (settled 2026-08-22; roles and recipes 2026-09-15)
@@ -172,7 +172,7 @@ What the rules bought: every rejection below names the pre-registered threshold 
 
 Mandatory contract = the OMP layer. Installer-enforced (`agentic-configure-agent-mcps`), smoke-verified (`docker-smoke-test.sh`), diagnosed by `agentic-stack-doctor` (read-only; exit 1 only on an OMP check; Hermes wiring and the Hermes/Claude/Codex binaries warn with a TODO tag). The doctor runs as the last phase of `agentic-bootstrap` and `agentic-update-stack`.
 
-- Clean-host contract (2026-09-02): `uv tool install --force . && agentic-bootstrap` on a host with a `~/.dotfiles` checkout yields exactly this stack; version drift above the pins is tolerated, skill/MCP/hook drift is not.
+- Clean-host contract (2026-09-02; version floors 2026-09-16): `uv tool install --force . && agentic-bootstrap` on a host with a `~/.dotfiles` checkout yields exactly this stack. Reviewed versions are **floors**, not pins (`STACK_VERSION_FLOORS`): installers fetch the latest release and verify it is at or above the floor, so a host ahead of the review is compliant and a host below it is a doctor failure. Skill/MCP/hook drift is never tolerated. Two components are still fetched at a fixed identity because their fetch path cannot be trusted to float: the Hermes installer (commit `95d42656`, #39) and the codebase-memory-mcp release archives (per-arch SHA256). Remote scripts stay hash-pinned regardless; the npm references install `@latest` and carry a written contract reason (`remote_install_contract`).
 - Fresh-machine reproducibility: `agentic-configure-agent-mcps` seeds `~/.omp/agent/config.yml` from this contract when absent and verifies it when present (`converge_omp_agent_config`; existing user YAML is never rewritten).
 - Configuration ownership (2026-09-10): notify-only for existing MCP definitions. Add missing entries; report mismatched commands/arguments and Hermes memory-provider conflicts for manual correction without rewriting the affected file. Existing OMP settings YAML remains read-only. The explicit OMP exclusion/default-gating policy is unchanged; it is not general repair authority.
 - Hermes severity split (2026-09-13): `agentic-configure-agent-mcps` hard-fails on Hermes drift (it refuses an unsafe write to a user-owned file), while `agentic-stack-doctor` only warns for Hermes (it diagnoses a secondary agent; exit code is the OMP contract). Same drift, two verbs: refuse to write vs report.
@@ -186,14 +186,15 @@ Pre-registered triggers; nothing here is acted on without the trigger firing. Ea
 - oh-my-pi #8940 (retain-attempt telemetry) ships → retire the retention canary.
 - OMP major bump → re-verify converge keys against `settings-schema.ts` at the new tag, re-pin, re-run the docker smoke.
 - Hermes installer (2026-09-15, #39): fetched at commit `95d42656` of `NousResearch/hermes-agent` (the bytes reviewed 2026-09-02), never from the floating `hermes-agent.nousresearch.com/install.sh`, which drifted 2026-09-13 and turned every acceptance job red. Hermes pin bump → move `HERMES_INSTALL_COMMIT` alongside it and re-verify the SHA256. `omp.sh/install` and `claude.ai/install.sh` remain floating + hash-pinned; first drift → same treatment if the vendor publishes a versioned URL.
-- OMP installer (2026-09-15): `scripts/install.sh:245` at the pinned SHA looks the release up on `api.github.com` unauthenticated even with `--ref`, only to echo the tag back; the binary URL (`:266`) needs no lookup. Shared `macos-15` runner IPs exhaust the 60 req/h limit → `curl 403`, "Release tag not found: v18.1.14", macOS acceptance job red while Debian/Arch pass (six in a row 21:05–21:45 UTC; tag exists). Not fixable here: `clean-acceptance.sh` forbids credentials in the smoke HOME by contract. Drop this line when upstream skips the lookup for pinned refs or honours `GITHUB_TOKEN`; re-verify `OMP_INSTALL_SHA256` then. Until then a red macOS job with that transcript is a re-run, not a defect.
+- OMP installer (2026-09-15; re-scoped 2026-09-16): `scripts/install.sh:245` at the pinned SHA looks the release up on `api.github.com` unauthenticated; since the installer now runs without `--ref` that lookup is load-bearing rather than redundant. Shared `macos-15` runner IPs exhaust the 60 req/h limit → `curl 403`, macOS acceptance job red while Debian/Arch pass (six in a row 21:05–21:45 UTC on 2026-09-15). Not fixable here: `clean-acceptance.sh` forbids credentials in the smoke HOME by contract. Drop this line when upstream honours `GITHUB_TOKEN` or serves an unauthenticated latest-release redirect; re-verify `OMP_INSTALL_SHA256` then. Until then a red macOS job with that transcript is a re-run, not a defect.
 - Canary fire-rate on 18.1.x → read at the next read-out; zero fires and #8940 still open = keep.
-- codebase-memory litmus 0× by **2026-10-01** → remove `codebase-memory-mcp` from the OMP roots (keep installed for per-project on-demand mounting). Upstream 0.10.8 available vs pin 0.9.0; bump only on promotion.
+- codebase-memory litmus 0× by **2026-10-01** → remove `codebase-memory-mcp` from the OMP roots (keep installed for per-project on-demand mounting). Upstream 0.11.0 available vs floor 0.9.0; bump only on promotion (the archives are checksum-pinned, so this one does not float).
 - mattpocock `retro` ships → fit audit against pstack `reflect` (same job; keep one).
 - pstack vendored copy (`c1c0a32`, 2026-09-14) → re-copy only when a roster skill's upstream body fixes a defect hit here, or an Excluded trigger reopens a skill; each re-copy updates `UPSTREAM.md` and the commit in §6 Wiring. `cursor/plugins` starts tagging → switch `source` back to `cursor/plugins#<tag>` and delete the copy (ADR-0010 reopen).
 - lean-ctx need fires (semantic search visibly missing on a real task) → reinstall ≥ 3.10.0 per ADR-0009.
 - Cross-project memory becomes a live need → Hindsight vs mem0 bake-off.
 - Trendshift screening: **Retired** as a routine (0 adoptions across two sweeps); on-demand reruns only.
+- Version review → set every entry in `STACK_VERSION_FLOORS` to the latest stable release at the time of review, then re-run the acceptance matrix. Floors move on review, never on a single host's install.
 
 ## Parked
 

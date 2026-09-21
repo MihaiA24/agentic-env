@@ -5,6 +5,7 @@ import contextlib
 import hashlib
 import io
 import os
+import re
 import shutil
 import tarfile
 import subprocess
@@ -73,8 +74,31 @@ def cmd_works(
         return False
 
 
-def cmd_version_matches(
-    name: str, fragments: Iterable[str], args: Iterable[str] = ("--version",)
+_VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+
+
+def _parse_version(text: str) -> tuple[int, int, int] | None:
+    match = _VERSION_PATTERN.search(text)
+    if match is None:
+        return None
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch)
+
+
+def version_at_least(found: str, minimum: str) -> bool:
+    """True when the first semver in `found` is >= `minimum`.
+
+    Reviewed versions are floors, not pins: a host ahead of the reviewed
+    release satisfies the contract. Unparseable output fails closed."""
+    found_version = _parse_version(found)
+    minimum_version = _parse_version(minimum)
+    if found_version is None or minimum_version is None:
+        return False
+    return found_version >= minimum_version
+
+
+def cmd_version_at_least(
+    name: str, minimum: str, args: Iterable[str] = ("--version",)
 ) -> bool:
     try:
         result = subprocess.run(
@@ -87,8 +111,7 @@ def cmd_version_matches(
         )
     except Exception:
         return False
-    output = result.stdout + result.stderr
-    return all(fragment in output for fragment in fragments)
+    return version_at_least(result.stdout + result.stderr, minimum)
 
 
 def ask(prompt: str, *, default: bool, non_interactive: bool) -> bool:

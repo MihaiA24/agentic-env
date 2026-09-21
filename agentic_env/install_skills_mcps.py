@@ -16,7 +16,7 @@ from . import configure_agent_mcps
 from .common import (
     ask,
     cmd_exists,
-    cmd_version_matches,
+    cmd_version_at_least,
     install_pinned_binary_archive,
     info,
     ok,
@@ -34,7 +34,7 @@ from .stack_metadata import (
     SKILL_AGENT_CLI_NAMES,
     SKILL_AGENT_LOOKUP,
     SKILLS_CLI_PACKAGE,
-    STACK_VERSION_FRAGMENTS,
+    STACK_VERSION_FLOORS,
     SKILLS_INSTALL_REMOTE_CONTRACT,
 )
 
@@ -402,14 +402,14 @@ def _command_exists(binary: str) -> bool:
 
 
 def _should_install_mcp(binary: str, label: str, non_interactive: bool) -> bool:
-    if cmd_version_matches(binary, STACK_VERSION_FRAGMENTS[binary]):
+    if cmd_version_at_least(binary, STACK_VERSION_FLOORS[binary]):
         if not ask(
             f"Reinstall {label}", default=False, non_interactive=non_interactive
         ):
-            skip(f"{label}: curated version already installed")
+            skip(f"{label}: at or above the reviewed version")
             return False
     elif _command_exists(binary):
-        warn(f"{label}: installed version differs; converging")
+        warn(f"{label}: below the reviewed version; converging")
     return True
 
 
@@ -568,11 +568,18 @@ def _install_skill_package(
     else:
         info(f"Installing skill pack: {source}...")
 
-    if cmd_version_matches("skills", STACK_VERSION_FRAGMENTS["skills"]):
+    if cmd_version_at_least("skills", STACK_VERSION_FLOORS["skills"]):
         run(["skills", *command])
         return True
     if not cmd_exists("npm"):
         warn("The curated skills CLI requires npm")
+        return False
+    if not cmd_version_at_least(
+        "npx",
+        STACK_VERSION_FLOORS["skills"],
+        args=("--yes", SKILLS_CLI_PACKAGE, "--version"),
+    ):
+        warn("skills CLI: could not verify a version at or above the reviewed floor")
         return False
     run(["npx", "--yes", SKILLS_CLI_PACKAGE, *command])
     return True
@@ -588,8 +595,8 @@ def _install_agentmemory(non_interactive: bool) -> bool:
     info("Installing agentmemory...")
     if not _install_npm_global(AGENTMEMORY_NPM_PACKAGE, "agentmemory"):
         return False
-    if not cmd_version_matches("agentmemory", STACK_VERSION_FRAGMENTS["agentmemory"]):
-        warn("agentmemory: installed version does not match curated release")
+    if not cmd_version_at_least("agentmemory", STACK_VERSION_FLOORS["agentmemory"]):
+        warn("agentmemory: installed version is below the reviewed version")
         return False
 
     return _configure_hermes_agentmemory()
@@ -614,8 +621,8 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     ):
         return False
     binary = str(Path.home() / ".local" / "bin" / "codebase-memory-mcp")
-    if not cmd_version_matches(binary, STACK_VERSION_FRAGMENTS["codebase-memory-mcp"]):
-        warn("codebase-memory-mcp: installed version does not match curated release")
+    if not cmd_version_at_least(binary, STACK_VERSION_FLOORS["codebase-memory-mcp"]):
+        warn("codebase-memory-mcp: installed version is below the reviewed version")
         return False
     ok("codebase-memory-mcp: installed" + (" (with UI)" if with_ui else ""))
     return True

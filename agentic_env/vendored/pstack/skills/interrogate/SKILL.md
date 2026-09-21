@@ -1,105 +1,122 @@
 ---
 name: interrogate
-description: "Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Multiple LLM reviewers challenge changes from independent angles."
+description: "Manual only: run when the user explicitly asks for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Several models independently attack one frozen snapshot of a change; the deliverable is a report, never an edit."
 disable-model-invocation: true
 ---
 
 # Interrogate
 
-Spawn one reviewer per configured model to adversarially review code changes. Each model gets the same prompt and rubric. The adversarial signal comes from model diversity, not assigned personas.
+A high-stakes second opinion. Several models review the *same* frozen snapshot of a change from independent angles, then you judge their findings as lead reviewer. The adversarial signal comes from model diversity, not from assigned personas.
 
-The deliverable is a synthesized verdict. Do NOT auto-apply changes.
+This skill is manual-only and report-only. Run it only when the user asked for it by name or in those words; if it loads without such a request (a runtime that does not honour `disable-model-invocation`), say so and stop rather than spending reviewers. It does not edit files, fix findings, commit, push, open PRs or write to a tracker. Everything it produces is a verdict the user acts on.
 
-## Step 1, Determine Scope
+It is expensive. Reach for it when a change is genuinely high-stakes or when reviewers already disagree, not as a default review path.
 
-Identify what to review from context:
+## Step 1. Freeze the snapshot
 
-- If the user points at specific files or a diff, use that
-- If on a feature branch, run `git diff main...HEAD` (or the appropriate base branch) for the full changeset
-- If the user's message references recent work, gather the relevant files
+Every reviewer must read the identical, immutable input. Build it with the shared snapshot helper that `code-review` owns:
 
-Package the diff (or file contents) plus any surrounding context files the reviewers need to understand the code.
+```
+python3 <code-review skill dir>/scripts/review_snapshot.py \
+  --base REF --mode wip|refs [--head REF] \
+  [--path REPO_RELATIVE_PATH ...] --output NEW_ABSOLUTE_DIR
+```
 
-## Step 2, State the Intent
+Locate the helper through the runtime's own skill lookup (`skill://code-review/scripts/review_snapshot.py` in OMP, `skill_view` in Hermes). Do not hard-code a checkout path.
 
-Before spawning reviewers, state the intent explicitly. Derive this from:
+- `--mode refs` reviews an explicit range (`--base main --head HEAD`, a tag, a merge base). Use it when the user names committed work.
+- `--mode wip` reviews work in progress: committed, staged, unstaged and intended untracked content, overlaid on HEAD. `--path` is required here and repeatable; it keeps unrelated working-tree edits out. Derive intended paths from the task and changes; ask only when ownership is ambiguous. Never "commit first" to make a range reviewable.
 
-- The user's message
-- Commit messages
-- PR description if one exists
-- The code itself
+The output directory contains `tree/` (the review source context), `diff.patch`, `commits.txt` and `manifest.json` (`mode`, `base`, `head`, `scope`, the Git `tree` SHA, and a `files` map of relative path to sha256). Run `python3 <helper> --verify OUTPUT` before dispatch and after review; any mismatch invalidates the run. The snapshot uses a temporary index and object database, so it never stages or commits the user's work. Keep prompts and reviewer output **outside** this directory so they do not change its verified file set.
 
-Write one clear paragraph. If you're unsure about the intent, ask the user before proceeding.
+An empty `diff.patch` means there is no delta in the selected scope. Verify that scope matches the request; report no reviewable change or resolve the mismatch, rather than presenting an empty review as a clean verdict.
 
-## Step 3, Spawn Reviewers
+Quote the resolved `base`, `head`, `mode` and `scope` in the final report. If reviewers are to be told a snapshot is stable, it has to actually be stable: nothing reads the live working tree after this step.
 
-Launch all reviewers in a single message using the Task tool. Use the `interrogate reviewers` list from `~/.cursor/rules/pstack-models.mdc` when present, one reviewer per entry, extending or shrinking the Reviewer A/B/C/D labels below to the configured entry count. Otherwise use the table defaults.
+## Step 2. State the intent
 
-| Subagent | Default model |
-|----------|---------------|
-| Reviewer A | `claude-fable-5-1-thinking-max` |
-| Reviewer B | `gpt-5.6-sol-max` |
-| Reviewer C | `grok-4.6-fast-xhigh` |
-| Reviewer D | `claude-opus-5-thinking-xhigh` |
+Write one paragraph of author intent, drawn from the user's message, `commits.txt`, a PR description if one exists, and the code itself. Reviewers challenge the execution, not the goal, so a wrong intent wastes the whole run. If you are unsure, ask before dispatching.
 
-For each reviewer:
-- `subagent_type`: `generalPurpose`
-- `model`: the configured `interrogate reviewers` entry, or the table default with no configured line
-- `readonly`: `true`
+## Step 3. Choose models that actually exist here
 
-If a model slug is rejected as unresolvable when you try to spawn the subagent, check the valid slugs in the Task tool's error message, pick the closest equivalent (prefer the highest-reasoning tier of the same family), spawn with the valid slug, and open a separate PR to update the configured value or default table. Do not block the review on the slug issue. If the configured value is `inherit-parent` or `auto`, omit `model` instead. Never treat those aliases as broken slugs or enter this fallback for them.
+Model diversity is the entire product. Invented aliases, vendor labels copied from another harness, or three entries that resolve to one model are fraud, not diversity.
 
-Read `references/reviewer-prompt.md` and fill in the template with:
-1. The stated intent
-2. The diff or file contents
-3. The review rubric from `references/rubric.md`
-4. The code-quality lens from `references/code-quality-review.md`
+1. Use the models the user named or configured for this repository, if any.
+2. Otherwise discover the real catalogue: `omp models --json` (every entry has an exact `selector` such as `anthropic/claude-sonnet-5` or `openai-codex/gpt-5.6-sol`), or `omp models find <substring>` to narrow it. Pick two to four selectors from **different providers or model families**.
+3. Never invent a selector, and never silently swap in a same-family sibling. A substitution is reportable output.
 
-The same filled template goes to all reviewers, so every model applies the code-quality lens.
+Presence in the catalogue is not proof of access: a selector can still fail at dispatch on credentials or provider routing. That is what Step 5's identity accounting is for.
 
-## Step 4, Synthesize
+## Step 4. Build the reviewer prompt
 
-As results come back, build a unified picture:
+Reviewers have no tools, so the prompt file is the entire world they see. Fill `references/reviewer-prompt.md` with:
 
-1. **Parse all findings** from the reviewers
-2. **Identify consensus**. Findings raised by 2+ models independently are highest signal.
-3. **Identify lone-model findings**. Still worth reading, but weight accordingly.
-4. **Deduplicate**. Different models may describe the same issue differently. Merge these and note which models raised it.
-5. **Note disagreements**. If one model flags something and another explicitly says the opposite, that's useful context for the verdict.
+1. The stated intent from Step 2.
+2. The code under review: the contents of `diff.patch`, plus whichever files under `tree/` a reader needs for context. Inline them; pointing at paths is useless to a tool-less reviewer.
+3. The rubric from `references/rubric.md`.
+4. The code-quality lens from `references/code-quality-review.md`.
 
-## Step 5, Lead Judgment
+Write the filled template outside the snapshot (for example `<review-run>/prompt.md`, beside `<review-run>/snapshot/`). Every reviewer receives the same bytes, captured once by the runner and recorded by SHA256. If the material is too large, ask to split the review into explicit scopes, then run every model over each scope. Never silently drop requested files or hand different reviewers different subsets.
 
-You are the lead reviewer, a pragmatic senior engineer, not a neutral aggregator.
+## Step 5. Dispatch reviewers and account for who answered
 
-Read `references/lead-judgment.md` for the full framework.
+```
+python3 <interrogate skill dir>/scripts/run_reviewers.py \
+  --prompt <review-run>/prompt.md --output <review-run>/reviews \
+  --model SELECTOR --model SELECTOR [--model SELECTOR ...]
+```
 
-Categorize every finding using these buckets:
+The script runs each reviewer concurrently as its own OMP CLI process with `-p --mode json --no-tools --no-skills --no-rules --no-extensions --no-session` and a report-only system prompt. Reviewers have no tools for reading the live repository or editing anything. For each it writes a numbered raw JSON transcript, `reviewer-N.review.md`, and `reviewers.json` recording the requested selector, observed provider/model, status and shared prompt hash. Failed, partial and identity-less responses do not count; fewer than two distinct completed models blocks the verdict.
 
-- **Act on**. Real issues affecting correctness, security, or maintainability given the actual goals. These would block a real PR.
-- **Consider**. Legitimate points, but you're not sure they outweigh the cost of addressing them right now. Worth the user's attention.
-- **Noted**. Technically valid but not actionable. Context-dependent, premature optimization, or low-impact given the current stage.
-- **Dismissed**. Wrong, nitpicky, or missing context. Brief explanation why.
+Runtime notes:
 
-For each finding, include:
-- Which model(s) raised it
-- The category (act on / consider / noted / dismissed)
-- A one-line rationale for the categorization
+- **OMP:** run the script through a supervised process or a single bash call; do not try to pass a model through the `task` tool, whose schema is not guaranteed to accept one.
+- **Hermes:** use the same script when OMP is installed. Without it, use Hermes's native one-shot CLI only after confirming its provider/model, tool-disabling and identity-reporting options with `hermes --help`. Record the actual returned provider/model and completion state, not the requested label. If this cannot produce two verified, tool-less responses, report blocked; do not guess flags or add credentials.
+- Neither runtime is allowed a silent fallback. A reviewer that did not run is an unavailable reviewer.
 
-## Output Format
+Accounting rules:
 
-Present the verdict in this structure:
+- Report requested selector, returned provider/model and status for every reviewer.
+- Report every substitution explicitly, next to the finding it produced.
+- If fewer than two distinct models answered, report **blocked** with the failures and what would unblock it. Never present a verdict, and never present an empty verdict, on a single model's output.
+
+## Step 6. Synthesize
+
+1. Parse all findings.
+2. Findings raised independently by two or more models are the highest signal.
+3. Lone-model findings still matter; weight them accordingly.
+4. Deduplicate: different models describe the same issue differently. Merge them and record who raised it.
+5. Note explicit disagreements. One model asserting the opposite of another is useful context.
+
+## Step 7. Lead judgment
+
+You are the lead reviewer, a pragmatic senior engineer, not a neutral aggregator. Read `references/lead-judgment.md` for the framework.
+
+Every finding gets a bucket, the model(s) that raised it, and a one-line rationale:
+
+- **Act on.** Real correctness, security or maintainability problems given the actual goals. These would block a real PR.
+- **Consider.** Legitimate, but the cost of addressing it now is arguable. Worth the user's attention.
+- **Noted.** Valid but not actionable: context-dependent, premature, or low-impact at this stage.
+- **Dismissed.** Wrong, nitpicky, or missing context. Say briefly why.
+
+A finding is evidence-based or it is dismissed. A reviewer that could not read the code path it speculates about does not get promoted to "act on" on assertion alone.
+
+## Output format
+
+### Snapshot
+> mode, base, head, scope, and the snapshot directory.
 
 ### Intent
-> [The stated intent paragraph from Step 2]
+> [The paragraph from Step 2]
 
 ### Reviewers
-- Reviewer [label]: [model name], [N findings] (one bullet per reviewer)
+- Reviewer [label]: requested `<selector>`, answered `<provider>/<model>`, [N findings] — one bullet per reviewer, including failures and substitutions.
 
 ### Act On
-[Findings that should be addressed. For each: description, which models raised it, why it matters.]
+[Findings to address: description, which models raised it, why it matters.]
 
 ### Consider
-[Findings worth thinking about. For each: description, which models raised it, tradeoff involved.]
+[Findings worth thinking about: description, which models raised it, the tradeoff.]
 
 ### Noted
 [Valid but low-priority. Brief list.]
@@ -108,4 +125,16 @@ Present the verdict in this structure:
 [Rejected findings with brief rationale.]
 
 ### Agreement Map
-[Where did models agree, where did they diverge, and what does the pattern of agreement/disagreement tell us?]
+[Where models agreed, where they diverged, and what that pattern says about confidence.]
+
+Stop there. Fixes, commits and PRs are separate work under their own authorization.
+
+## Reference files
+
+- `references/reviewer-prompt.md`. Reviewer prompt template and finding format.
+- `references/rubric.md`. Review lenses.
+- `references/code-quality-review.md`. Code-quality lens applied by every reviewer.
+- `references/lead-judgment.md`. Lead-reviewer triage framework.
+- `scripts/run_reviewers.py`. Concurrent tool-less reviewer dispatch with model-identity accounting.
+
+Load references through the runtime's own skill lookup (`skill://interrogate/references/<file>` in OMP, `skill_view` in Hermes). Do not hard-code a checkout path.

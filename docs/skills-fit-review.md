@@ -1,8 +1,8 @@
 # Skills fit review — 2026-09-13
 
-**Historical (2026-09-15):** superseded by [ADR-0010](adr/0010-pstack-vendored-into-the-repo.md) and the current [§6 roster](../DECISIONS_AI_TOOLING.md#6-skills--fit-curated-roster-settled-2026-08-22-roles-and-recipes-2026-09-15); kept as the installation evidence of 2026-09-13. Counts, pins, and the `implement`/`lean-ctx` references below describe that date, not the stack.
+**Historical (2026-09-15):** superseded by [ADR-0010](adr/0010-pstack-vendored-into-the-repo.md) and the current [§6 roster](../DECISIONS_AI_TOOLING.md#6-skills); kept as the installation evidence of 2026-09-13. Counts, pins, and the `implement`/`lean-ctx` references below describe that date, not the stack.
 
-Status: research and recommendations, not an adoption decision. No skills, pins, agent configuration, or memory ownership were changed. [DECISIONS_AI_TOOLING.md](../DECISIONS_AI_TOOLING.md#6-skills--fit-curated-roster-settled-2026-08-22-roles-and-recipes-2026-09-15) remains operative; the [stack overview](stack-overview.md#skills--32-fit-curated-by-job) describes the intended stack.
+Status: research and recommendations, not an adoption decision. No skills, pins, agent configuration, or memory ownership were changed. [DECISIONS_AI_TOOLING.md](../DECISIONS_AI_TOOLING.md#6-skills) remains operative; the [stack overview](stack-overview.md) describes the intended stack.
 
 **Scope update:** this report contains the earlier host-relative installation assessment. The [host-independent skills development comparison](skills-development-comparison.md) evaluates both catalogues without using installed state, invocation history, or prior adoption decisions. Its recommendations supersede this report's selection ranking, not the installation evidence recorded here. Existing adoption decisions remain unchanged.
 

@@ -11,7 +11,7 @@ What the stack is made of, what was surveyed for each part, and where to read th
 | Compaction | Handoff/remote/soft method orders, 120K vs 150K thresholds | DECISIONS §3 | Handoff at 150K |
 | Memory | Mnemopi, agentmemory, Hindsight, mem0 | [Memory backend research](memory-backend-research.md); [ADR-0006](adr/0006-mnemopi-owns-narrative-memory-on-omp.md); DECISIONS §4 | Mnemopi on OMP, agentmemory on Hermes |
 | Code graph | codebase-memory-mcp, GitNexus, GraphRAG, cognee, Graphiti, Semantica, Serena | DECISIONS §5 | codebase-memory-mcp, gated off behind a litmus |
-| Skills | 84 skills across the Pocock, ponytail, caveman and pstack packs | [Per-job comparison](skills-development-comparison.md); [source and installation review](skills-fit-review.md) (historical); [fit report](pocock-skills-fit-report.html), [pstack audit](pstack-skills-audit.html); [ADR-0010](adr/0010-pstack-vendored-into-the-repo.md) (vendored pstack) | 32-skill fit-curated roster, DECISIONS §6 |
+| Skills | Matt, pstack, ponytail and caveman | [Research and verification](skills-workflow-recheck-2026-09-21.md) | [38 skills, routed by job](../DECISIONS_AI_TOOLING.md#6-skills) |
 | Hooks | verification-recorder, retention-canary, cadence-governor | DECISIONS §7 | The first two; cadence-governor rejected on measured non-adherence |
 | Project memory | Per-repo use of the above | [Project memory stack](project-memory-stack.md) | Template, not a machine setting |
 

@@ -2,7 +2,8 @@
   "packs": [
     {
       "name": "mattpocock",
-      "source": "mattpocock/skills#v1.2.3",
+      "source": "./vendored/mattpocock/skills",
+      "note": "reviewed c55ee46073ed923f86ce59a5eb3b6d895095d1b7 with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
       "label": "mattpocock skills",
       "aliases": [
         "mattpocock",
@@ -23,7 +24,11 @@
         "teach",
         "handoff",
         "resolving-merge-conflicts",
-        "diagnosing-bugs"
+        "diagnosing-bugs",
+        "writing-for-agents",
+        "improve-codebase-architecture",
+        "wizard",
+        "wait-what"
       ]
     },
     {
@@ -42,7 +47,7 @@
     {
       "name": "pstack",
       "source": "./vendored/pstack/skills",
-      "note": "vendored copy of cursor/plugins pstack (see vendored/pstack/UPSTREAM.md); the repo publishes no tags and the skills CLI clones by branch only",
+      "note": "reviewed vendored packages with documented OMP/Hermes adaptations; see vendored/pstack/UPSTREAM.md",
       "label": "pstack skills",
       "aliases": [
         "pstack",
@@ -55,6 +60,8 @@
         "interrogate",
         "unslop",
         "create-verification-skill",
+        "maintain-verification-skill",
+        "technical-writing",
         "show-me-your-work",
         "reflect",
         "recall"

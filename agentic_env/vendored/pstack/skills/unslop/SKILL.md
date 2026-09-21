@@ -1,6 +1,6 @@
 ---
 name: unslop
-description: Cut AI tells from any writing. Must always apply.
+description: "Manual only: cut AI tells from any writing. Run it explicitly, or as the named cleanup step of a recipe that produces prose."
 disable-model-invocation: true
 ---
 
@@ -8,15 +8,39 @@ disable-model-invocation: true
 
 Edit text to remove AI patterns.
 
+## When to run it
+
+Manual only. If this skill loaded without the user asking for it, stop and say so instead of editing anything; a runtime that ignores `disable-model-invocation` is not an invocation. A user-invoked recipe that composes it by name is a real invocation and proceeds normally.
+
+There is no "always apply": a rule that fires on every token gets ignored, and blanket rewriting damages text that was fine. Run it when a recipe names it or the user asks:
+
+- A prose deliverable is about to be handed over: a report, a PR body, a design doc, a README, a changelog entry.
+- A skill names it as its cleanup step. `blast-radius` writeups, `why` answers, `show-me-your-work` logs, `reflect` output and documentation work all route their final prose through it.
+- The user asks for an editing pass on existing text.
+
+Composing it into a recipe means one pass over the finished draft, before it is handed back. Not a running filter on every message, and not a pass over files the task never touched.
+
 ## Process
 
 1. Scan for the patterns below.
 2. Rewrite. Preserve meaning, match intended tone.
 3. Self-audit: "What makes this obviously AI generated?" Fix remaining tells.
 
+## What not to touch
+
+The rules are diagnostics for prose that says nothing, not a blacklist to sweep. Each hit is a question ("does this word earn its place here?"), and the answer is sometimes yes. Never change:
+
+- **Domain vocabulary.** A term the project defines and uses (in a glossary, `CONTEXT.md`, an ADR, or consistently across the codebase) stays, even when it appears on a list below. Renaming it breaks the reader's mapping to the code.
+- **Identifiers and literals.** Symbol names, file paths, commands, flags, config keys, error strings, code blocks and anything inside them.
+- **Quotations and citations.** Quoted text, commit messages, ticket titles, log output and transcript excerpts are evidence. Edit them and the citation stops matching the source.
+- **Calibrated uncertainty.** Hedges that carry meaning ("appears to", "likely", "unproven", confidence tiers, "we searched X and found nothing") are the finding. Rule 24 targets stacked hedging, never the epistemics.
+- **The repository's format conventions.** Heading style, table layout, frontmatter, list shape, line width and the house punctuation of the file you're editing. Match the surrounding document.
+
+No mechanical passes. Don't regex a word list out of a file, don't normalize punctuation document-wide, and don't rewrite a section you weren't asked to touch. If a rule's fix would make the sentence less accurate or less concrete, the rule loses.
+
 ## Patterns to detect and fix
 
-Rule numbers are stable ids that other skills cite. A removed rule leaves a gap.
+Rule numbers are stable ids that other skills cite. A removed rule leaves a gap, and renumbering silently breaks every citation. Keep the numbers as they are; if a rule stops applying, leave its number in place.
 
 ### Content
 

@@ -45,6 +45,58 @@ The skills picker lists one row per skill under its pack heading, plus an `All o
 
 [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
 
+#### Refresh skills on an existing OMP host
+
+Use this runbook when OMP already runs on the host. It refreshes the management CLI and selected skills, not agent binaries or MCP configuration; full bootstrap is unnecessary. Review and preserve intentional edits to installed skills before replacing them.
+
+1. **Refresh the management CLI from the checkout.** This picks up the checkout's manifest, vendored adaptations and guided installer; an older installed CLI may not have the current picker.
+
+   ```bash
+   cd /path/to/your/dotfiles/agentic-env
+   uv tool install --force .
+   ```
+
+2. **Check OMP discovery.** Its `~/.omp/agent/config.yml` should contain the following settings. Merge missing fields into the existing `skills` mapping; do not replace the whole configuration. Existing settings are user-owned, so the configurator reports drift rather than silently repairing them.
+
+   ```yaml
+   skills:
+     enableClaudeUser: true
+     enableAgentsUser: false
+   ```
+
+   OMP reads `~/.claude/skills`, whose links point into the canonical `~/.agents/skills` store. There is no `--skill-agent omp`: keep the default `hermes,claude,codex` targets, or select both Claude and Codex. Claude provides OMP's discovery path; Codex populates the canonical store. Claude-only installation creates copies instead, so it does not establish this layout on a fresh store. Running Claude Code is not required.
+
+3. **Choose one installation path.**
+
+   Guided selection on a terminal:
+
+   ```bash
+   agentic-install-skills-mcps
+   ```
+
+   Select individual skills or pack rows, keep the targets described above, and **clear every MCP row** for a skills-only refresh. Review the printed selection and replay command before confirming; decline the final confirmation to leave the selection uninstalled.
+
+   Or install the complete curated profile without prompts:
+
+   ```bash
+   agentic-install-skills-mcps --skill-profile default --yes
+   ```
+
+   This flag-only command uses all default skill targets and does not select MCP installation.
+
+4. **Check installation and configuration.**
+
+   ```bash
+   agentic-stack-doctor
+   agentic-skill-drift
+   ```
+
+   Doctor checks stack wiring; drift checks the manifest's full roster, not just the subset you selected. Deliberately omitted skills can therefore report `missing`. Inspect each drift column: `foreign:<source>` concerns recorded provenance, not necessarily different file contents; an upstream `unknown` is unverified, not a pass. Use `--no-upstream` for a separate source/install check if the upstream lookup is unavailable. Do not use `--update-baseline` merely to clear warnings.
+
+5. **Start a new OMP session and check discovery.** Ask OMP to read `skill://<selected-name>` and report its name without executing the recipe. Check one selected skill from each installed pack; for Matt/pstack, `writing-for-agents` and `how` are examples if selected. Manual-only skills remain loadable by name even though OMP hides them from automatic discovery.
+
+6. **Test workflows separately.** Successful installation and named loading do not prove end-to-end behavior. Exercise the chosen methods on bounded tasks and keep the actual evidence; do not treat doctor or a drift check as proof of a bug fix, downstream safety, or verifier coverage. See the [recorded verification scope](docs/skills-workflow-recheck-2026-09-21.md).
+
 #### Source drift
 
 ```bash

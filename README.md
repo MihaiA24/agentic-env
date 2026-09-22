@@ -28,6 +28,10 @@ agentic-stack-doctor
 
 Use each command's `--help` for options. Update this package with `uv tool upgrade agentic-env`.
 
+Without selection flags on a terminal, `agentic-install-agents` and `agentic-install-skills-mcps` open checkbox pickers. Space toggles a row, `a` toggles all, `i` inverts, enter confirms. The skills run asks for skills, then target agents, then MCP servers, then prints the selection with the flag-only command that repeats it and confirms before installing.
+
+`--yes` takes the flags as given without prompting, and a run without a terminal needs flags because no picker can open. `agentic-bootstrap --interactive` lets its two install phases prompt instead of installing every CLI and the `--skill-profile` packs.
+
 ### Skills
 
 ```bash
@@ -35,6 +39,8 @@ agentic-install-skills-mcps --skill-profile default --yes
 ```
 
 [The manifest](agentic_env/skill-packs.json) selects 38 skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+
+The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`, and the description shows under the list while that row is pointed at. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
 [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
 

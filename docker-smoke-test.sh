@@ -56,10 +56,10 @@ from pathlib import Path
 import subprocess
 
 from agentic_env.configure_agent_mcps import (
-    HERMES_SKILL_ROOT, MCP_SERVERS, SKILLS, HermesConfigAdapter, load_yaml_object,
+    HERMES_SKILL_ROOT, MCP_SERVERS, SKILLS, load_yaml_object, validate_hermes_config,
 )
 from agentic_env.common import version_at_least
-from agentic_env.stack_metadata import SKILLS_CLI_PACKAGE, SKILLS_CLI_VERSION
+from agentic_env.stack_metadata import SKILLS_CLI_PACKAGE, STACK_VERSION_FLOORS
 
 config_path = Path.home() / ".hermes" / "config.yaml"
 config = load_yaml_object(config_path)
@@ -68,7 +68,7 @@ assert config, "~/.hermes/config.yaml must be a non-empty mapping"
 required_servers = [
     MCP_SERVERS[name] for name in ("codebase-memory-mcp", "agentmemory")
 ]
-assert HermesConfigAdapter(config_path).validate(
+assert validate_hermes_config(
     config, required_servers, required_provider="agentmemory"
 ), "~/.hermes/config.yaml has invalid Hermes MCP wiring"
 
@@ -80,8 +80,9 @@ print("Hermes MCP wiring and matching skill descriptors verified")
 version = subprocess.check_output(
     ["npx", "--yes", SKILLS_CLI_PACKAGE, "--version"], text=True,
 ).strip()
-assert version_at_least(version, SKILLS_CLI_VERSION), (
-    f"skills CLI below the reviewed floor {SKILLS_CLI_VERSION}: {version}"
+floor = STACK_VERSION_FLOORS["skills"]
+assert version_at_least(version, floor), (
+    f"skills CLI below the reviewed floor {floor}: {version}"
 )
 print(f"skills CLI: {version}")
 PY

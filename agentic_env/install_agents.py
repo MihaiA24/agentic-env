@@ -6,10 +6,13 @@ import argparse
 import sys
 
 from .common import (
+    Option,
     ask,
+    choose,
     cmd_exists,
     cmd_version_at_least,
     info,
+    interactive,
     ok,
     run,
     run_remote_script,
@@ -167,9 +170,9 @@ def _parse(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parse(argv or sys.argv[1:])
+    args = _parse(argv if argv is not None else sys.argv[1:])
     set_verbose(args.verbose)
-    non_interactive = bool(args.yes)
+    non_interactive = bool(args.yes) or not interactive()
 
     if not _validate_remote_contract():
         return 1
@@ -178,30 +181,23 @@ def main(argv: list[str] | None = None) -> int:
         ok("agentic-install-agents: remote contract check passed")
         return 0
 
+    rows = [
+        Option("hermes", "Hermes Agent", True),
+        Option("omp", "OMP / Oh My Pi", True),
+        Option("codex", "OpenAI Codex CLI", True),
+        Option("claude", "Claude Code", True),
+    ]
     if args.all:
-        do_all = True
+        picked = [option.value for option in rows]
+    elif non_interactive:
+        picked = []
     else:
-        do_all = ask(
-            "Install all agent CLIs",
-            default=not non_interactive,
-            non_interactive=non_interactive,
-        )
+        picked = choose("Select agent CLIs to install", rows)
 
-    if do_all:
-        do_hermes = do_omp = do_codex = do_claude = True
-    else:
-        do_hermes = ask(
-            "Install Hermes Agent", default=False, non_interactive=non_interactive
-        )
-        do_omp = ask(
-            "Install OMP / Oh My Pi", default=False, non_interactive=non_interactive
-        )
-        do_codex = ask(
-            "Install OpenAI Codex CLI", default=False, non_interactive=non_interactive
-        )
-        do_claude = ask(
-            "Install Claude Code", default=False, non_interactive=non_interactive
-        )
+    do_hermes = "hermes" in picked
+    do_omp = "omp" in picked
+    do_codex = "codex" in picked
+    do_claude = "claude" in picked
 
     ok_all = True
     if do_hermes:

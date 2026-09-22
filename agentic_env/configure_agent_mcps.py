@@ -12,9 +12,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from rich.prompt import Prompt
 
-from .common import cmd_exists, console, ok, set_verbose, skip, warn
+from .common import (
+    Option,
+    ask,
+    choose,
+    cmd_exists,
+    interactive,
+    ok,
+    set_verbose,
+    skip,
+    warn,
+)
 from .stack_metadata import AGENTMEMORY_VERSION, CONFIGURE_AGENT_CHOICES
 
 
@@ -48,45 +57,33 @@ MCP_SERVERS: dict[str, McpServer] = {
     ),
 }
 
-SKILLS: dict[str, Skill] = {}
 
 _SKILL_BODY_DIR = Path(__file__).with_name("skill_bodies")
 _SKILL_NAMES = ("codebase-memory-mcp", "agentmemory", "ponytail")
-_SKILL_BODY_MISSING_TEMPLATE = """---
-name: {name}
-description: Built-in skill descriptor is unavailable; using fallback text.
----
-
-# {name}
-
-Built-in skill body is unavailable in this package.
-Please add a matching file under `agentic_env/skill_bodies/{name}.md`.
-"""
 
 
-def _skill_body_path(name: str) -> Path:
-    return _SKILL_BODY_DIR / f"{name}.md"
-
-
-def _load_skill_body(name: str) -> str:
-    path = _skill_body_path(name)
+def _load_skill_body(name: str) -> str | None:
+    path = _SKILL_BODY_DIR / f"{name}.md"
     try:
         payload = path.read_text(encoding="utf-8")
     except OSError as exc:
         warn(f"skill descriptor missing for '{name}': {path} ({exc})")
-        return _SKILL_BODY_MISSING_TEMPLATE.format(name=name)
+        return None
 
     if not payload.strip():
         warn(f"skill descriptor empty for '{name}': {path}")
-        return _SKILL_BODY_MISSING_TEMPLATE.format(name=name)
+        return None
 
     return payload
 
 
 def _load_builtin_skills() -> dict[str, Skill]:
-    return {
-        name: Skill(name=name, body=_load_skill_body(name)) for name in _SKILL_NAMES
-    }
+    skills: dict[str, Skill] = {}
+    for name in _SKILL_NAMES:
+        body = _load_skill_body(name)
+        if body is not None:
+            skills[name] = Skill(name=name, body=body)
+    return skills
 
 
 SKILLS = _load_builtin_skills()
@@ -129,55 +126,6 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
     return parser.parse_args(argv)
-
-
-def _expand(values: list[str] | None, all_values: tuple[str, ...] | list[str]) -> list[str] | None:
-    if not values:
-        return None
-    if "all" in values:
-        return list(all_values)
-    return list(dict.fromkeys(values))
-
-
-def _select_many(
-    title: str,
-    values: list[str],
-    *,
-    explicit: list[str] | None,
-    non_interactive: bool,
-) -> list[str]:
-    if explicit is not None:
-        return explicit
-    if non_interactive:
-        return values
-
-    console.print(f"\n[bold]{title}[/]")
-    for idx, value in enumerate(values, start=1):
-        console.print(f"  [green][x][/] {idx}. {value}")
-    raw = Prompt.ask(
-        "[cyan]?[/] Select numbers, comma ranges, 'all', or Enter for checked defaults",
-        default="all",
-    ).strip()
-    if raw.lower() in {"", "all"}:
-        return values
-    if raw.lower() in {"none", "-"}:
-        return []
-
-    selected: list[str] = []
-    for part in raw.split(","):
-        part = part.strip()
-        if not part:
-            continue
-        if "-" in part:
-            start, end = part.split("-", 1)
-            indexes = range(int(start), int(end) + 1)
-        else:
-            indexes = (int(part),)
-        for index in indexes:
-            if index < 1 or index > len(values):
-                raise SystemExit(f"invalid selection: {index}")
-            selected.append(values[index - 1])
-    return list(dict.fromkeys(selected))
 
 
 def load_json_object(path: Path) -> dict[str, object] | None:
@@ -287,91 +235,93 @@ class _ConfigMergeOutcome:
     required_provider: str | None
 
 
-@dataclass(frozen=True)
-class HermesConfigAdapter:
-    path: Path
+def _read_hermes_config(path: Path) -> dict[str, object] | None:
+    return load_yaml_object(path)
 
-    def _read(self) -> dict[str, object] | None:
-        return load_yaml_object(self.path)
 
-    def _write(self, data: dict[str, object], *, dry_run: bool) -> bool:
-        content = yaml.safe_dump(data, sort_keys=False, allow_unicode=True) if data else ""
-        return _write_atomic_text(self.path, content, dry_run=dry_run)
+def _write_hermes_config(
+    path: Path, data: dict[str, object], *, dry_run: bool
+) -> bool:
+    content = yaml.safe_dump(data, sort_keys=False, allow_unicode=True) if data else ""
+    return _write_atomic_text(path, content, dry_run=dry_run)
 
-    def add_servers(self, data: dict[str, object], servers: list[McpServer]) -> _ConfigMergeOutcome:
-        mcp_servers = _check_existing_mcp_entries(data, "mcp_servers", servers)
-        for server in servers:
-            if not server.hermes_memory_provider:
-                continue
-            memory = data.get("memory")
-            if memory is not None and not isinstance(memory, dict):
-                raise ValueError("`memory` block must be an object; fix this file manually")
-            current = memory.get("provider") if isinstance(memory, dict) else None
-            if current is not None and current != server.hermes_memory_provider:
-                raise ValueError(
-                    f"memory.provider: existing {current!r} conflicts with required "
-                    f"{server.hermes_memory_provider!r}; preserved; fix it manually"
-                )
 
-        changed = False
-        required_provider: str | None = None
-
-        if mcp_servers is None:
-            mcp_servers = {}
-            data["mcp_servers"] = mcp_servers
-            changed = True
-
-        for server in servers:
-            if server.name not in mcp_servers:
-                mcp_servers[server.name] = {
-                    "command": server.command,
-                    **({"args": list(server.args)} if server.args else {}),
-                }
-                ok(f"Hermes config: {server.name} MCP added")
-                changed = True
-            else:
-                skip(f"Hermes config: {server.name} MCP already configured")
-
-            if server.hermes_memory_provider:
-                required_provider = server.hermes_memory_provider
-                memory = data.get("memory")
-                if not isinstance(memory, dict):
-                    data["memory"] = {"provider": server.hermes_memory_provider}
-                    changed = True
-                    continue
-
-                current = memory.get("provider")
-                if current is None:
-                    memory["provider"] = server.hermes_memory_provider
-                    changed = True
-
-        return _ConfigMergeOutcome(
-            config=data,
-            changed=changed,
-            required_provider=required_provider,
-        )
-
-    def validate(
-        self,
-        data: dict[str, object],
-        servers: list[McpServer],
-        *,
-        required_provider: str | None = None,
-    ) -> bool:
-        mcp_servers = data.get("mcp_servers")
-        if not isinstance(mcp_servers, dict):
-            return False
-        if any(mcp_entry_drift(mcp_servers.get(server.name), server) for server in servers):
-            return False
-
-        if required_provider is None:
-            return True
-
+def add_hermes_servers(
+    data: dict[str, object], servers: list[McpServer]
+) -> _ConfigMergeOutcome:
+    mcp_servers = _check_existing_mcp_entries(data, "mcp_servers", servers)
+    for server in servers:
+        if not server.hermes_memory_provider:
+            continue
         memory = data.get("memory")
-        if not isinstance(memory, dict):
-            return False
-        provider = memory.get("provider")
-        return isinstance(provider, str) and provider == required_provider
+        if memory is not None and not isinstance(memory, dict):
+            raise ValueError("`memory` block must be an object; fix this file manually")
+        current = memory.get("provider") if isinstance(memory, dict) else None
+        if current is not None and current != server.hermes_memory_provider:
+            raise ValueError(
+                f"memory.provider: existing {current!r} conflicts with required "
+                f"{server.hermes_memory_provider!r}; preserved; fix it manually"
+            )
+
+    changed = False
+    required_provider: str | None = None
+
+    if mcp_servers is None:
+        mcp_servers = {}
+        data["mcp_servers"] = mcp_servers
+        changed = True
+
+    for server in servers:
+        if server.name not in mcp_servers:
+            mcp_servers[server.name] = {
+                "command": server.command,
+                **({"args": list(server.args)} if server.args else {}),
+            }
+            ok(f"Hermes config: {server.name} MCP added")
+            changed = True
+        else:
+            skip(f"Hermes config: {server.name} MCP already configured")
+
+        if server.hermes_memory_provider:
+            required_provider = server.hermes_memory_provider
+            memory = data.get("memory")
+            if not isinstance(memory, dict):
+                data["memory"] = {"provider": server.hermes_memory_provider}
+                changed = True
+                continue
+
+            current = memory.get("provider")
+            if current is None:
+                memory["provider"] = server.hermes_memory_provider
+                changed = True
+
+    return _ConfigMergeOutcome(
+        config=data,
+        changed=changed,
+        required_provider=required_provider,
+    )
+
+
+def validate_hermes_config(
+    data: dict[str, object],
+    servers: list[McpServer],
+    *,
+    required_provider: str | None = None,
+) -> bool:
+    mcp_servers = data.get("mcp_servers")
+    if not isinstance(mcp_servers, dict):
+        return False
+    if any(mcp_entry_drift(mcp_servers.get(server.name), server) for server in servers):
+        return False
+
+    if required_provider is None:
+        return True
+
+    memory = data.get("memory")
+    if not isinstance(memory, dict):
+        return False
+    provider = memory.get("provider")
+    return isinstance(provider, str) and provider == required_provider
 
 
 @dataclass(frozen=True)
@@ -443,7 +393,6 @@ class _OmpConfigAdapter:
         )
 
 
-_HERMES_CONFIG_ADAPTER = HermesConfigAdapter(path=HERMES_CONFIG_PATH)
 _OMP_CONFIG_ADAPTERS = [_OmpConfigAdapter(path=path) for path in OMP_MCP_PATHS]
 
 
@@ -494,40 +443,41 @@ def _write_json_config_data(
 
 
 def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
-    data = _HERMES_CONFIG_ADAPTER._read()
+    path = HERMES_CONFIG_PATH
+    data = _read_hermes_config(path)
     if data is None:
         return False
 
     try:
-        outcome = _HERMES_CONFIG_ADAPTER.add_servers(data, servers)
+        outcome = add_hermes_servers(data, servers)
     except ValueError as exc:
-        warn(f"{_HERMES_CONFIG_ADAPTER.path}: {exc}")
+        warn(f"{path}: {exc}")
         return False
 
     required_provider = outcome.required_provider
-    if not _HERMES_CONFIG_ADAPTER.validate(
+    if not validate_hermes_config(
         outcome.config,
         servers,
         required_provider=required_provider,
     ):
-        warn(f"{_HERMES_CONFIG_ADAPTER.path}: post-merge validation failed")
+        warn(f"{path}: post-merge validation failed")
         return False
 
     if not outcome.changed:
         return True
 
-    if not _HERMES_CONFIG_ADAPTER._write(outcome.config, dry_run=dry_run):
+    if not _write_hermes_config(path, outcome.config, dry_run=dry_run):
         return False
     if dry_run:
         return True
 
-    verified = _HERMES_CONFIG_ADAPTER._read()
-    if verified is None or not _HERMES_CONFIG_ADAPTER.validate(
+    verified = _read_hermes_config(path)
+    if verified is None or not validate_hermes_config(
         verified,
         servers,
         required_provider=required_provider,
     ):
-        warn(f"{_HERMES_CONFIG_ADAPTER.path}: write verification failed")
+        warn(f"{path}: write verification failed")
         return False
     return True
 
@@ -726,30 +676,39 @@ def warn_missing_commands(servers: list[McpServer]) -> None:
                 warn(f"{server.name}: required command '{command}' not found on PATH")
 
 
+def _select(
+    flag_values: list[str] | None,
+    choices: list[str],
+    prompt: str,
+    *,
+    non_interactive: bool,
+) -> list[str]:
+    """Flags win and `all` expands; otherwise prompt, or take everything with no terminal."""
+    if flag_values is not None:
+        return choices if "all" in flag_values else list(dict.fromkeys(flag_values))
+    if non_interactive:
+        return choices
+    return choose(prompt, [Option(name, name, True) for name in choices])
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = _parse(argv or sys.argv[1:])
+    args = _parse(argv if argv is not None else sys.argv[1:])
     set_verbose(args.verbose)
-    server_names = _select_many(
-        "MCP servers",
-        list(MCP_SERVERS),
-        explicit=_expand(args.server, list(MCP_SERVERS)),
-        non_interactive=args.yes,
+    non_interactive = bool(args.yes) or not interactive()
+
+    server_names = _select(
+        args.server, list(MCP_SERVERS), "Select MCP servers", non_interactive=non_interactive
     )
-    agents = _select_many(
-        "Agents",
-        list(AGENT_CHOICES),
-        explicit=_expand(args.agent, list(AGENT_CHOICES)),
-        non_interactive=args.yes,
+    agents = _select(
+        args.agent, list(AGENT_CHOICES), "Select agents", non_interactive=non_interactive
     )
 
     install_matching_skills = not args.no_skills
-    if not args.yes and install_matching_skills:
-        from .common import ask
-
+    if not non_interactive and install_matching_skills:
         install_matching_skills = ask(
             "Add matching global skills if missing",
             default=True,
-            non_interactive=False,
+            non_interactive=non_interactive,
         )
 
     servers = [MCP_SERVERS[name] for name in server_names]

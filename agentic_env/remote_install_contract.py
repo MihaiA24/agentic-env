@@ -4,7 +4,7 @@ import hashlib
 
 from typing import Mapping
 
-from .common import warn
+from .common import is_valid_sha256, warn
 
 
 REMOTE_KIND_NPM = "npm"
@@ -15,12 +15,6 @@ def _is_pinned_npm_package(package: str) -> bool:
     """Return True when an npm package spec is pinned to an explicit version."""
     _, sep, version = package.rpartition("@")
     return bool(sep and version and version.lower() != "latest")
-
-
-def _is_sha256(value: str | None) -> bool:
-    if not value:
-        return False
-    return len(value) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in value)
 
 
 def validate_remote_contract_reference(
@@ -50,7 +44,7 @@ def validate_remote_contract_reference(
             )
             return False
 
-        if kind == REMOTE_KIND_SCRIPT and not _is_sha256(expected_sha256):
+        if kind == REMOTE_KIND_SCRIPT and not is_valid_sha256(expected_sha256):
             warn(
                 f"[{scope}] {label}: pinned script requires a 64-char hex sha256 checksum, "
                 f"found '{expected_sha256}'."

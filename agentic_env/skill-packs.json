@@ -10,25 +10,25 @@
         "mattpocock/skills"
       ],
       "skills": [
-        "wayfinder",
-        "grill-with-docs",
-        "grilling",
-        "domain-modeling",
-        "research",
-        "prototype",
-        "to-spec",
-        "to-tickets",
-        "codebase-design",
-        "tdd",
-        "code-review",
-        "teach",
-        "handoff",
-        "resolving-merge-conflicts",
-        "diagnosing-bugs",
-        "writing-for-agents",
-        "improve-codebase-architecture",
-        "wizard",
-        "wait-what"
+        { "name": "wayfinder", "description": "Map a large piece of work as decision tickets on the tracker" },
+        { "name": "grill-with-docs", "description": "Grilling interview that also writes ADRs and a glossary" },
+        { "name": "grilling", "description": "Relentless interview that stress-tests a plan or decision" },
+        { "name": "domain-modeling", "description": "Build the project's domain model and shared terminology" },
+        { "name": "research", "description": "Investigate a question against primary sources, save Markdown" },
+        { "name": "prototype", "description": "Build a throwaway prototype to answer a design question" },
+        { "name": "to-spec", "description": "Turn the current conversation into a spec on the tracker" },
+        { "name": "to-tickets", "description": "Split a plan into tracer-bullet tickets with blocking edges" },
+        { "name": "codebase-design", "description": "Vocabulary for designing deep modules and placing seams" },
+        { "name": "tdd", "description": "Test-driven development, red-green-refactor, integration tests" },
+        { "name": "code-review", "description": "Review changes since a commit against standards and spec" },
+        { "name": "teach", "description": "Teach a skill or concept inside this workspace" },
+        { "name": "handoff", "description": "Compact the conversation into a handoff document" },
+        { "name": "resolving-merge-conflicts", "description": "Resolve an in-progress merge or rebase conflict" },
+        { "name": "diagnosing-bugs", "description": "Diagnosis loop for hard bugs and performance regressions" },
+        { "name": "writing-for-agents", "description": "How to write skills, AGENTS.md, and docs an agent reads" },
+        { "name": "improve-codebase-architecture", "description": "Report deepening opportunities, then grill the one you pick" },
+        { "name": "wizard", "description": "Generate a bash wizard for a manual procedure" },
+        { "name": "wait-what", "description": "Ask for the last message to be re-pitched in plain terms" }
       ]
     },
     {
@@ -40,8 +40,8 @@
         "juliusbrussee/caveman"
       ],
       "skills": [
-        "caveman",
-        "caveman-commit"
+        { "name": "caveman", "description": "Ultra-compressed replies, about 65% fewer output tokens" },
+        { "name": "caveman-commit", "description": "Conventional Commits messages with the noise removed" }
       ]
     },
     {
@@ -54,17 +54,17 @@
         "cursor/plugins"
       ],
       "skills": [
-        "how",
-        "why",
-        "blast-radius",
-        "interrogate",
-        "unslop",
-        "create-verification-skill",
-        "maintain-verification-skill",
-        "technical-writing",
-        "show-me-your-work",
-        "reflect",
-        "recall"
+        { "name": "how", "description": "How a subsystem works, walkthroughs, where new code belongs" },
+        { "name": "why", "description": "Design rationale from commits, issues, docs, and incidents" },
+        { "name": "blast-radius", "description": "Find what a change breaks outside the diff, proven by running it" },
+        { "name": "interrogate", "description": "Adversarial multi-model review that hunts blind spots" },
+        { "name": "unslop", "description": "Cut AI tells from any writing" },
+        { "name": "create-verification-skill", "description": "Generate a project-local skill that drives your app like a user" },
+        { "name": "maintain-verification-skill", "description": "Periodic pass that keeps a verification skill and its feature map honest" },
+        { "name": "technical-writing", "description": "Diataxis structure and plain-sentence rules for human-facing docs" },
+        { "name": "show-me-your-work", "description": "TSV decision log for long or unattended runs" },
+        { "name": "reflect", "description": "Review the transcript and route learnings into skill edits" },
+        { "name": "recall", "description": "Rebuild recent working context into a current-state brief" }
       ]
     },
     {
@@ -76,12 +76,12 @@
         "dietrichgebert/ponytail"
       ],
       "skills": [
-        "ponytail",
-        "ponytail-audit",
-        "ponytail-debt",
-        "ponytail-gain",
-        "ponytail-help",
-        "ponytail-review"
+        { "name": "ponytail", "description": "Forces the laziest solution that works, YAGNI first" },
+        { "name": "ponytail-audit", "description": "Whole-repo over-engineering audit, ranked deletions" },
+        { "name": "ponytail-debt", "description": "Collect ponytail: comments into a debt ledger" },
+        { "name": "ponytail-gain", "description": "Scoreboard of ponytail's measured savings" },
+        { "name": "ponytail-help", "description": "Quick-reference card for ponytail modes and commands" },
+        { "name": "ponytail-review", "description": "Review a diff only for over-engineering" }
       ]
     }
   ],

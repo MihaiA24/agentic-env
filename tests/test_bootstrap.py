@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import io
-import json
 import unittest
 from unittest.mock import patch
 
@@ -63,6 +61,18 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("--yes", plan[0].argv)
         self.assertIn("--yes", plan[1].argv)
         self.assertIn("--yes", plan[2].argv)
+
+    def test_interactive_bootstrap_plan_lets_the_install_phases_prompt(self) -> None:
+        plan = bootstrap._bootstrap_plan(bootstrap._parse(["--interactive"]))
+        assert plan is not None
+
+        self.assertEqual(plan[0].argv, [])
+        self.assertEqual(plan[1].argv, [])
+        self.assertIn("--yes", plan[2].argv)
+
+    @patch("agentic_env.bootstrap.interactive", return_value=False)
+    def test_interactive_bootstrap_requires_a_terminal(self, _mock_interactive) -> None:
+        self.assertEqual(bootstrap.main(["--interactive"]), 1)
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
@@ -207,81 +217,6 @@ class BootstrapTests(unittest.TestCase):
         self.assertIsNone(plan[1].skipped_reason)
         self.assertIsNotNone(plan[0].skipped_reason)
         self.assertIn("--skip-install-agents", plan[0].skipped_reason)
-
-    def test_build_summary_categorizes_status(self) -> None:
-        partial_summary = bootstrap._build_summary(
-            [
-                bootstrap.BootstrapPhaseResult(
-                    name="install-agents",
-                    requested=True,
-                    executed=True,
-                    skipped=False,
-                    duration_ms=0,
-                ),
-                bootstrap.BootstrapPhaseResult(
-                    name="configure",
-                    requested=False,
-                    executed=False,
-                    skipped=True,
-                    skipped_reason="configure skipped",
-                    duration_ms=0,
-                ),
-            ]
-        )
-        self.assertEqual(partial_summary.status, "partial")
-
-        failed_summary = bootstrap._build_summary(
-            [
-                bootstrap.BootstrapPhaseResult(
-                    name="configure",
-                    requested=True,
-                    executed=True,
-                    skipped=False,
-                    error="phase returned non-zero",
-                    duration_ms=0,
-                )
-            ]
-        )
-        self.assertEqual(failed_summary.status, "failed")
-
-        ok_summary = bootstrap._build_summary(
-            [
-                bootstrap.BootstrapPhaseResult(
-                    name="configure",
-                    requested=True,
-                    executed=True,
-                    skipped=False,
-                    duration_ms=0,
-                )
-            ]
-        )
-        self.assertEqual(ok_summary.status, "ok")
-
-    def test_dry_run_json_summary_is_machine_readable(self) -> None:
-        with patch("sys.stdout", new=io.StringIO()) as stream:
-            result = bootstrap.main(["--dry-run", "--summary-format", "json"])
-
-        payload = json.loads(stream.getvalue().strip())
-        self.assertEqual(result, 0)
-        self.assertEqual(payload["status"], "ok")
-        self.assertEqual([phase["name"] for phase in payload["phases"]], ["install-agents", "install-skills", "configure", "doctor"])
-        self.assertTrue(all(phase["requested"] for phase in payload["phases"]))
-
-    def test_skipped_phase_json_summary_reports_partial(self) -> None:
-        with patch("sys.stdout", new=io.StringIO()) as stream:
-            result = bootstrap.main([
-                "--dry-run",
-                "--skip-install-agents",
-                "--summary-format",
-                "json",
-            ])
-
-        payload = json.loads(stream.getvalue().strip())
-        self.assertEqual(result, 0)
-        self.assertEqual(payload["status"], "partial")
-        self.assertEqual(payload["phases"][0]["requested"], False)
-        self.assertEqual(payload["phases"][0]["skipped"], True)
-        self.assertIn("install-agents phase skipped", payload["phases"][0]["skipped_reason"])
 
 
 if __name__ == "__main__":

@@ -109,7 +109,7 @@ def _validate_remote_contract() -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parse(argv or sys.argv[1:])
+    args = _parse(argv if argv is not None else sys.argv[1:])
     set_verbose(args.verbose)
 
     if not _validate_remote_contract():

@@ -108,6 +108,30 @@ SKIP_INSTALL=1 sh ./clean-acceptance.sh
 
 Checks-only requires the same provisioned HOME; a newly recreated container is not valid checks-only evidence. Exiting the `--rm` container discards it. On an already-provisioned host, use `SKIP_INSTALL=1 sh ./docker-smoke-test.sh`.
 
+`VERBOSE=1` streams each command instead of capturing it, which is how you see the skills phase: without it `run_cmd` prints output only when a command fails.
+
+#### Driving the install by hand
+
+To run the phases yourself rather than the scripted contract, keep a container alive and exec into it:
+
+```bash
+docker compose run -d --name agentic-manual --entrypoint sleep fresh-install infinity
+docker exec -it agentic-manual bash
+# inside:
+export UV_PROJECT_ENVIRONMENT=$HOME/.venv
+export PATH="$HOME/.local/bin:$PATH"
+uv tool install --force --python "$(uv python find 3.12)" .
+agentic-install-skills-mcps --skill-profile default --yes
+agentic-skill-drift --no-upstream
+docker rm -f agentic-manual   # from the host, when finished
+```
+
+Three things differ from the scripted run, which provides them through `env -i`:
+
+- **`UV_PROJECT_ENVIRONMENT` is required.** The repo mounts read-only, so `uv run` fails trying to write `.venv` inside it — and your host's `.venv` is visible through the mount, pointing at an interpreter that does not exist in the container.
+- **Skill targets decide where skills land.** `--skill-agent claude` writes real directories under `~/.claude/skills` and never creates `~/.agents/skills`, so `agentic-skill-drift` reports the whole roster as `missing`. Omit the flag, or include `codex`, to populate the canonical store.
+- **A clone failure surfaces as a false auth error.** `Failed to clone … Authentication failed` on a public repo means git mangled the ref advertisement (`expected flush after ref listing`); remote packs are cloned, so caveman absorbs it first. The image pins `http.version HTTP/1.1` for this; set the same in any other container.
+
 ### Native Apple Silicon
 
 With Homebrew and working Command Line Tools:

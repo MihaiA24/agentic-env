@@ -105,6 +105,7 @@ run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.install_ski
 run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.configure_agent_mcps --help"
 run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.update_agentic_stack --help"
 run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.stack_doctor --help"
+run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.skill_drift --help"
 
 failures=0
 

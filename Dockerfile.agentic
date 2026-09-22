@@ -25,6 +25,13 @@ RUN curl -LsSf https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
     && rm /tmp/install-uv.sh \
     && UV_PYTHON_INSTALL_DIR=/opt/python uv python install 3.12 \
     && ln -s "$(UV_PYTHON_INSTALL_DIR=/opt/python uv python find 3.12)" /usr/local/bin/python3
+# Debian bookworm ships git 2.39.5 against libcurl 7.88.1, which intermittently
+# mangles GitHub's ref advertisement over HTTP/2: `fatal: expected flush after
+# ref listing`, after which git asks for credentials and the skills CLI reports
+# a public repo as "Authentication failed". Remote skill packs are cloned, so
+# the first one in manifest order (caveman) absorbs the failure. Test-image
+# workaround for an old client pair, not a stack defect.
+RUN git config --system http.version HTTP/1.1
 
 USER node
 ENV HOME=/home/node

@@ -28,7 +28,8 @@ curl --version
 if [ "$SKIP_INSTALL" != "1" ]; then
   for command in hermes omp codex claude codebase-memory-mcp agentmemory skills \
     agentic-bootstrap agentic-install-agents agentic-install-skills-mcps \
-    agentic-configure-agent-mcps agentic-update-stack agentic-stack-doctor; do
+    agentic-configure-agent-mcps agentic-update-stack agentic-stack-doctor \
+    agentic-skill-drift; do
     if command -v "$command" >/dev/null 2>&1; then
       echo "Clean-host precondition failed: $command is already on PATH" >&2
       exit 1
@@ -129,6 +130,7 @@ require_command agentic-install-skills-mcps
 require_command agentic-configure-agent-mcps
 require_command agentic-update-stack
 require_command agentic-stack-doctor
+require_command agentic-skill-drift
 
 require_command hermes
 require_command omp

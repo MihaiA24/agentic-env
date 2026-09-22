@@ -95,14 +95,14 @@ class InstallSkillsMcpsTests(unittest.TestCase):
     def test_vendored_pack_skills_exist_at_resolved_source(self) -> None:
         """A `./` source must resolve inside the package and carry every
         roster skill; a bad re-copy would otherwise fail only at install time."""
-        manifest = install_skills_mcps.load_skill_manifest(install_skills_mcps._SKILL_PACK_CONFIG_PATH)
+        manifest = install_skills_mcps.load_skill_manifest(install_skills_mcps.SKILL_PACK_CONFIG_PATH)
         assert manifest is not None
         vendored = [pack for pack in manifest.packs.values() if pack.source.startswith("./")]
         self.assertTrue(vendored)
         for pack in vendored:
             source = Path(manifest.source(pack.name))
             self.assertTrue(source.is_absolute())
-            self.assertTrue(source.is_relative_to(install_skills_mcps._SKILL_PACK_CONFIG_PATH.parent))
+            self.assertTrue(source.is_relative_to(install_skills_mcps.SKILL_PACK_CONFIG_PATH.parent))
             missing = [s for s in pack.skills if not (source / s / "SKILL.md").is_file()]
             self.assertEqual(missing, [], f"{pack.name}: roster skills missing from {source}")
 
@@ -221,7 +221,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
     @patch("agentic_env.install_skills_mcps.choose", return_value=[])
     def test_picker_rows_are_pre_checked_from_the_profile_or_from_skill(self, mock_choose) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
-            install_skills_mcps._SKILL_PACK_CONFIG_PATH
+            install_skills_mcps.SKILL_PACK_CONFIG_PATH
         )
         assert manifest is not None
 
@@ -359,7 +359,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
 
     def test_replay_command_round_trips_or_reports_nothing(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
-            install_skills_mcps._SKILL_PACK_CONFIG_PATH
+            install_skills_mcps.SKILL_PACK_CONFIG_PATH
         )
         assert manifest is not None
         replay = install_skills_mcps._replay_command
@@ -398,7 +398,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         MCP with `a`, confirm -> three skips, exit 0. Clearing the skills also
         drops the agent picker; installers are stubbed to fail if reached."""
         manifest = install_skills_mcps.load_skill_manifest(
-            install_skills_mcps._SKILL_PACK_CONFIG_PATH
+            install_skills_mcps.SKILL_PACK_CONFIG_PATH
         )
         assert manifest is not None
         output, status = _run_in_pty(

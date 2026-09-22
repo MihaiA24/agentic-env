@@ -25,6 +25,7 @@ agentic-stack-doctor
 | `agentic-configure-agent-mcps` | Add missing managed entries; report existing drift |
 | `agentic-update-stack` | Refresh components, then run doctor; does not update this package |
 | `agentic-stack-doctor` | Read-only diagnosis; OMP failures exit 1, secondary/Hermes failures warn |
+| `agentic-skill-drift` | Read-only: compare curated skills against their pack sources and upstreams |
 
 Use each command's `--help` for options. Update this package with `uv tool upgrade agentic-env`.
 
@@ -43,6 +44,18 @@ agentic-install-skills-mcps --skill-profile default --yes
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`, and the description shows under the list while that row is pointed at. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
 [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
+
+#### Source drift
+
+```bash
+agentic-skill-drift                 # every pack; exits 1 on drift
+agentic-skill-drift --pack ponytail --offline --no-upstream
+agentic-skill-drift --update-baseline
+```
+
+Three columns per curated skill. **Source** compares the pack source with the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json) — a moved tag or an unreviewed vendored edit shows as `changed`. **Installed** compares `~/.agents/skills/<skill>` with that source and reports `missing`, `modified`, or `foreign:<source>` when the skills CLI lockfile names another origin. **Upstream** compares upstream at the pinned revision with upstream today, so a vendored pack's documented adaptations never register as drift while a real upstream edit does.
+
+Pinned revisions come from the pack `source` for remote packs and the `upstream` block for vendored ones. Source trees are cached under `~/.cache/agentic-env/skill-sources`; `--offline` uses that cache only, `--no-upstream` skips the GitHub API. Record a reviewed state with `--update-baseline` after every deliberate pack move.
 
 ## Configuration and updates
 

@@ -112,6 +112,8 @@ What the rules bought: every rejection below names the pre-registered threshold 
 
 **38 curated skills:** 19 Matt, 11 pstack, six ponytail, two caveman. [The manifest](agentic_env/skill-packs.json) owns the roster and sources; [Matt](agentic_env/vendored/mattpocock/UPSTREAM.md) and [pstack](agentic_env/vendored/pstack/UPSTREAM.md) record provenance and adaptations. Selection is by job fit, not usage counts. [Verification and research history](docs/skills-workflow-recheck-2026-09-21.md).
 
+**Source drift:** `agentic-skill-drift` (read-only) compares each curated skill against its pack source, its reviewed fingerprint in `agentic_env/skill-fingerprints.json`, and upstream at the pinned revision versus upstream today. Vendored adaptations are never drift, because the upstream comparison is upstream-to-upstream. A moved tag, an unreviewed vendored edit, a missing or locally modified install, or an install the skills CLI lockfile attributes to another pack all exit 1. Packs still move only by reviewed tags or vendored updates: re-record the baseline with `--update-baseline` as part of that review, never to silence a finding.
+
 **Routing, not a pipeline.** Small known changes stay direct: implement and exercise the affected path. Core methods apply only to their named job; escalation needs the stated trigger.
 
 | Job | Core | Escalation → work product |

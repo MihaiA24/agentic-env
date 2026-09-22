@@ -9,6 +9,11 @@
         "mattpocock",
         "mattpocock/skills"
       ],
+      "upstream": {
+        "repo": "mattpocock/skills",
+        "ref": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+        "path": "skills"
+      },
       "skills": [
         { "name": "wayfinder", "description": "Map a large piece of work as decision tickets on the tracker" },
         { "name": "grill-with-docs", "description": "Grilling interview that also writes ADRs and a glossary" },
@@ -39,6 +44,7 @@
         "caveman",
         "juliusbrussee/caveman"
       ],
+      "upstream": { "path": "skills" },
       "skills": [
         { "name": "caveman", "description": "Ultra-compressed replies, about 65% fewer output tokens" },
         { "name": "caveman-commit", "description": "Conventional Commits messages with the noise removed" }
@@ -53,6 +59,11 @@
         "pstack",
         "cursor/plugins"
       ],
+      "upstream": {
+        "repo": "cursor/plugins",
+        "ref": "640ea3abfbdef74aad432b58d8586e4bf645f42d",
+        "path": "pstack"
+      },
       "skills": [
         { "name": "how", "description": "How a subsystem works, walkthroughs, where new code belongs" },
         { "name": "why", "description": "Design rationale from commits, issues, docs, and incidents" },
@@ -75,6 +86,7 @@
         "ponytail",
         "dietrichgebert/ponytail"
       ],
+      "upstream": { "path": "skills" },
       "skills": [
         { "name": "ponytail", "description": "Forces the laziest solution that works, YAGNI first" },
         { "name": "ponytail-audit", "description": "Whole-repo over-engineering audit, ranked deletions" },

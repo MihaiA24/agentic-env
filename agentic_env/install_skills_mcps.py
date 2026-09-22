@@ -43,7 +43,7 @@ from .stack_metadata import (
 )
 
 _REMOTE_INSTALL_CONTRACT = SKILLS_INSTALL_REMOTE_CONTRACT
-_SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
+SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
 _MCP_LABELS = {
     "codebase-memory-mcp": "codebase-memory-mcp (project code graph, checksum-pinned binary)",
     "agentmemory": "agentmemory (Hermes memory provider, npm)",
@@ -57,6 +57,12 @@ class SkillPack:
     label: str
     skills: tuple[str, ...]
     descriptions: dict[str, str] = field(default_factory=dict)
+    # Where the pack's skills come from upstream. Vendored packs must name a
+    # repo and the reviewed revision; remote packs derive both from `source`.
+    # `upstream_path` scopes the search inside a monorepo.
+    upstream_repo: str | None = None
+    upstream_ref: str | None = None
+    upstream_path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -66,13 +72,15 @@ class SkillManifest:
     packs: dict[str, SkillPack]
     aliases: dict[str, str]
     profiles: dict[str, tuple[str, ...]]
+    config_path: Path = SKILL_PACK_CONFIG_PATH
 
     def source(self, pack: str) -> str:
-        """Vendored packs use a `./` source relative to this package; the skills CLI
-        takes the absolute path. Anything else is an upstream ref passed through."""
+        """Vendored packs use a `./` source relative to the config they came from;
+        the skills CLI takes the absolute path. Anything else is an upstream ref
+        passed through."""
         source = self.packs[pack].source
         if source.startswith("./"):
-            return str(_SKILL_PACK_CONFIG_PATH.parent / source[2:])
+            return str(self.config_path.parent / source[2:])
         return source
 
     def profile_skills(self, profile: str) -> list[str]:
@@ -191,12 +199,31 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
                 )
                 return None
 
+        upstream_payload = item.get("upstream", {})
+        if not isinstance(upstream_payload, dict):
+            warn(f"Invalid upstream for pack '{name}' in {path}: expected object")
+            return None
+
+        upstream: dict[str, str | None] = {}
+        for key in ("repo", "ref", "path"):
+            value = upstream_payload.get(key)
+            if value is None:
+                upstream[key] = None
+                continue
+            if not isinstance(value, str) or not value.strip():
+                warn(f"Invalid upstream {key} for pack '{name}' in {path}: {value!r}")
+                return None
+            upstream[key] = value.strip()
+
         packs[canonical_name] = SkillPack(
             name=canonical_name,
             source=source_value,
             label=label_value,
             skills=tuple(skill_values),
             descriptions=skill_descriptions,
+            upstream_repo=upstream["repo"],
+            upstream_ref=upstream["ref"],
+            upstream_path=upstream["path"],
         )
 
     profiles_payload = payload.get("profiles", {"default": list(packs)})
@@ -228,7 +255,9 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
 
         profiles[profile_name.strip()] = tuple(selected)
 
-    return SkillManifest(packs=packs, aliases=alias_lookup, profiles=profiles)
+    return SkillManifest(
+        packs=packs, aliases=alias_lookup, profiles=profiles, config_path=path
+    )
 
 
 def load_skill_manifest(path: Path) -> SkillManifest | None:
@@ -248,7 +277,7 @@ def load_skill_manifest(path: Path) -> SkillManifest | None:
     return _parse_skill_pack_config(payload, path)
 
 
-def profile_skills(profile: str, path: Path = _SKILL_PACK_CONFIG_PATH) -> list[str]:
+def profile_skills(profile: str, path: Path = SKILL_PACK_CONFIG_PATH) -> list[str]:
     """Roster of `profile` from the manifest at `path`, or [] when it does not load."""
     manifest = load_skill_manifest(path)
     return manifest.profile_skills(profile) if manifest else []
@@ -742,7 +771,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--skill-config",
         metavar="PATH",
-        default=str(_SKILL_PACK_CONFIG_PATH),
+        default=str(SKILL_PACK_CONFIG_PATH),
         help="Path to JSON skill pack config (packs + profiles).",
     )
     parser.add_argument(

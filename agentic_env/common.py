@@ -173,7 +173,7 @@ def is_valid_sha256(value: str | None) -> bool:
     return bool(re.fullmatch(r"[0-9a-fA-F]{64}", value or ""))
 
 
-def _fetch_url(url: str, timeout_sec: int) -> bytes:
+def fetch_url(url: str, timeout_sec: int) -> bytes:
     # Some CDNs (omp.sh, claude.ai) reject the default Python-urllib UA with 403.
     request = urllib.request.Request(url, headers={"User-Agent": "agentic-env/1.0"})
     with urllib.request.urlopen(request, timeout=timeout_sec) as response:
@@ -191,7 +191,7 @@ def run_remote_script(
 ) -> bool:
     """Download and execute a remote installer script with optional checksum pinning."""
     try:
-        payload = _fetch_url(url, timeout_sec)
+        payload = fetch_url(url, timeout_sec)
     except Exception as exc:
         warn(f"{label}: failed to download installer script: {exc}")
         return False
@@ -237,7 +237,7 @@ def install_pinned_binary_archive(
 ) -> bool:
     """Install one checksum-pinned binary from a release tarball."""
     try:
-        payload = _fetch_url(url, timeout_sec)
+        payload = fetch_url(url, timeout_sec)
     except Exception as exc:
         warn(f"{label}: failed to download release: {exc}")
         return False

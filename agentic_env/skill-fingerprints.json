@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "packs": {
+    "mattpocock": {
+      "source": "./vendored/mattpocock/skills",
+      "upstream": "mattpocock/skills@c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+      "skills": {
+        "code-review": "2c263718681deca0c72d28369c1bd8f75252ffe13243b05e8882fd23151564ac",
+        "codebase-design": "6024e02ce74efbb392fb0a6b83e4575bcf55eae860f119c09c95634e9eae06fc",
+        "diagnosing-bugs": "3eaddfa5b028a2d4ca47731bb7a64cae28a0e8cb1ca802d201e754a1cc23d5a3",
+        "domain-modeling": "2cc88b237a4704f9fe2057492024856a48ea803a5b9257b1c1e3174eb1f13a09",
+        "grill-with-docs": "b125979dfbb5464ab1a4a0e93b8dd9dc22ff84f3c715991fe6c2dc15220ad8b1",
+        "grilling": "d5833e50e0081bbf5133b6c6b61aa8ba9ffae66e9071404b61e45b18f4cdb57e",
+        "handoff": "4b51b81dc79ac3da0f81cdee8d71ca4a3e151ae3790fbd6f68f3b47902f01512",
+        "improve-codebase-architecture": "a98dd5823f22507c5270516fd93078a66bfae03a6e17920463dd2114580feeb7",
+        "prototype": "59c35a917f6285fb10a91b49600edccd64e0d5656b6deaad3ade853263e5fad7",
+        "research": "3a4d83ff8ed2bb92af737f32ac24c8f83b0c978b3d3d3e9a9bbbe3d0932c2f22",
+        "resolving-merge-conflicts": "7822327fcec1bb4f203b16098c5e1fa78a44ef31e2ef4a1df76e0d2969676b77",
+        "tdd": "1397d089923dd98221b9c23c7eb7094a72586a3d1226b4f51659ad77487c3c32",
+        "teach": "d9fbfb966d425f19cdbeb34cceab6ead62041ccacd00da29b55412333cf9748a",
+        "to-spec": "d0fc2e91f98fc86a70fe4d5ceba79a85268d877cae7b3853a838fb1055e32dc6",
+        "to-tickets": "d8c45dea96290650569dae6525830eee0c173e56737140cdd4c0a1e1907c81b4",
+        "wait-what": "d8c5157780c8b4933f887639779f807c51f18e0564bf6236e1a4cb2c793bd73c",
+        "wayfinder": "96dae233650dd83121df96533322acce092f85f9231d948a27c367da6daec515",
+        "wizard": "6582a9ce2d06cf94701ec50e150525908cf39debab3932b9c6a44bf6420af7a5",
+        "writing-for-agents": "236995a0833ea7f69544aa9acbce3bbd9893fce02196fbc52aa01129b2e9e45c"
+      }
+    },
+    "caveman": {
+      "source": "JuliusBrussee/caveman#v2.3.1",
+      "upstream": "JuliusBrussee/caveman@v2.3.1",
+      "skills": {
+        "caveman": "2a53959c5238aec65da1fa506ab715da83216ea2365f74dfe7401d0d5fb5c317",
+        "caveman-commit": "1abb9081b8cf9cc26512ed42887567e67469c556e8781a9af11ea3cff0388a91"
+      }
+    },
+    "pstack": {
+      "source": "./vendored/pstack/skills",
+      "upstream": "cursor/plugins@640ea3abfbdef74aad432b58d8586e4bf645f42d",
+      "skills": {
+        "blast-radius": "55cf06874738d95d6520d5d0a933c7afa4bb3bfbdea9aa46d3b70e27fd7e48c3",
+        "create-verification-skill": "7cd34c462613052fec86ab00a40fd7633b404af394947a1106a06a27eb37f437",
+        "how": "8d8a48f076ff0378513d97d6b11bf7ce7a3b5719f95506166dc0045ee4cf6cc1",
+        "interrogate": "c3724406f85ba691db7a5046f65ba58e21aba176e3ec118e0d76fcb0d60f1232",
+        "maintain-verification-skill": "f7599628d5a7052d5e8cce6770ce2a7366c917ee4d59e6a630405d23a527d1e7",
+        "recall": "ae11245e76755b88c649d5fbcb8d2a31594217a08ec5c1be15bce941600f7016",
+        "reflect": "c025d3a1ddb55a0c657c9cdd90335c84182f53673b45f7029c2945dce0319c1f",
+        "show-me-your-work": "6b6add7e8091d8752241d1104f9c5784ac91d59e60bd5e40f5d9e51d086de692",
+        "technical-writing": "eaea59364a15962d770c96bde6a7031c3b7de8dc31758e7ef0a2fa89bf356ae5",
+        "unslop": "4c1f1fcd88d7f75cbe34f24c0a5e526c91e32a31212eb9e330bb03530470afa9",
+        "why": "699586d389d242cbc0877bad0071d9eec18707805231032a2a938ec0b3a2f3bf"
+      }
+    },
+    "ponytail": {
+      "source": "DietrichGebert/ponytail#v4.9.0",
+      "upstream": "DietrichGebert/ponytail@v4.9.0",
+      "skills": {
+        "ponytail": "388ec42c9551f47d12555b1723b1af67b8fe18a8afbea0a8db96cfb870eb3803",
+        "ponytail-audit": "e3d9eddf58dd7b4dae504266d8a5eb7b306db1e69114710800d554ef386ccfd0",
+        "ponytail-debt": "368db847eb919b0d841d253da745e8215e234cb217609b55b27528e8cb754c84",
+        "ponytail-gain": "c6d2cc7d7af635acadb96571fd71d9922acb8d8d856d37dc678aafe76a06a7fb",
+        "ponytail-help": "92f909eddf3b371e4737a85f60a8024cec6ae5cfb523561b8c56f86fcf3f52b0",
+        "ponytail-review": "cd3715f0513d93e4caab8cc30ad09080ae62f763ed8b95304fd84efda5fbf0be"
+      }
+    }
+  }
+}

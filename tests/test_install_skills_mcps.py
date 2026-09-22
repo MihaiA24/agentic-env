@@ -6,6 +6,8 @@ import os
 import pty
 import re
 import select
+import shlex
+import shutil
 import struct
 import sys
 import tempfile
@@ -218,103 +220,85 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             {"rostered": ["tdd", "grilling"], "open": []},
         )
 
-    @patch("agentic_env.install_skills_mcps.choose", return_value=[])
-    def test_picker_rows_are_pre_checked_from_the_profile_or_from_skill(self, mock_choose) -> None:
+    @patch("agentic_env.install_skills_mcps.choose", return_value=["caveman/", "caveman/caveman"])
+    def test_picker_pack_row_overrides_individual_rows(self, _choose) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
             install_skills_mcps.SKILL_PACK_CONFIG_PATH
         )
         assert manifest is not None
+        self.assertEqual(
+            install_skills_mcps._pick_skills(manifest, []),
+            {"caveman": ["caveman", "caveman-commit"]},
+        )
 
-        install_skills_mcps._pick_skills(manifest, [])
-        rows = {row.value: row for row in mock_choose.call_args.args[1] if not isinstance(row, str)}
-        self.assertTrue(rows["mattpocock/"].checked)
-        self.assertFalse(rows["mattpocock/tdd"].checked)
-        self.assertEqual(rows["mattpocock/tdd"].description, manifest.packs["mattpocock"].descriptions["tdd"])
+    def test_guided_skills_are_skipped_when_no_agent_is_picked(self) -> None:
+        output, status = _run_in_pty(
+            _GUIDED_CHILD,
+            [
+                (b"Select skills to install", b"\r"),
+                (b"Install skills where?", b"\r"),
+                (b"Install skills for which agents?", b"a\r"),
+                (b"Select MCP tooling", b"a\r"),
+            ],
+            argv=["--skill", "tdd"],
+        )
+        self.assertEqual(status, 0, output.decode("utf-8", "replace"))
+        self.assertNotIn(b"INSTALL-CALLED", output)
 
-        install_skills_mcps._pick_skills(manifest, ["tdd"])
-        rows = {row.value: row for row in mock_choose.call_args.args[1] if not isinstance(row, str)}
-        self.assertFalse(rows["mattpocock/"].checked)
-        self.assertTrue(rows["mattpocock/tdd"].checked)
-        self.assertFalse(rows["mattpocock/teach"].checked)
+    def test_guided_custom_directory_installs_assets_after_rejecting_blank_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp) / "another project's skills"
+            output, status = _run_in_pty(
+                _DIRECTORY_CHILD,
+                [
+                    (b"Select skills to install", b"\r"),
+                    (b"Install skills where?", b"\x1b[B\r"),
+                    (b"Skills directory (exact folder)", b"\r"),
+                    (b"Enter a skills directory", str(destination).encode() + b"\r"),
+                    (b"Install this selection", b"y\r"),
+                ],
+                argv=["--skill", "writing-for-agents"],
+            )
+            self.assertEqual(status, 0, output.decode("utf-8", "replace"))
+            self.assertEqual({path.name for path in destination.iterdir()}, {"writing-for-agents"})
+            source = (
+                install_skills_mcps.SKILL_PACK_CONFIG_PATH.parent
+                / "vendored/mattpocock/skills/writing-for-agents"
+            )
+            for name in ("SKILL.md", "SKILL-MECHANICS.md"):
+                self.assertEqual(
+                    (destination / "writing-for-agents" / name).read_bytes(),
+                    (source / name).read_bytes(),
+                )
+            self.assertNotIn(b"Select MCP tooling", output)
+            self.assertNotIn(b"Install skills for which agents?", output)
 
-    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_skills", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_codebase_memory", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_agentmemory", return_value=True)
-    @patch("agentic_env.install_skills_mcps.interactive", return_value=True)
-    @patch("agentic_env.install_skills_mcps.ask", return_value=True)
-    @patch("agentic_env.install_skills_mcps.choose")
-    def test_guided_main_installs_only_picked_skills_and_mcps(
-        self,
-        mock_choose,
-        _mock_ask,
-        _mock_interactive,
-        mock_install_agentmemory,
-        mock_install_codebase_memory,
-        mock_install_skills,
-        _mock_validate_remote_contract,
-    ) -> None:
-        mock_choose.side_effect = [
-            ["mattpocock/tdd", "ponytail/ponytail"],
-            ["claude"],
-            ["agentmemory"],
-        ]
-
-        self.assertEqual(install_skills_mcps.main(["--verbose"]), 0)
-
-        _, selection, agents = mock_install_skills.call_args.args
-        self.assertEqual(selection, {"mattpocock": ["tdd"], "ponytail": ["ponytail"]})
-        self.assertEqual(agents, ["claude"])
-        mock_install_codebase_memory.assert_not_called()
-        mock_install_agentmemory.assert_called_once()
-
-    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_skills", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_codebase_memory", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_agentmemory", return_value=True)
-    @patch("agentic_env.install_skills_mcps.interactive", return_value=True)
-    @patch("agentic_env.install_skills_mcps.ask", return_value=True)
-    @patch("agentic_env.install_skills_mcps.choose")
-    def test_guided_pack_row_installs_the_whole_roster(
-        self,
-        mock_choose,
-        _mock_ask,
-        _mock_interactive,
-        _mock_install_agentmemory,
-        _mock_install_codebase_memory,
-        mock_install_skills,
-        _mock_validate_remote_contract,
-    ) -> None:
-        """The `All of <pack>` row installs the pack roster, and it wins over the
-        individual rows of the same pack."""
-        mock_choose.side_effect = [["caveman/", "caveman/caveman"], ["claude"], []]
-
-        self.assertEqual(install_skills_mcps.main([]), 0)
-
-        _, selection, _ = mock_install_skills.call_args.args
-        self.assertEqual(selection, {"caveman": ["caveman", "caveman-commit"]})
-
-    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_skills", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_codebase_memory", return_value=True)
-    @patch("agentic_env.install_skills_mcps._install_agentmemory", return_value=True)
-    @patch("agentic_env.install_skills_mcps.interactive", return_value=True)
-    @patch("agentic_env.install_skills_mcps.ask", return_value=True)
-    @patch("agentic_env.install_skills_mcps.choose")
-    def test_guided_skills_are_skipped_when_no_agent_is_picked(
-        self,
-        mock_choose,
-        _mock_ask,
-        _mock_interactive,
-        _mock_install_agentmemory,
-        _mock_install_codebase_memory,
-        mock_install_skills,
-        _mock_validate_remote_contract,
-    ) -> None:
-        mock_choose.side_effect = [["caveman/caveman"], [], []]
-
-        self.assertEqual(install_skills_mcps.main([]), 0)
-        mock_install_skills.assert_not_called()
+    def test_guided_destination_cancellation_never_installs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            destination = Path(temp) / "not installed"
+            select_skills = (b"Select skills to install", b"\r")
+            select_custom = (b"Install skills where?", b"\x1b[B\r")
+            for steps, expected in (
+                ([select_skills, (b"Install skills where?", b"\x03")], 130),
+                (
+                    [select_skills, select_custom, (b"Skills directory (exact folder)", b"\x03")],
+                    130,
+                ),
+                (
+                    [
+                        select_skills,
+                        select_custom,
+                        (b"Skills directory (exact folder)", str(destination).encode() + b"\r"),
+                        (b"Install this selection", b"n\r"),
+                    ],
+                    0,
+                ),
+            ):
+                with self.subTest(steps=steps):
+                    output, status = _run_in_pty(_GUIDED_CHILD, steps, argv=["--skill", "tdd"])
+                    self.assertEqual(status, expected, output.decode("utf-8", "replace"))
+                    self.assertNotIn(b"INSTALL-CALLED", output)
+                    self.assertFalse(destination.exists())
 
     @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
     @patch("agentic_env.install_skills_mcps._install_skills", return_value=True)
@@ -357,6 +341,58 @@ class InstallSkillsMcpsTests(unittest.TestCase):
 
         self.assertEqual(install_skills_mcps.main(["--mcp", "nope", "--yes"]), 1)
 
+    def test_directory_install_copies_assets_and_refuses_collisions_before_writing(self) -> None:
+        manifest = install_skills_mcps.load_skill_manifest(
+            install_skills_mcps.SKILL_PACK_CONFIG_PATH
+        )
+        assert manifest is not None
+
+        def stage(source, skills, agents, *, directory):
+            for skill in skills:
+                shutil.copytree(Path(source) / skill, directory / ".agents" / "skills" / skill)
+            return True
+
+        with (
+            tempfile.TemporaryDirectory() as temp,
+            patch.object(install_skills_mcps, "_install_skill_package", side_effect=stage),
+        ):
+            destination = Path(temp) / "project skills"
+            destination.mkdir()
+            unrelated = destination / "notes.txt"
+            unrelated.write_text("keep me", encoding="utf-8")
+            install = install_skills_mcps._install_skill_directory
+            self.assertTrue(install(manifest, {"mattpocock": ["writing-for-agents"]}, destination))
+            installed = destination / "writing-for-agents"
+            source = Path(manifest.source("mattpocock")) / "writing-for-agents"
+            for name in ("SKILL.md", "SKILL-MECHANICS.md"):
+                self.assertEqual((installed / name).read_bytes(), (source / name).read_bytes())
+            (installed / "SKILL.md").write_text("local changes", encoding="utf-8")
+
+            selection = {"mattpocock": ["tdd", "writing-for-agents"]}
+            self.assertFalse(install(manifest, selection, destination))
+            self.assertFalse((destination / "tdd").exists())
+            self.assertEqual((installed / "SKILL.md").read_text(), "local changes")
+
+            shutil.rmtree(installed)
+            installed.symlink_to(destination / "missing")
+            self.assertFalse(install(manifest, selection, destination))
+            self.assertTrue(installed.is_symlink())
+            self.assertFalse((destination / "missing").exists())
+            self.assertFalse((destination / "tdd").exists())
+            self.assertEqual(unrelated.read_text(), "keep me")
+
+    def test_directory_mode_rejects_global_agent_and_mcp_selections(self) -> None:
+        manifest = install_skills_mcps.load_skill_manifest(
+            install_skills_mcps.SKILL_PACK_CONFIG_PATH
+        )
+        assert manifest is not None
+        for conflicting in (["--skill-agent", "claude"], ["--mcp", "agentmemory"], ["--all-mcps"]):
+            with self.subTest(conflicting=conflicting):
+                args = install_skills_mcps._parse(["--skills-dir", "skills", *conflicting])
+                self.assertIsNone(
+                    install_skills_mcps._build_install_plan(args, manifest, non_interactive=True)
+                )
+
     def test_replay_command_round_trips_or_reports_nothing(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
             install_skills_mcps.SKILL_PACK_CONFIG_PATH
@@ -364,14 +400,33 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         assert manifest is not None
         replay = install_skills_mcps._replay_command
 
-        self.assertEqual(
-            replay(manifest, {"caveman": ["caveman"]}, ["claude"], False, True),
-            "agentic-install-skills-mcps --skill-pack caveman --skill caveman"
-            " --skill-agent claude --mcp agentmemory --yes",
-        )
-        self.assertEqual(
-            replay(manifest, {}, ["claude"], True, True),
-            "agentic-install-skills-mcps --all-mcps --yes",
+        def assert_replays(manifest, selection, agents, codebase, agentmemory, destination=None):
+            command = replay(manifest, selection, agents, codebase, agentmemory, destination)
+            assert command is not None
+            args = install_skills_mcps._parse(shlex.split(command)[1:])
+            plan = install_skills_mcps._build_install_plan(args, manifest, non_interactive=True)
+            assert plan is not None
+            self.assertEqual(
+                install_skills_mcps._resolve_pack_skills(
+                    manifest, list(plan.skill_packs), list(plan.skill_names)
+                ),
+                selection,
+            )
+            if selection:
+                self.assertEqual(plan.skill_agents.selected, () if destination else tuple(agents))
+                self.assertEqual(Path(args.skill_config).resolve(), manifest.config_path.resolve())
+            self.assertEqual(args.skills_dir, destination)
+            self.assertEqual((plan.do_codebase, plan.do_agentmemory), (codebase, agentmemory))
+
+        assert_replays(manifest, {"caveman": ["caveman"]}, ["claude"], False, True)
+        assert_replays(manifest, {}, ["claude"], True, True)
+        assert_replays(
+            manifest,
+            {"mattpocock": ["tdd"]},
+            [],
+            False,
+            False,
+            Path("/tmp/another project's skills"),
         )
         # A pack that ships no roster takes everything it ships, so a `--skill`
         # filter needed by another pack would narrow it. That has no flag-only form.
@@ -382,16 +437,14 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 ),
                 "open": install_skills_mcps.SkillPack("open", "owner/open#v1", "open skills", ()),
             },
-            aliases={},
+            aliases={"rostered": "rostered", "open": "open"},
             profiles={},
+            config_path=Path("my project's manifest.json"),
         )
         self.assertIsNone(
             replay(open_manifest, {"rostered": ["tdd"], "open": []}, ["claude"], False, False)
         )
-        self.assertEqual(
-            replay(open_manifest, {"open": []}, ["claude"], False, False),
-            "agentic-install-skills-mcps --skill-pack open --skill-agent claude --yes",
-        )
+        assert_replays(open_manifest, {"open": []}, ["claude"], False, False)
 
     def test_guided_pty_run_with_everything_cleared_installs_nothing(self) -> None:
         """Drive the real pickers through a pseudo-terminal: clear every skill and
@@ -404,8 +457,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         output, status = _run_in_pty(
             _GUIDED_CHILD,
             [
-                # 4 pack rows start checked, so the first `a` selects all 36 rows
-                # and the second clears them.
+                # The first `a` selects all rows; the second clears them.
                 (b"Select skills to install", b"aa\r"),
                 (b"Select MCP tooling", b"a\r"),
             ],
@@ -423,9 +475,10 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 self.assertIn(skill, text)
 
 
-# Runs `main([])` in a fresh interpreter behind the pty; any install call trips
+# Runs `main` in a fresh interpreter behind the pty; any install call trips
 # the sentinel so a picker regression cannot reach npm/skills.
 _GUIDED_CHILD = """
+import sys
 from unittest.mock import patch
 from agentic_env import install_skills_mcps as m
 trip = {"side_effect": AssertionError("INSTALL-CALLED")}
@@ -433,18 +486,41 @@ with patch.object(m, "_validate_remote_contract", return_value=True), \\
      patch.object(m, "_install_skills", **trip), \\
      patch.object(m, "_install_codebase_memory", **trip), \\
      patch.object(m, "_install_agentmemory", **trip):
-    raise SystemExit(m.main([]))
+    raise SystemExit(m.main(sys.argv[1:]))
+"""
+
+_DIRECTORY_CHILD = """
+import shutil, sys
+from pathlib import Path
+from unittest.mock import patch
+from agentic_env import install_skills_mcps as m
+def stage(source, skills, agents, *, directory):
+    for skill in skills:
+        shutil.copytree(Path(source) / skill, directory / ".agents" / "skills" / skill)
+    return True
+trip = {"side_effect": AssertionError("MCP-INSTALL-CALLED")}
+with patch.object(m, "cmd_exists", return_value=True), \\
+     patch.object(m, "_install_skill_package", side_effect=stage), \\
+     patch.object(m, "_install_codebase_memory", **trip), \\
+     patch.object(m, "_install_agentmemory", **trip):
+    raise SystemExit(m.main(sys.argv[1:]))
 """
 
 
-def _run_in_pty(code: str, steps: list[tuple[bytes, bytes]], timeout: float = 30) -> tuple[bytes, int]:
+def _run_in_pty(
+    code: str,
+    steps: list[tuple[bytes, bytes]],
+    timeout: float = 30,
+    *,
+    argv: list[str] | None = None,
+) -> tuple[bytes, int]:
     """Exec `python -c code` on a pseudo-terminal; for each (expect, send) wait
     until `expect` was printed, then type `send`. Returns (raw output, exit code)."""
     pid, fd = pty.fork()
     if pid == 0:
         fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 60, 120, 0, 0))
         os.environ["TERM"] = "xterm"
-        os.execv(sys.executable, [sys.executable, "-c", code])
+        os.execv(sys.executable, [sys.executable, "-c", code, *(argv or [])])
 
     output = b""
 

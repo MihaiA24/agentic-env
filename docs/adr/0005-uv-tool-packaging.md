@@ -9,6 +9,8 @@ The installer scripts originally ran as `uv` single-file scripts from the checko
 ## Decision
 Package the implementation as the `agentic-env` distribution with import package `agentic_env` and Python 3.12+ as the compatibility floor. Preserve the six primary installed `uv tool` entry points: `agentic-install-agents`, `agentic-install-skills-mcps`, `agentic-configure-agent-mcps`, `agentic-bootstrap`, `agentic-update-stack`, and `agentic-stack-doctor`. Run development and verification from the checkout through the corresponding package modules with `uv run python -m agentic_env.<module>`; the former root-script compatibility wrappers are superseded and no new wrapper layer is introduced. Move the default `skill-packs.json` into the package as bundled data while preserving a path override. Keep the provisioner lifecycle owned by `uv`; `agentic-update-stack` updates the managed stack but does not replace `agentic-env`.
 
+**Scope clarification (2026-09-22):** the [Python-only skill copier](../../README.md#python-only-copy-on-windows) is a dependency-free package module executed directly from a complete checkout. It copies vendored packages without provisioning the stack, adding a root wrapper or introducing another installed entry point. The `uv` lifecycle above still owns the management commands; standalone destinations are maintained separately.
+
 ## Alternatives considered
 
 1. **Keep root scripts only**

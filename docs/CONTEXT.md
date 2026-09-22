@@ -26,7 +26,7 @@
   - _Avoid_: Container acceptance, existing-stack health check
 
 - **Machine provisioning**
-  - The product boundary of `agentic-env`: install, configure, update, and diagnose the user-level agent stack. Repository initialization, indexing, project-memory maintenance, uninstall, and rollback remain outside the product boundary. Agent hook files are diagnosed but never written; the tools that install them own them.
+  - The managed-stack operation: install, configure, update, and diagnose the user-level agent stack; distinct from standalone skill copying. Repository initialization, indexing, project-memory maintenance, uninstall, and rollback remain outside provisioning, and agent hook files are diagnosed rather than written.
   - _Avoid_: Project onboarding, project lifecycle management
 
 - **Project memory stack**
@@ -89,16 +89,28 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - A hook or instruction block that gates or redirects an agent's file reads and searches toward a query-first tool. Scoped per supported agent, counted across every configuration file that agent loads rather than the files in its own directory. At most one may be active for a given agent.
   - _Avoid_: Query-before-read hook, discovery gate, read redirect
 
+- **Skill package**
+  - A skill directory containing its `SKILL.md` and any supporting scripts or references; the unit copied by either installation route.
+  - _Avoid_: Descriptor only, MCP server
+
+- **Standalone skill copy**
+  - A complete package copied into an explicitly chosen skills folder, outside managed-agent installation and its provenance, health checks and update lifecycle. Discovery and workflow compatibility belong to the destination harness.
+  - _Avoid_: Managed installation, harness provisioning
+
+- **Python-only skill copy**
+  - The offline standalone-copy route for packages vendored in the checkout; remote-only packages are outside its scope. Windows copy acceptance applies to this operation, not to the agent stack.
+  - _Avoid_: Full-stack Windows support, remote pack installation
+
 - **Agent global skill**
   - A reusable `SKILL.md` installed in an agent's user-level skills directory so the agent knows when and how to use a tool.
   - _Avoid_: MCP server, project-local skill
 
 - **Curated skill default**
-  - The small reviewed set of skills installed by default for the supported agent workflow, selected per pack in the skill-pack manifest and installed once into the skill store, which every supported and installed agent reads; custom skill-pack configuration is the extension point for user-specific packs. Prompt exposure follows installation — there is no separate allowlist layer.
+  - The reviewed roster selected per pack in the skill-pack manifest, shared by managed installations and native-CLI standalone copying. The Python-only route is limited to its vendored subset; custom skill-pack configuration extends the native installer's selection without a separate prompt-exposure allowlist.
   - _Avoid_: Comprehensive skill catalog, skill marketplace
 
 - **Checkout module command**
-  - A development or verification command run directly from the provisioner's checkout, without installing its command set into the user's environment.
+  - An installation, development or verification command run directly from the provisioner's checkout, without installing its command set into the user's environment.
   - _Avoid_: Root script wrapper, uv tool command, installed CLI
 
 - **uv tool command**
@@ -136,7 +148,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Per-script command wrapper copies
 
 - **Smoke test**
-  - The same fresh-install acceptance contract applied to each declared OS/architecture target; passing on one target does not establish support for another.
+  - An executable check with a declared operation and OS/architecture scope; passing one scope does not establish another. Full-stack acceptance follows the smoke contract, while skill-copy acceptance checks only package copying.
 
 - **Smoke contract**
   - Process succeeds when: tools are installed, binaries are callable, `agentic-stack-doctor` exits successfully (the OMP mandatory checks), and Hermes has its project memory stack servers and matching global skills.
@@ -150,11 +162,11 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Smoke test, automatic repair
 
 - **Supported host**
-  - An OS/architecture target with successful clean-host provisioning evidence, not merely a compatible release asset. The intended targets are Apple Silicon macOS and Arch Linux x86_64; direct CachyOS verification is deferred, and Intel macOS is outside acceptance scope.
+  - An OS/architecture target with successful clean-host provisioning evidence, not merely a compatible release asset. The intended targets are Apple Silicon macOS and Arch Linux x86_64; direct CachyOS verification is deferred, Intel macOS is outside acceptance scope, and Windows skill-copy evidence does not establish a supported provisioning host.
   - _Avoid_: Any Unix-like host, unverified compatible host
 
 - **Compatibility floor**
-  - The prerequisites needed before machine provisioning: Python 3.12+, Node.js 20+ with npm, uv, curl, git, trusted CA certificates, and writable user-level installation paths. Platform-specific preparation and acceptance evidence belong in the runbook.
+  - The prerequisites needed before machine provisioning: Python 3.12+, Node.js 20+ with npm, uv, curl, git, trusted CA certificates, and writable user-level installation paths. The Python-only copy route has a separate, smaller prerequisite set; platform-specific requirements and acceptance evidence belong in the runbook.
 
 - **Documentation scope**
   - `agentic-env/README.md`: runbook and operating instructions.

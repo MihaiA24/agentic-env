@@ -165,8 +165,8 @@ def choose(prompt: str, options: Sequence[Option | str]) -> list[str]:
     return picked
 
 
-def run(cmd: Iterable[str]) -> None:
-    _run(cmd)
+def run(cmd: Iterable[str], *, cwd: str | None = None) -> None:
+    _run(cmd, cwd=cwd)
 
 
 def is_valid_sha256(value: str | None) -> bool:

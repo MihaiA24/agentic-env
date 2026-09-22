@@ -8,7 +8,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 
 ## Quick usage
 
-Requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and the dotfiles checkout.
+The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and the dotfiles checkout. For Windows or an offline copy, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
 
 ```bash
 cd /path/to/your/dotfiles/agentic-env
@@ -29,11 +29,24 @@ agentic-stack-doctor
 
 Use each command's `--help` for options. Update this package with `uv tool upgrade agentic-env`.
 
-Without selection flags on a terminal, `agentic-install-agents` and `agentic-install-skills-mcps` open checkbox pickers. Space toggles a row, `a` toggles all, `i` inverts, enter confirms. The skills run asks for skills, then target agents, then MCP servers, then prints the selection with the flag-only command that repeats it and confirms before installing.
+Without selection flags on a terminal, `agentic-install-agents` and `agentic-install-skills-mcps` open checkbox pickers. Space toggles a row, `a` toggles all, `i` inverts, enter confirms. The skills run asks for skills, then a destination: supported harnesses or **Other / custom directory**. Supported harnesses lead to the agent and MCP pickers; a custom directory asks for the exact skills-folder path and skips MCP installation. Both paths print the selection and replay command, then ask for confirmation.
 
 `--yes` takes the flags as given without prompting, and a run without a terminal needs flags because no picker can open. `agentic-bootstrap --interactive` lets its two install phases prompt instead of installing every CLI and the `--skill-profile` packs.
 
 ### Skills
+
+#### Choose an installation path
+
+| Need | Route | Requirements and scope |
+|---|---|---|
+| Provision the full agent stack | [Quick usage](#quick-usage) | macOS/Linux prerequisites above; installs agents and manages configuration |
+| Refresh managed OMP/Hermes/Claude/Codex skills | [Managed refresh](#refresh-skills-on-an-existing-omp-host) | Management CLI and native skills CLI/npm; selected agent directories |
+| Copy any curated pack into another harness's folder | [Custom directory](#install-into-another-harnesss-directory) | macOS/Linux, Python 3.12+, uv, Node.js/npm and Git; network for remote packs |
+| Copy vendored skills on Windows or offline | [Python-only copy](#python-only-copy-on-windows) | Python 3.12+ and a complete checkout; no other runtime dependencies |
+
+Windows acceptance covers only the Python-only copier, not full-stack provisioning or the native skills CLI path. Copying a package does not adapt its instructions or scripts to another harness or OS.
+
+For the managed skill store, the complete curated selection is:
 
 ```bash
 agentic-install-skills-mcps --skill-profile default --yes
@@ -44,6 +57,80 @@ agentic-install-skills-mcps --skill-profile default --yes
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`, and the description shows under the list while that row is pointed at. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
 [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
+
+#### Install into another harness's directory
+
+`--skills-dir PATH` copies complete selected packages into `PATH/<skill>/SKILL.md`, including their scripts and references. `PATH` is the skills folder, not the project root. No OMP/Hermes installation is required, but this route still uses the native skills CLI/npm even for vendored-only selections. Use the Python-only route below when those dependencies are unavailable.
+
+Run `uv run agentic-install-skills-mcps` from this checkout for the full guided journey: choose skills, select **Other / custom directory**, enter the path, then review and confirm. Choose **Supported harnesses** instead to keep the existing managed-agent installation. Ctrl-C at either destination prompt cancels without installing anything.
+
+From this checkout, without replacing the host's installed management CLI:
+
+```bash
+cd /path/to/your/dotfiles/agentic-env
+
+# Skip the destination prompts; still choose skills interactively.
+uv run agentic-install-skills-mcps --skills-dir "/path/to/project/.devin/skills"
+
+# All 38 curated skills without prompts.
+uv run agentic-install-skills-mcps \
+  --skills-dir "/path/to/project/.devin/skills" --skill-profile default --yes
+
+# Or a subset, in any directory you choose.
+uv run agentic-install-skills-mcps \
+  --skills-dir "/path/to/custom skills" --skill-pack mattpocock --skill tdd,code-review --yes
+```
+
+Choose **one** installation command above. The normal `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes the selected destination rather than selecting agent roots, installs no MCPs, and does not register global provenance; combining it with `--skill-agent`, `--mcp`, or `--all-mcps` is an error. Without a terminal, provide selection flags.
+
+These are standalone copies, not links or managed installations. Follow the shared [verification and refresh procedure](#verify-and-refresh-standalone-copies) after copying.
+
+The example uses Devin for Terminal's `.devin/skills` layout. Set the directory your harness actually discovers. Skill bodies remain unchanged: OMP/Hermes-specific tools and delegation instructions may need adaptation, and copying them does not verify execution in another harness.
+
+#### Python-only copy on Windows
+
+This standalone fallback requires only Python 3.12+ and the checkout: no uv, npm, third-party Python packages, downloads, agent installation or MCP configuration. It runs without prompts.
+
+Use a complete checkout or an extracted repository ZIP containing the copier, `skill-packs.json`, and the vendored directories together. Downloading the Python file alone is insufficient; Git is not required to run an already available copy.
+
+From the dotfiles checkout root, confirm the interpreter is 3.12 or newer:
+
+```powershell
+py -3 --version
+```
+
+If the Windows `py` launcher is absent but Python is installed, substitute `python` after checking `python --version`. Choose the exact folder your harness discovers, outside the source skill packages, then run one of these commands:
+
+```powershell
+# From the dotfiles checkout; choose ONE command.
+py -3 agentic-env\agentic_env\copy_skills.py --skills-dir "C:\work\project\.devin\skills"
+
+# Or copy only these vendored skills.
+py -3 agentic-env\agentic_env\copy_skills.py --skills-dir "C:\work\project\.devin\skills" --skill "tdd,code-review"
+```
+
+On macOS/Linux, the equivalent command from the checkout root is:
+
+```bash
+python3 agentic-env/agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
+```
+
+By default it copies the **30 vendored Matt/pstack skills**, including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. The existing manifest owns this roster. `--skill` accepts comma-separated or repeated names; requesting an unavailable name or passing an empty `--skill` is an error, not permission to copy a different selection.
+
+The copier accepts `--skills-dir` and `--skill`, plus `--help`. Pack/profile/custom-manifest selectors, `--yes`, agent targets and MCP flags belong to the other installer and are not supported here. The successful copy message and exit status 0 are the completion signal; in PowerShell, inspect `$LASTEXITCODE` immediately after the command.
+
+This is file copying only: Bash assets and OMP/Hermes-specific instructions are not converted into Windows-compatible workflows. Use the procedure below to verify the destination and refresh safely.
+
+#### Verify and refresh standalone copies
+
+This procedure covers both custom-directory routes, not the managed-agent refresh below.
+
+1. **Check the result.** Require exit status 0. Confirm the selected names have `PATH/<skill>/SKILL.md` and their scripts/references. A default Python-only copy intentionally excludes the eight remote-only skills; an explicitly requested unavailable skill fails before copying.
+2. **Check harness discovery separately.** Use the destination harness's documented skills folder and load one selected skill by name without executing its recipe. File copying proves neither discovery nor workflow compatibility; doctor and `agentic-skill-drift` inspect the managed stack, not an arbitrary destination.
+3. **Refresh into a new directory.** Obtain the reviewed checkout/manifest version you intend to use, retain its revision or archive identity and your selection, then rerun the same route with a new destination. Compare whole package directories, preserve local edits and back up the existing selected packages before deliberately replacing them. `uv tool upgrade agentic-env` and `agentic-update-stack` do not refresh standalone copies.
+4. **Handle errors without overwriting.** Existing skill names—including dangling symlinks—are refused before any package is copied; unrelated files are retained. Choose a fresh destination rather than deleting local work. Filesystem failures during copying can leave incomplete new packages: inspect the failed destination and retry into a new one after fixing the error; failure is not an atomic rollback.
+
+There is no force-overwrite, automatic merge, uninstall or rollback command for standalone copies. To remove one later, remove only the package directories you copied after preserving local changes; keep unrelated files.
 
 #### Refresh skills on an existing OMP host
 
@@ -74,7 +161,7 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
    agentic-install-skills-mcps
    ```
 
-   Select individual skills or pack rows, keep the targets described above, and **clear every MCP row** for a skills-only refresh. Review the printed selection and replay command before confirming; decline the final confirmation to leave the selection uninstalled.
+   Select individual skills or pack rows, choose **Supported harnesses**, keep the targets described above, and **clear every MCP row** for a skills-only refresh. **Other / custom directory** produces standalone copies instead of refreshing the managed OMP layout. Review the printed selection and replay command before confirming; decline the final confirmation to leave the selection uninstalled.
 
    Or install the complete curated profile without prompts:
 
@@ -107,6 +194,8 @@ agentic-skill-drift --update-baseline
 
 Three columns per curated skill. **Source** compares the pack source with the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json) — a moved tag or an unreviewed vendored edit shows as `changed`. **Installed** compares `~/.agents/skills/<skill>` with that source and reports `missing`, `modified`, or `foreign:<source>` when the skills CLI lockfile names another origin. **Upstream** compares upstream at the pinned revision with upstream today, so a vendored pack's documented adaptations never register as drift while a real upstream edit does.
 
+There is no `--skills-dir` override for this command: the Installed column always checks the canonical managed store. For either standalone-copy route, use [destination verification](#verify-and-refresh-standalone-copies) instead; a clean doctor or drift report does not validate those copies.
+
 Pinned revisions come from the pack `source` for remote packs and the `upstream` block for vendored ones. Source trees are cached under `~/.cache/agentic-env/skill-sources`; `--offline` uses that cache only, `--no-upstream` skips the GitHub API. Record a reviewed state with `--update-baseline` after every deliberate pack move.
 
 ## Configuration and updates
@@ -132,11 +221,19 @@ uv run --frozen python -m agentic_env.stack_doctor
 uv run --frozen pytest -q
 ```
 
-Other checkout commands use `uv run --frozen python -m agentic_env.<module>`; installed commands use `agentic-*`.
+Other management checkout commands use `uv run --frozen python -m agentic_env.<module>`; installed commands use `agentic-*`. The dependency-free copier is the exception: run its package file directly with Python as shown above.
+
+To run the portable copier checks without installing dependencies, from `agentic-env`:
+
+```powershell
+py -3 -S -m unittest discover -s tests -p test_copy_skills.py -v
+```
+
+Use `python3 -S -m unittest discover -s tests -p test_copy_skills.py -v` on macOS/Linux. These checks launch the real copier with site packages disabled and an empty `PATH`, using temporary destinations. The full suite includes Unix PTY tests and is not the Windows verification command.
 
 ## Clean-platform acceptance
 
-[The smoke script](docker-smoke-test.sh) owns the executable checks. [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Doctor's softer Hermes severity does not replace smoke's Hermes wiring checks.
+Full-stack acceptance uses [the smoke script](docker-smoke-test.sh). [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Doctor's softer Hermes severity does not replace smoke's Hermes wiring checks. Windows has a separate copier-only check, described under [Development](#development), rather than this provisioning contract.
 
 ### Containers
 
@@ -202,6 +299,10 @@ Keep that HOME for inspection/rechecks; use a new empty directory for another fr
 ### CI and recorded evidence
 
 [CI](../.github/workflows/agentic-env-smoke-test.yml) gates native macOS arm64, Debian x86_64 and Arch x86_64 acceptance on unit tests. Each acceptance job runs fresh installation then checks-only. Linux checks-only also exercises updates; macOS skips that second update to avoid another unauthenticated GitHub lookup. [Run manually](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml) when needed.
+
+The independent **Windows Python-only skill copy** job uses `windows-latest` and Python 3.12 to run the dependency-free checks above. It covers complete vendored copies, reported remote exclusions, selection errors, collision preflight and refusal to copy into a source package. It does not install agents or MCPs or validate skill workflows.
+
+On 2026-09-22, that [Windows job passed](https://github.com/MihaiA24/.dotfiles/actions/runs/35761661410/job/106860923046) at [`d9bff13`](https://github.com/MihaiA24/.dotfiles/commit/d9bff133715b6b3e063b705381c682bc52934d8e). This is copier acceptance, separate from the historical full-stack evidence below.
 
 Historical [run 34526778331](https://github.com/MihaiA24/.dotfiles/actions/runs/34526778331), at [`2cb1f08`](https://github.com/MihaiA24/.dotfiles/commit/2cb1f08f9d0a7538ecef12e7532dfaee554a6400) on 2026-09-10, passed fresh and checks-only on:
 

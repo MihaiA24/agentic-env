@@ -33,6 +33,25 @@ jobs:
       - name: Run unit tests
         run: uv run --frozen pytest -q
 
+  windows-skills-copy:
+    name: Windows Python-only skill copy
+    runs-on: windows-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: agentic-env
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify copying without third-party packages
+        run: python -S -m unittest discover -s tests -p test_copy_skills.py -v
+
   agentic-smoke-test:
     needs: unit
     name: Debian bookworm x86_64 clean install

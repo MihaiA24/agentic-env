@@ -23,3 +23,10 @@ Where a survey and DECISIONS disagree, DECISIONS is operative — the surveys ar
 2. [`README.md`](../README.md) — the commands, the version policy, the runbooks, and the clean-platform acceptance matrix.
 3. [`docs/CONTEXT.md`](CONTEXT.md) — the domain vocabulary; [`docs/adr/`](adr/) — the decisions that needed their own record.
 4. The surveys above — only when reopening a layer, which requires its revisit trigger to fire.
+
+## Installation runbooks
+
+- [Choose a route](../README.md#choose-an-installation-path): full-stack provisioning, managed skill refresh, native-CLI directory copies, or Python-only copies.
+- [Windows/offline copying](../README.md#python-only-copy-on-windows): vendored packages without installing the stack.
+- [Standalone-copy maintenance](../README.md#verify-and-refresh-standalone-copies): verify discovery, preserve local edits and refresh into a new directory.
+- [Acceptance evidence](../README.md#ci-and-recorded-evidence): full-stack platform checks and the separately scoped Windows copy check.

@@ -106,9 +106,9 @@ Do not store rationale here. The graph is derived from code and can be rebuilt.
 
 ## Install and configure
 
-`agentic-env/README.md` and the installer own install behavior and per-agent config
-shapes; this doc owns roles. From this repo: `uv tool install --force .` then
-`agentic-bootstrap`.
+The [machine-provisioning runbook](../README.md#quick-usage) owns installation and per-agent configuration on supported macOS/Linux hosts; this document owns memory roles. Its checkout installation step starts in the `agentic-env` directory, not the dotfiles root.
+
+The [custom-directory and Windows copy routes](../README.md#choose-an-installation-path) only copy skill packages. They do not install or configure this memory stack, MCPs, hooks or agent discovery.
 
 ## Per-project startup checklist
 

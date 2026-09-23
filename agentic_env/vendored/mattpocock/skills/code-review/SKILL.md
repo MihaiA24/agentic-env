@@ -1,11 +1,11 @@
 ---
 name: code-review
-description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
+description: "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow the bundled coding standards and this repo's own?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\"."
 ---
 
 Two-axis review of an **immutable snapshot** of the intended change, taken against a fixed point the user supplies:
 
-- **Standards**: does the code conform to this repo's documented coding standards?
+- **Standards**: does the code conform to the bundled coding standards and this repo's own?
 - **Spec**: does the code faithfully implement the originating issue / spec?
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. Both read the same snapshot, so neither reviews a working tree that moved underneath it.
@@ -66,9 +66,11 @@ An empty `commits.txt` is normal in WIP and means "no commits", never "no spec":
 
 Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`. Read each from the snapshot's `tree/` when the snapshot carries it, so a standards file the change itself edits is read at the same instant as the code it governs.
 
-On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+Then read `<this skill's directory>/STANDARDS.md`: six bundled lenses that apply in every repo, whether or not it documents anything. The repo's documents add rules and override a lens rule by rule; every lens they don't mention still applies.
 
-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
+On top of both, the Standards axis always carries the **smell baseline** below: a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+
+- **Documented standards override.** A repo standard or bundled lens always wins; where one endorses something the baseline would flag, suppress the smell.
 - **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation. Like any standard here, skip anything tooling already enforces.
 
 Each smell reads *what it is* → *how to fix*; match it against the snapshot:
@@ -98,8 +100,8 @@ Both prompts must include:
 
 **Standards sub-agent prompt** adds:
 
-- The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full (the sub-agent has no other access to it).
-- The brief: "Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
+- The list of standards-source files you found in step 3, **plus the bundled `STANDARDS.md` and the smell baseline from step 3**, both pasted in full (the sub-agent has no other access to them).
+- The brief: "Report, per file/hunk where relevant, (a) every place the diff violates a documented standard: cite the standard (file + the rule, e.g. `STANDARDS.md §3`); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls: documented-standard breaches can be hard, but baseline smells are always judgement calls. A repo standard overrides a bundled lens rule by rule, and both override the baseline. Skip anything tooling enforces. Under 400 words."
 
 **Spec sub-agent prompt** adds:
 

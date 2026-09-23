@@ -62,6 +62,8 @@ teach skills by name. Report whether each loads. Do not run them.
 
 Keep only app-specific verification knowledge in the repo's `.agents/skills/`. The shared skills stay on the host. Loading a skill for this discovery check does not authorize executing its recipe.
 
+Coding standards need no setup here. `/code-review` carries six shared lenses into every repo. Add a repo `CODING_STANDARDS.md` only for rules specific to that repo or for explicit waivers of a lens; it overrides the shared lenses rule by rule.
+
 ### Check that the app runs
 
 Find the project instructions, run command, existing drivers, and any project-local verifier. Reuse a working verifier, and use step 4 if it has drifted. For an empty repo, first build and run the smallest useful user path, and do not map planned features. If an existing app will not start, fix or report that before writing verification instructions.
@@ -94,7 +96,7 @@ Lauren works in Cursor and Grok Bot. These parts of the articles depend on them 
 | `/swarm` across cloud agents | Cursor Cloud Agents | Repeat the same verifier scenario and compare results. This shows local repeatability. It does not give you cloud scale, fuzzing coverage, or independent environments. |
 | Routines and Automations for daily maintenance and report reproduction | Grok Bot, Cursor | A cron job, systemd timer, or CI schedule that runs your harness non-interactively with `omp -p`, `claude -p`, `codex exec`, or `hermes -z`. It needs its own setup and authorization. |
 | `/architect` | Unselected pstack skill | Ground the problem, compare caller-facing sketches with `/codebase-design`, and measure open questions with `/prototype`, as in step 8. This is a manual adaptation, not the original architecture arena. |
-| `principle-build-the-lever` | Unselected pstack skill | [CODING_STANDARDS §2](../CODING_STANDARDS.md#2-build-the-lever-narrowed) and the CLI checklist in step 2 |
+| `principle-build-the-lever` | Unselected pstack skill | [STANDARDS §2](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#2-build-the-lever-narrowed), which `/code-review` checks, and the helper checklist in step 2. [Build the Lever: Lauren's rule and ours](#build-the-lever-laurens-rule-and-ours) compares the two. |
 
 These substitutions keep the method but lose some platform capabilities. Before scheduling anything, prove one unattended run can load the intended skills, start its own environment, retain evidence, and stop safely. A headless command alone does not establish that.
 
@@ -102,7 +104,7 @@ These substitutions keep the method but lose some platform capabilities. Before 
 
 Verification closes the development loop. The agent changes the code, drives the real app, observes the result and side effects, and corrects the implementation until it meets the task. Lauren treats the verifier as critical infrastructure because it lets agents check their own attempts instead of making you test every iteration.
 
-Her opening "gardener" argument also applies. When an agent repeats a mistake, fix it with stronger types, compiler checks, lints, or a shared implementation instead of making the agent instructions ever longer. Keep that principle alongside runtime verification. [CODING_STANDARDS §6](../CODING_STANDARDS.md#6-encode-lessons-in-structure) describes our version.
+Her opening "gardener" argument also applies. When an agent repeats a mistake, fix it with stronger types, compiler checks, lints, or a shared implementation instead of making the agent instructions ever longer. Keep that principle alongside runtime verification. [STANDARDS §6](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#6-encode-lessons-in-structure) describes our version, which `/code-review` applies to every diff.
 
 For the worked examples below, assume Atlas already has a documented development command and Playwright-based browser automation. Completing a task has two entry points: a checkbox and a task-row menu. These are illustrative assumptions. Do not add Playwright, a menu, or any other tooling to your own app because of them.
 
@@ -168,13 +170,29 @@ Open the evidence yourself. If an unrelated missing asset blocks startup, the ve
 
 ### 2. Make verification reproducible
 
+Without a scripted control path, each agent improvises its own clicks, waits, and log reads, and two runs rarely check the same thing. This step has two stages. First expose the control the app already has. Then, only if agents keep repeating the same steps, wrap them in a small CLI.
+
 Give the agent the control you have by hand: interaction, debugging, logs, and performance traces. Prefer the richest runtime already available, such as Chrome DevTools Protocol for web and Electron apps, an iOS simulator, or lldb for a native process. A development-only sidecar is an option when the app otherwise exposes no usable control.
 
 Lauren considers this control important enough to influence stack choice. For an existing project, first find the control you already have. Atlas's existing browser automation may already capture screenshots, recordings, traces, console output, and network traffic. A short, proved recipe is better than introducing a second driver.
 
-#### Build a helper only for repeated work
+#### Build the Lever: Lauren's rule and ours
 
-Lauren's "Build the Lever" principle turns repeated interaction into a small CLI, so the agent runs one command instead of writing another throwaway script. The article recommends building that CLI early. Our installed skill reuses the existing runner first and adds a wrapper only when repeated work shows the runner is too awkward to use directly. [CODING_STANDARDS §2](../CODING_STANDARDS.md#2-build-the-lever-narrowed) explains the local threshold.
+**Lauren's guideline.** pstack's `principle-build-the-lever` says to build the tool that does or proves any non-trivial work (a codemod, script, generator, or a skill your subagents follow) instead of working by hand. Its bar is triviality, not repetition: "Default to building the lever." It counts the principle as applied only when a tool file appears in the diff. The skill is manual-only (`disable-model-invocation: true`), so an agent follows it only when someone loads it.
+
+**How Lauren applies it to verification.** In Part 1 the lever is a verification CLI: "we prefer to give agents tools rather than just markdown." Agents run one command instead of writing a throwaway script to click on something, which saves tokens and makes the verifier reproducible and testable. She builds the CLI early, alongside the feature map, and recommends "making this CLI good and error free before doing anything more advanced."
+
+**How we implement it.** We did not install the principle skill. Its intent lives in [STANDARDS §2](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#2-build-the-lever-narrowed), narrowed: write a codemod, generator, or query for repetitive or hard-to-review work, because the lever exists to make work reproducible or reviewable, not to add a file to the diff. A couple of visible edits need no tool. `/code-review` applies §2 to every diff, so the rule is checked at review time rather than loaded while you work. For the verifier, `/create-verification-skill` drives the repo's existing harness first, and our copy tells it to use the repo's own runner rather than add a second test framework. Neither skill requires a CLI. This guide applies §2's threshold to helpers by analogy: build the CLI when agents keep repeating the same multi-step interaction, or when the runner is too awkward to use directly.
+
+| | Lauren | This stack |
+|---|---|---|
+| Where the rule lives | `principle-build-the-lever`, loaded on request | STANDARDS §2, bundled with `/code-review` |
+| When to build a tool | Any non-trivial work | Repetitive or hard-to-review work |
+| Proof of application | A tool file in the diff | Work a reviewer can rerun or check; a file is optional |
+| Verification CLI | Built early and polished before advanced work | Existing harness first; a CLI after repetition |
+| When it is checked | While the agent works, if the skill is loaded | At review time, by `/code-review` |
+
+#### Build a helper only for repeated work
 
 The command groups in her example are inspection, navigation, interaction, performance, log streaming, and health/cleanup. You do not need all of them. Start with the paths you actually repeat, and make them reliable before adding more.
 

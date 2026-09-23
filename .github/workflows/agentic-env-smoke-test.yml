@@ -33,6 +33,15 @@ jobs:
       - name: Run unit tests
         run: uv run --frozen pytest -q
 
+      - name: Prepare Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run retention canary regressions
+        working-directory: .
+        run: bun test omp/hooks/retention-canary.test.ts
+
   windows-skills-copy:
     name: Windows Python-only skill copy
     runs-on: windows-latest

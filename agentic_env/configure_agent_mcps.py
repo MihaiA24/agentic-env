@@ -235,10 +235,6 @@ class _ConfigMergeOutcome:
     required_provider: str | None
 
 
-def _read_hermes_config(path: Path) -> dict[str, object] | None:
-    return load_yaml_object(path)
-
-
 def _write_hermes_config(
     path: Path, data: dict[str, object], *, dry_run: bool
 ) -> bool:
@@ -324,76 +320,57 @@ def validate_hermes_config(
     return isinstance(provider, str) and provider == required_provider
 
 
-@dataclass(frozen=True)
-class _OmpConfigAdapter:
-    path: Path
+def _merge_omp_mcp(
+    path: Path,
+    data: dict[str, object],
+    servers: list[McpServer],
+    *,
+    remove: tuple[str, ...],
+    gate: tuple[str, ...],
+) -> bool:
+    """Add missing servers, gate and drop names in parsed ``mcp.json`` data; True when changed.
 
-    def _read(self) -> dict[str, object] | None:
-        return load_json_object(self.path)
+    Raises ``ValueError`` for drifted entries or malformed blocks, which are never rewritten."""
+    mcp_servers = _check_existing_mcp_entries(data, "mcpServers", servers)
+    disabled = data.get("disabledServers")
+    if disabled is not None and not isinstance(disabled, list):
+        raise ValueError("`disabledServers` block must be a list")
+    changed = False
 
-    def _write(self, data: dict[str, object], *, dry_run: bool) -> bool:
-        return _write_atomic_text(self.path, json.dumps(data, indent=2) + "\n", dry_run=dry_run)
+    if mcp_servers is None:
+        mcp_servers = {}
+        data["mcpServers"] = mcp_servers
+        changed = True
+    for server in servers:
+        if server.name in mcp_servers:
+            skip(f"{path}: {server.name} MCP already configured")
+            continue
+        mcp_servers[server.name] = _json_entry(server)
+        ok(f"{path}: {server.name} MCP added")
+        changed = True
 
-    def add_servers(self, data: dict[str, object], servers: list[McpServer]) -> bool:
-        mcp_servers = _check_existing_mcp_entries(data, "mcpServers", servers)
-        changed = False
-
-        if mcp_servers is None:
-            mcp_servers = {}
-            data["mcpServers"] = mcp_servers
+    if gate and disabled is None:
+        disabled = []
+        data["disabledServers"] = disabled
+    for name in gate:
+        if name not in disabled:
+            disabled.append(name)
+            ok(f"{path}: {name} MCP gated off (disabledServers)")
             changed = True
 
-        for server in servers:
-            if server.name in mcp_servers:
-                skip(f"{self.path}: {server.name} MCP already configured")
-                continue
-
-            mcp_servers[server.name] = _json_entry(server)
-            ok(f"{self.path}: {server.name} MCP added")
+    for name in remove:
+        if name in mcp_servers:
+            del mcp_servers[name]
+            ok(f"{path}: {name} MCP removed (excluded on OMP)")
             changed = True
-
-        return changed
-
-    def remove_servers(self, data: dict[str, object], names: tuple[str, ...]) -> bool:
-        mcp_servers = data.get("mcpServers")
-        if not isinstance(mcp_servers, dict):
-            return False
-        changed = False
-        for name in names:
-            if name in mcp_servers:
-                del mcp_servers[name]
-                ok(f"{self.path}: {name} MCP removed (excluded on OMP)")
-                changed = True
-        return changed
-
-    def gate_servers(self, data: dict[str, object], names: tuple[str, ...]) -> bool:
-        if not names:
-            return False
-        disabled = data.get("disabledServers")
-        if disabled is None:
-            disabled = []
-            data["disabledServers"] = disabled
-        elif not isinstance(disabled, list):
-            raise ValueError("`disabledServers` block must be a list")
-        changed = False
-        for name in names:
-            if name not in disabled:
-                disabled.append(name)
-                ok(f"{self.path}: {name} MCP gated off (disabledServers)")
-                changed = True
-        return changed
-
-    def validate(self, data: dict[str, object], servers: list[McpServer]) -> bool:
-        mcp_servers = data.get("mcpServers")
-        if not isinstance(mcp_servers, dict):
-            return False
-
-        return not any(
-            mcp_entry_drift(mcp_servers.get(server.name), server) for server in servers
-        )
+    return changed
 
 
-_OMP_CONFIG_ADAPTERS = [_OmpConfigAdapter(path=path) for path in OMP_MCP_PATHS]
+def _validate_omp_mcp(data: dict[str, object], servers: list[McpServer]) -> bool:
+    mcp_servers = data.get("mcpServers")
+    return isinstance(mcp_servers, dict) and not any(
+        mcp_entry_drift(mcp_servers.get(server.name), server) for server in servers
+    )
 
 
 def _json_entry(server: McpServer) -> dict[str, object]:
@@ -403,48 +380,46 @@ def _json_entry(server: McpServer) -> dict[str, object]:
     return entry
 
 
-def _write_json_config_data(
-    adapter: _OmpConfigAdapter,
+def _configure_omp_mcp(
+    path: Path,
     servers: list[McpServer],
     *,
-    remove: tuple[str, ...] = (),
-    gate: tuple[str, ...] = (),
+    remove: tuple[str, ...],
+    gate: tuple[str, ...],
     dry_run: bool,
 ) -> bool:
-    data = adapter._read()
+    data = load_json_object(path)
     if data is None:
         return False
 
     try:
-        changed = adapter.add_servers(data, servers)
-        changed = adapter.gate_servers(data, gate) or changed
+        changed = _merge_omp_mcp(path, data, servers, remove=remove, gate=gate)
     except ValueError as exc:
-        warn(f"{adapter.path}: {exc}")
+        warn(f"{path}: {exc}")
         return False
-    changed = adapter.remove_servers(data, remove) or changed
 
-    if not adapter.validate(data, servers):
-        warn(f"{adapter.path}: generated config failed validation")
+    if not _validate_omp_mcp(data, servers):
+        warn(f"{path}: generated config failed validation")
         return False
 
     if not changed:
         return True
 
-    if not adapter._write(data, dry_run=dry_run):
+    if not _write_atomic_text(path, json.dumps(data, indent=2) + "\n", dry_run=dry_run):
         return False
     if dry_run:
         return True
 
-    verified = adapter._read()
-    if verified is None or not adapter.validate(verified, servers):
-        warn(f"{adapter.path}: write verification failed")
+    verified = load_json_object(path)
+    if verified is None or not _validate_omp_mcp(verified, servers):
+        warn(f"{path}: write verification failed")
         return False
     return True
 
 
 def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
     path = HERMES_CONFIG_PATH
-    data = _read_hermes_config(path)
+    data = load_yaml_object(path)
     if data is None:
         return False
 
@@ -471,7 +446,7 @@ def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
     if dry_run:
         return True
 
-    verified = _read_hermes_config(path)
+    verified = load_yaml_object(path)
     if verified is None or not validate_hermes_config(
         verified,
         servers,
@@ -509,9 +484,9 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     excluded = tuple(OMP_EXCLUDED_SERVERS)
     gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS) + OMP_GATED_BUILTINS + excluded
     ok_all = True
-    for adapter in _OMP_CONFIG_ADAPTERS:
-        if not _write_json_config_data(
-            adapter, omp_servers, remove=excluded, gate=gated, dry_run=dry_run
+    for path in OMP_MCP_PATHS:
+        if not _configure_omp_mcp(
+            path, omp_servers, remove=excluded, gate=gated, dry_run=dry_run
         ):
             ok_all = False
     return ok_all

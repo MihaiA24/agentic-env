@@ -16,6 +16,21 @@ For [issue #42](https://github.com/MihaiA24/.dotfiles/issues/42). The approved r
 
 These checks establish installation, discovery and the review path. They do not establish every skill's end-to-end behavior, performance improvements or closure of all issue scenarios. Native Hermes provider review was not established; the verified route uses OMP. Hermes still advertises manual-only skills and warns about canonical-store symlink targets, though loading succeeds.
 
+## Bounded readiness scenarios — 2026-09-23
+
+The readiness-fix branch exercises the selected routing on real repository changes, not another catalogue or installation-only assessment:
+
+| Scenario | Exercised path and observed result |
+|---|---|
+| Small known change | Added `bun test omp/hooks/retention-canary.test.ts` to the existing CI unit gate. That exact command passed all seven tests locally. No design interview or competing implementation loop was needed. |
+| Reproduced bugs | Before the fixes, a scoped baseline update discarded other packs and a vendored reinstall retained false `foreign:` drift. Afterward, a real `--pack pstack --update-baseline` invocation in a disposable package copy preserved all four unselected entries, including metadata outside the manifest. A real native-CLI reinstall of Matt `tdd` and pstack `teach` into isolated HOME reported both source/install columns `ok` despite stale origins; deliberately changing `teach` then reported `modified`. Behavioral regressions retain these boundaries. |
+| Risky network/install change | Actual Apple Silicon download, checksum validation, executable launch (`omp/18.2.11`) and forced update succeeded in disposable HOME. Local HTTP regression fixtures exercise invalid redirects, lookup failure, checksum rejection, version-floor failure and preservation of an existing executable. This is runtime evidence for the installer change, not a fresh full-stack acceptance run. |
+| Changed interfaces | Native custom-directory copies of `tdd` and `teach` matched every source package file; explicit empty selection failed without creating its destination. The OMP configurator created both roots, reran byte-identically and refused to overwrite a deliberately drifted command. Bootstrap dry-run/no-op JSON parsed; a failing phase's inherited child stdout went to stderr while stdout remained one JSON report. |
+
+The review route is the two-axis `code-review` recipe over an explicitly scoped immutable WIP snapshot against `7ccfe4c`, including the new regression file and excluding unrelated user documents. Historical dependency-loading and harness-discovery checks remain in the table above; this task did not refresh the workstation's installed skills.
+
+These scenarios strengthen issue #42's workflow evidence without claiming every selected skill works end to end, a performance gain, native Hermes reviewer conformance, or a green clean-host matrix. `blast-radius` was not invoked: the installer risk was checked directly through the affected runtime and failure boundaries.
+
 ## Historical research
 
 The [complete reassessment, sources and pre-installation evidence](https://github.com/MihaiA24/.dotfiles/blob/0a827c85d89e3737cca03f20eb5a17c3c1b117fe/agentic-env/docs/skills-workflow-recheck-2026-09-21.md) are preserved at the implementation commit. Its earlier proposals are not the adoption contract: the full pstack TDD/teaching contracts were not approved for folding into Matt's methods. Usage counts were not performance measurements or a count of human workflows.

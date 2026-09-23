@@ -49,7 +49,6 @@ class StackMetadataTests(unittest.TestCase):
         )
 
         assert install_agents.HERMES_INSTALL_URL == stack_metadata.HERMES_INSTALL_URL
-        assert install_agents.OMP_INSTALL_URL == stack_metadata.OMP_INSTALL_URL
         assert (
             install_agents.OPENAI_CODEX_PACKAGE == stack_metadata.OPENAI_CODEX_PACKAGE
         )
@@ -129,19 +128,6 @@ class StackMetadataTests(unittest.TestCase):
                 "--commit",
                 stack_metadata.HERMES_COMMIT,
             ]
-
-        with (
-            patch(
-                "agentic_env.install_agents.cmd_version_at_least",
-                side_effect=[False, True],
-            ),
-            patch("agentic_env.install_agents.cmd_exists", return_value=False),
-            patch(
-                "agentic_env.install_agents.run_remote_script", return_value=True
-            ) as remote,
-        ):
-            assert install_agents._install_omp(True) is True
-            assert remote.call_args.kwargs["interpreter_args"] == ["--binary"]
 
     def test_release_archive_contract_covers_supported_hosts(self) -> None:
         platforms = {

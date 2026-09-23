@@ -35,6 +35,8 @@ Run on a terminal without selection flags, `agentic-install-agents` and `agentic
 
 `--yes` uses the flags as given without prompting. Without a terminal no picker can open, so pass flags. `agentic-bootstrap` installs every CLI and the `--skill-profile` packs; `agentic-bootstrap --interactive` lets its two install phases prompt instead.
 
+For automation, completed `agentic-bootstrap --summary-format json` runs emit one JSON document on stdout and send progress, including child-process output, to stderr. Add `--dry-run` to report the plan without executing it. Each phase records its arguments, requested/executed/skipped state, skip reason, error and duration. Status is `failed` (exit 1) after any returned or raised phase failure, `partial` (exit 0) when some phases were skipped, or `ok` (exit 0); an all-skipped run is `ok`. Argument errors and interactive cancellation may exit without a JSON report; cancellation stops the workflow.
+
 ### Skills
 
 #### Choose an installation path
@@ -55,6 +57,8 @@ agentic-install-skills-mcps --skill-profile default --yes
 ```
 
 [The manifest](agentic_env/skill-packs.json) selects 38 skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+
+In flag-driven runs, explicit `--skill` or `--skills-dir` selections that resolve to no packages fail without installing anything. An intentionally empty interactive selection remains a successful no-op.
 
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
@@ -180,7 +184,7 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
    agentic-skill-drift
    ```
 
-   Doctor checks stack wiring. Drift checks the manifest's full roster, not just your selection, so skills you left out can report `missing`. Read each drift column: `foreign:<source>` concerns recorded provenance, not necessarily different file contents, and an upstream `unknown` is unverified, not a pass. If the upstream lookup is unavailable, use `--no-upstream` for a separate source/install check. Do not use `--update-baseline` just to clear warnings.
+   Doctor checks stack wiring. Drift checks the manifest's full roster, not just your selection, so skills you left out can report `missing`. For remote packs, `foreign:<source>` concerns recorded provenance, not necessarily different file contents. Vendored packs are judged by their reviewed source bytes; stale native-CLI lock origins do not override matching content. An upstream `unknown` is unverified, not a pass. If the upstream lookup is unavailable, use `--no-upstream` for a separate source/install check. Do not use `--update-baseline` just to clear warnings.
 
 5. **Start a new OMP session and check discovery.** Ask OMP to read `skill://<selected-name>` and report its name without executing the recipe. Check one selected skill from each installed pack; for Matt/pstack, `writing-for-agents` and `how` are examples if selected. OMP hides manual-only skills from automatic discovery but still loads them by name.
 
@@ -194,11 +198,13 @@ agentic-skill-drift --pack ponytail --offline --no-upstream
 agentic-skill-drift --update-baseline
 ```
 
-The report has three columns per curated skill. **Source** compares the pack source with the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json); a moved tag or an unreviewed vendored edit shows as `changed`. **Installed** compares `~/.agents/skills/<skill>` with that source and reports `missing`, `modified`, or `foreign:<source>` when the skills CLI lockfile names another origin. **Upstream** compares upstream at the pinned revision with upstream today, so a vendored pack's documented adaptations never count as drift but a real upstream edit does.
+The report has three columns per curated skill. **Source** compares the pack source with the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json); a moved tag or an unreviewed vendored edit shows as `changed`. **Installed** compares `~/.agents/skills/<skill>` with that source and reports `missing` or `modified`; remote packs also report `foreign:<source>` when the skills CLI lockfile names another origin. **Upstream** compares upstream at the pinned revision with upstream today, so a vendored pack's documented adaptations never count as drift but a real upstream edit does.
 
 This command has no `--skills-dir` override; the Installed column always checks the canonical managed store. Check standalone copies with [destination verification](#verify-and-refresh-standalone-copies) instead.
 
 Pinned revisions come from the pack `source` for remote packs and the `upstream` block for vendored ones. Source trees are cached under `~/.cache/agentic-env/skill-sources`; `--offline` uses that cache only, `--no-upstream` skips the GitHub API. Record a reviewed state with `--update-baseline` after every deliberate pack move.
+
+`--pack NAME --update-baseline` updates only that pack and preserves every unselected pack's fingerprints and metadata, including entries outside a custom manifest. An unreadable or malformed existing baseline is refused rather than overwritten.
 
 ## Configuration and updates
 
@@ -281,7 +287,7 @@ Three things differ from the scripted run, which provides them through `env -i`:
 
 - **`UV_PROJECT_ENVIRONMENT` is required.** The repo mounts read-only, so `uv run` fails trying to write `.venv` inside it. Your host's `.venv` is also visible through the mount and points at an interpreter the container does not have.
 - **Skill targets decide where skills land.** `--skill-agent claude` writes real directories under `~/.claude/skills` and never creates `~/.agents/skills`, so `agentic-skill-drift` reports the whole roster as `missing`. Omit the flag, or include `codex`, to populate the canonical store.
-- **A clone failure surfaces as a false auth error.** `Failed to clone … Authentication failed` on a public repo means git mangled the ref advertisement (`expected flush after ref listing`). Remote packs are cloned, and caveman is the first remote pack, so it hits the error first. The image pins `http.version HTTP/1.1` to avoid this; set the same in any other container.
+- **A public clone can fail with a misleading auth error.** `Failed to clone … Authentication failed` accompanied by `expected flush after ref listing` can mean Git/libcurl corrupted the HTTP/2 ref advertisement. Remote packs still need Git. `clean-acceptance.sh` supplies `http.version=HTTP/1.1` through command-scope environment config, which survives its global/system config isolation. For a manual run, export `GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.version GIT_CONFIG_VALUE_0=HTTP/1.1`.
 
 ### Native Apple Silicon
 
@@ -300,7 +306,7 @@ Keep that HOME for inspection/rechecks; use a new empty directory for another fr
 
 ### CI and recorded evidence
 
-[CI](../.github/workflows/agentic-env-smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after unit tests pass. Each acceptance job runs fresh installation, then checks-only. Linux checks-only also exercises updates; macOS skips that second update to avoid another unauthenticated GitHub lookup. [Run manually](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml) when needed.
+[CI](../.github/workflows/agentic-env-smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and Bun retention-canary regressions pass. Each acceptance job runs fresh installation, then checks-only with forced updates on all three hosts. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml) when needed.
 
 The independent **Windows Python-only skill copy** job uses `windows-latest` and Python 3.12 to run the dependency-free checks above. It covers complete vendored copies, reported remote exclusions, selection errors, collision preflight and refusal to copy into a source package. It does not install agents or MCPs or validate skill workflows.
 

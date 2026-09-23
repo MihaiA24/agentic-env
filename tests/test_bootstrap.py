@@ -1,9 +1,22 @@
 from __future__ import annotations
 
+import io
+import json
+import subprocess
+import sys
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
-from agentic_env import bootstrap
+from agentic_env import bootstrap, common
+
+
+def _run_json(argv: list[str]) -> tuple[int, dict, str]:
+    stdout, stderr = io.StringIO(), io.StringIO()
+    with redirect_stdout(stdout), redirect_stderr(stderr):
+        code = bootstrap.main([*argv, "--summary-format", "json"])
+    # json.loads on the whole stream proves stdout is exactly one JSON document.
+    return code, json.loads(stdout.getvalue()), stderr.getvalue()
 
 
 class BootstrapTests(unittest.TestCase):
@@ -214,9 +227,115 @@ class BootstrapTests(unittest.TestCase):
 
         assert plan is not None
         self.assertEqual([phase.requested for phase in plan], [False, True, True, True])
-        self.assertIsNone(plan[1].skipped_reason)
-        self.assertIsNotNone(plan[0].skipped_reason)
-        self.assertIn("--skip-install-agents", plan[0].skipped_reason)
+
+    @patch("agentic_env.bootstrap.install_agents.main")
+    @patch("agentic_env.bootstrap.install_skills_mcps.main")
+    @patch("agentic_env.bootstrap.stack_doctor.main")
+    @patch("agentic_env.bootstrap.configure_agent_mcps.main")
+    def test_json_dry_run_plans_phases_and_explains_skips(
+        self,
+        configure_main,
+        doctor_main,
+        skills_main,
+        agents_main,
+    ) -> None:
+        code, summary, stderr = _run_json(["--dry-run", "--skip-doctor"])
+
+        self.assertEqual(code, 0)
+        for phase_main in (agents_main, skills_main, configure_main, doctor_main):
+            phase_main.assert_not_called()
+        self.assertEqual(summary["status"], "partial")
+        self.assertTrue(summary["dry_run"])
+        phases = {phase["name"]: phase for phase in summary["phases"]}
+        self.assertEqual(list(phases), ["install-agents", "install-skills", "configure", "doctor"])
+        self.assertEqual(phases["install-agents"]["argv"], ["--all", "--yes"])
+        self.assertEqual(
+            [(p["requested"], p["executed"], p["skipped"]) for p in summary["phases"]],
+            [(True, False, False)] * 3 + [(False, False, True)],
+        )
+        self.assertIsNone(phases["configure"]["skipped_reason"])
+        reason = phases["doctor"]["skipped_reason"]
+        self.assertIn("--skip-doctor", reason)
+        self.assertIn("omit", reason)
+        self.assertIn("install-agents", stderr)
+
+    @patch("agentic_env.bootstrap.install_agents.main", return_value=0)
+    @patch("agentic_env.bootstrap.install_skills_mcps.main", return_value=0)
+    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
+    @patch("agentic_env.bootstrap.configure_agent_mcps.main", return_value=0)
+    def test_json_success_reports_every_phase_executed(self, *_phase_mains) -> None:
+        code, summary, _stderr = _run_json([])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(summary["status"], "ok")
+        self.assertFalse(summary["dry_run"])
+        for phase in summary["phases"]:
+            self.assertTrue(phase["executed"])
+            self.assertFalse(phase["skipped"])
+            self.assertIsNone(phase["error"])
+            self.assertIsInstance(phase["duration_ms"], int)
+
+    @patch("agentic_env.bootstrap.install_agents.main", return_value=3)
+    @patch("agentic_env.bootstrap.install_skills_mcps.main", side_effect=RuntimeError("boom"))
+    @patch("agentic_env.bootstrap.stack_doctor.main")
+    @patch("agentic_env.bootstrap.configure_agent_mcps.main")
+    def test_json_reports_failures_and_skips_and_keeps_running_later_phases(
+        self,
+        configure_main,
+        doctor_main,
+        _skills_main,
+        _agents_main,
+    ) -> None:
+        def noisy_doctor(_argv: list[str]) -> int:
+            print("doctor progress")
+            common.ok("doctor console line")
+            return 0
+
+        doctor_main.side_effect = noisy_doctor
+
+        code, summary, stderr = _run_json(["--skip-configure"])
+
+        self.assertEqual(code, 1)
+        self.assertEqual(summary["status"], "failed")
+        phases = {phase["name"]: phase for phase in summary["phases"]}
+        self.assertEqual(phases["install-agents"]["error"], "phase returned non-zero")
+        self.assertTrue(phases["install-agents"]["executed"])
+        self.assertIn("RuntimeError: boom", phases["install-skills"]["error"])
+        self.assertTrue(phases["install-skills"]["executed"])
+        configure_main.assert_not_called()
+        self.assertTrue(phases["configure"]["skipped"])
+        self.assertFalse(phases["configure"]["executed"])
+        self.assertIn("--skip-configure", phases["configure"]["skipped_reason"])
+        self.assertTrue(phases["doctor"]["executed"])
+        self.assertIsNone(phases["doctor"]["error"])
+        self.assertIn("doctor progress", stderr)
+        self.assertIn("doctor console line", stderr)
+
+        # The shared console is not left pointing at stderr after a JSON run.
+        after = io.StringIO()
+        with redirect_stdout(after):
+            common.ok("after json run")
+        self.assertIn("after json run", after.getvalue())
+
+    def test_json_redirects_inherited_child_stdout(self) -> None:
+        script = """
+import subprocess, sys
+from agentic_env import bootstrap
+def doctor(argv):
+    subprocess.run([sys.executable, '-c', 'print("child progress")'], check=True)
+    return 7
+bootstrap.stack_doctor.main = doctor
+raise SystemExit(bootstrap.main([
+    '--skip-install-agents', '--skip-install-skills', '--skip-configure',
+    '--verbose', '--summary-format', 'json',
+]))
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=30
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(json.loads(result.stdout)["status"], "failed")
+        self.assertIn("child progress", result.stderr)
 
 
 if __name__ == "__main__":

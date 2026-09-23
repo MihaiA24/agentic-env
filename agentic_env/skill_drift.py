@@ -4,8 +4,8 @@ Three questions per skill in the manifest:
 
 * `upstream` — did the pack's upstream change since the pinned revision?
 * `source`   — does the pack source still hash to the reviewed fingerprint?
-* `install`  — does the installed copy match that source, and did the skills CLI
-  install it from this pack?
+* `install`  — does the installed copy match that source, and, for a remote
+  pack, did the skills CLI install it from that repo?
 
 Vendored packs carry documented local adaptations, so the upstream answer never
 diffs the vendored tree against upstream: it compares upstream at the pinned
@@ -16,6 +16,7 @@ a real upstream edit does.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import io
 import json
@@ -28,7 +29,6 @@ import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from rich.console import Console
 from rich.table import Table
 
 from . import common
@@ -36,6 +36,7 @@ from .common import fetch_url, info, ok, skip, warn
 from .install_skills_mcps import (
     SKILL_PACK_CONFIG_PATH,
     SkillManifest,
+    SkillUpstream,
     load_skill_manifest,
 )
 
@@ -54,21 +55,9 @@ CODELOAD = "https://codeload.github.com"
 _TIMEOUT_SEC = 60
 _BASELINE_VERSION = 1
 _COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
-_REMOTE_SOURCE_PATTERN = re.compile(r"^(?P<repo>[\w.-]+/[\w.-]+)(?:#(?P<ref>[^#]+))?$")
 
 UNKNOWN = "unknown"
 FIX = "agentic-install-skills-mcps --skill-profile default --yes"
-
-
-@dataclass(frozen=True)
-class Upstream:
-    repo: str
-    ref: str
-    path: str | None = None
-
-    @property
-    def pins_commit(self) -> bool:
-        return bool(_COMMIT_PATTERN.match(self.ref))
 
 
 @dataclass
@@ -125,19 +114,6 @@ def locate_skill(root: Path | None, name: str) -> Path | None:
     return matches[0] if matches else None
 
 
-def pack_upstream(manifest: SkillManifest, pack: str) -> Upstream | None:
-    """Repo and revision to compare against, from `upstream` or the remote source."""
-    entry = manifest.packs[pack]
-    repo, ref = entry.upstream_repo, entry.upstream_ref
-    if repo is None or ref is None:
-        match = _REMOTE_SOURCE_PATTERN.match(entry.source)
-        if match is None or match.group("ref") is None:
-            return None
-        repo = repo or match.group("repo")
-        ref = ref or match.group("ref")
-    return Upstream(repo=repo, ref=ref, path=entry.upstream_path)
-
-
 def _api(route: str) -> object | None:
     try:
         return json.loads(fetch_url(f"{GITHUB_API}{route}", _TIMEOUT_SEC))
@@ -146,10 +122,10 @@ def _api(route: str) -> object | None:
         return None
 
 
-def latest_ref(upstream: Upstream) -> str | None:
+def latest_ref(upstream: SkillUpstream) -> str | None:
     """The revision upstream is at now: newest commit for a commit pin (scoped to
     `path`), newest release tag otherwise."""
-    if upstream.pins_commit:
+    if _COMMIT_PATTERN.fullmatch(upstream.ref):
         scope = f"&path={upstream.path}" if upstream.path else ""
         commits = _api(f"/repos/{upstream.repo}/commits?per_page=1{scope}")
         if isinstance(commits, list) and commits and isinstance(commits[0], dict):
@@ -201,7 +177,7 @@ def fetch_tree(repo: str, ref: str, *, offline: bool) -> Path | None:
     return target
 
 
-def _scoped(tree: Path | None, upstream: Upstream) -> Path | None:
+def _scoped(tree: Path | None, upstream: SkillUpstream) -> Path | None:
     if tree is None or not upstream.path:
         return tree
     scoped = tree / upstream.path
@@ -209,7 +185,7 @@ def _scoped(tree: Path | None, upstream: Upstream) -> Path | None:
 
 
 def source_root(
-    manifest: SkillManifest, pack: str, upstream: Upstream | None, *, offline: bool
+    manifest: SkillManifest, pack: str, upstream: SkillUpstream | None, *, offline: bool
 ) -> Path | None:
     """What the installer reads: the vendored directory, or the pinned tarball."""
     if manifest.packs[pack].source.startswith("./"):
@@ -234,46 +210,47 @@ def load_lock(path: Path = SKILL_LOCK_PATH) -> dict[str, dict]:
     } if isinstance(skills, dict) else {}
 
 
-def load_baseline(path: Path = BASELINE_PATH) -> dict[str, dict[str, str]]:
-    """Reviewed fingerprints: pack -> skill -> digest."""
+def _baseline_packs(path: Path) -> dict[str, object] | None:
+    """Raw `packs` of the baseline file: `{}` when absent, None when unreadable."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except FileNotFoundError:
         return {}
-    packs = payload.get("packs")
-    if not isinstance(packs, dict):
-        return {}
-    baseline: dict[str, dict[str, str]] = {}
-    for pack, entry in packs.items():
-        digests = entry.get("skills") if isinstance(entry, dict) else None
-        if isinstance(digests, dict):
-            baseline[pack] = {
-                name: value for name, value in digests.items() if isinstance(value, str)
-            }
-    return baseline
+    except (OSError, ValueError):
+        return None
+    packs = payload.get("packs") if isinstance(payload, dict) else None
+    return packs if isinstance(packs, dict) else None
+
+
+def _skill_digests(entry: object) -> dict[str, str] | None:
+    digests = entry.get("skills") if isinstance(entry, dict) else None
+    if not isinstance(digests, dict):
+        return None
+    return {name: value for name, value in digests.items() if isinstance(value, str)}
+
+
+def load_baseline(path: Path = BASELINE_PATH) -> dict[str, dict[str, str]]:
+    """Reviewed fingerprints: pack -> skill -> digest."""
+    return {
+        pack: digests
+        for pack, entry in (_baseline_packs(path) or {}).items()
+        if (digests := _skill_digests(entry)) is not None
+    }
 
 
 def _origin_status(
     manifest: SkillManifest, pack: str, skill: str, lock: dict[str, dict]
 ) -> str | None:
-    """`foreign:<source>` when the skills CLI recorded another pack as the origin."""
-    entry = lock.get(skill)
-    if entry is None:
-        return None
-    recorded = str(entry.get("source", "")).strip()
-    if not recorded:
-        return None
-
+    """`foreign:<source>` when the skills CLI recorded another repo as the origin
+    of a remote pack's skill. Vendored installs are judged by content alone: the
+    skills CLI keeps a stale remote source in the lock after a local install."""
     source = manifest.packs[pack].source
     if source.startswith("./"):
-        vendored = Path(manifest.source(pack))
-        recorded_path = Path(recorded)
-        if recorded_path == vendored or vendored in recorded_path.parents:
-            return None
-        return f"foreign:{recorded}"
-
-    match = _REMOTE_SOURCE_PATTERN.match(source)
-    expected = match.group("repo") if match else source
+        return None
+    recorded = str(lock.get(skill, {}).get("source", "")).strip()
+    if not recorded:
+        return None
+    expected = source.partition("#")[0]
     return None if recorded.lower() == expected.lower() else f"foreign:{recorded}"
 
 
@@ -286,7 +263,7 @@ def inspect_pack(
     offline: bool,
     check_upstream: bool,
 ) -> list[SkillStatus]:
-    upstream = pack_upstream(manifest, pack)
+    upstream = manifest.packs[pack].upstream
     pinned_source = source_root(manifest, pack, upstream, offline=offline)
 
     upstream_pinned: Path | None = None
@@ -372,32 +349,35 @@ def unmanaged_skills(manifest: SkillManifest) -> list[str]:
 def write_baseline(
     manifest: SkillManifest, rows: list[SkillStatus], path: Path = BASELINE_PATH
 ) -> bool:
-    """Record current source digests as reviewed. Packs with an unresolved source
-    keep their previous fingerprints rather than losing them."""
-    payload: dict[str, object] = {"version": _BASELINE_VERSION, "packs": {}}
-    previous = load_baseline(path)
-    packs: dict[str, object] = {}
+    """Record current source digests for the packs in `rows`, preserving every
+    unselected entry and unresolved skill's previous fingerprint."""
+    previous = _baseline_packs(path)
+    if previous is None:
+        warn(f"{path}: unreadable baseline; fix or remove it before recording")
+        return False
 
-    for pack in dict.fromkeys(row.pack for row in rows):
+    selected = dict.fromkeys(row.pack for row in rows)
+    packs: dict[str, object] = dict(previous)
+    for pack in selected:
         digests = {row.skill: row.digest for row in rows if row.pack == pack and row.digest}
         unresolved = [row.skill for row in rows if row.pack == pack and row.digest is None]
         if unresolved:
             warn(f"{pack}: keeping recorded fingerprints, unresolved: {', '.join(unresolved)}")
-            digests = {**previous.get(pack, {}), **digests}
-        upstream = pack_upstream(manifest, pack)
+            digests = {**(_skill_digests(previous.get(pack)) or {}), **digests}
+        upstream = manifest.packs[pack].upstream
         packs[pack] = {
             "source": manifest.packs[pack].source,
             "upstream": f"{upstream.repo}@{upstream.ref}" if upstream else None,
             "skills": dict(sorted(digests.items())),
         }
 
-    payload["packs"] = packs
+    payload = {"version": _BASELINE_VERSION, "packs": packs}
     try:
         path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n", encoding="utf-8")
     except OSError as exc:
         warn(f"{path}: could not write baseline ({exc})")
         return False
-    ok(f"{path}: fingerprints recorded for {len(packs)} packs")
+    ok(f"{path}: fingerprints recorded for {len(selected)} packs")
     return True
 
 
@@ -478,49 +458,50 @@ def _parse(argv: list[str]) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv if argv is not None else sys.argv[1:])
 
-    if args.json:
-        # Progress and warnings share the console with every other command, so
-        # move them off stdout: `--json` must emit one parseable document.
-        common.console = Console(stderr=True)
-
-    manifest = load_skill_manifest(Path(args.skill_config))
-    if manifest is None:
-        return 1
-
-    if args.pack:
-        packs = [name.strip().lower() for name in args.pack]
-        unknown = [name for name in packs if name not in manifest.packs]
-        if unknown:
-            warn(f"Unknown pack(s): {', '.join(unknown)}")
+    document = sys.stdout
+    # Progress and warnings print through the shared console to stdout; divert
+    # them for this call only so `--json` emits one parseable document.
+    diverted = contextlib.redirect_stdout(sys.stderr) if args.json else contextlib.nullcontext()
+    with diverted:
+        manifest = load_skill_manifest(Path(args.skill_config))
+        if manifest is None:
             return 1
-    else:
-        packs = list(manifest.packs)
 
-    baseline = load_baseline()
-    lock = load_lock()
-    rows: list[SkillStatus] = []
-    for pack in packs:
-        rows.extend(
-            inspect_pack(
-                manifest,
-                pack,
-                baseline=baseline,
-                lock=lock,
-                offline=args.offline,
-                check_upstream=not args.no_upstream,
+        if args.pack:
+            packs = [name.strip().lower() for name in args.pack]
+            unknown = [name for name in packs if name not in manifest.packs]
+            if unknown:
+                warn(f"Unknown pack(s): {', '.join(unknown)}")
+                return 1
+        else:
+            packs = list(manifest.packs)
+
+        baseline = load_baseline()
+        lock = load_lock()
+        rows: list[SkillStatus] = []
+        for pack in packs:
+            rows.extend(
+                inspect_pack(
+                    manifest,
+                    pack,
+                    baseline=baseline,
+                    lock=lock,
+                    offline=args.offline,
+                    check_upstream=not args.no_upstream,
+                )
             )
-        )
 
-    if args.update_baseline:
-        return 0 if write_baseline(manifest, rows) else 1
+        if args.update_baseline:
+            return 0 if write_baseline(manifest, rows) else 1
 
-    extra = unmanaged_skills(manifest)
-    if args.json:
-        print(json.dumps({"skills": [asdict(row) for row in rows], "unmanaged": extra}, indent=2))
-    else:
-        report(rows, extra)
+        extra = unmanaged_skills(manifest)
+        if args.json:
+            findings = {"skills": [asdict(row) for row in rows], "unmanaged": extra}
+            print(json.dumps(findings, indent=2), file=document)
+        else:
+            report(rows, extra)
 
-    return 1 if any(row.drifted() for row in rows) else 0
+        return 1 if any(row.drifted() for row in rows) else 0
 
 
 if __name__ == "__main__":

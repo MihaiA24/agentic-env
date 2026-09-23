@@ -38,6 +38,8 @@ mkdir -p "$_smoke_home/.tmp"
 printf 'Acceptance HOME (retained for checks-only): %s\n' "$_smoke_home"
 
 cd "$_SCRIPT_DIR"
+# Command-scope config survives isolation. Older Git/libcurl pairs can corrupt
+# GitHub ref advertisements over HTTP/2; do not depend on ignored system config.
 exec env -i \
   HOME="$_smoke_home" USER="$(id -un)" LOGNAME="$(id -un)" \
   PATH="$_smoke_home/.local/bin:$_smoke_home/.bun/bin:$_prereq_path" \
@@ -51,6 +53,7 @@ exec env -i \
   npm_config_prefix="$_smoke_home/.local" npm_config_cache="$_smoke_home/.cache/npm" \
   npm_config_userconfig="$_smoke_home/.npmrc" npm_config_globalconfig="$_smoke_home/.npmrc-global" \
   BUN_INSTALL="$_smoke_home/.bun" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 \
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.version GIT_CONFIG_VALUE_0=HTTP/1.1 \
   AGENTIC_DOTFILES_ROOT="$_dotfiles_root" \
   AGENTIC_SMOKE_RUN_ID="${GITHUB_RUN_ID:-local}/${GITHUB_RUN_ATTEMPT:-1}" \
   AGENTIC_SMOKE_REVISION="${GITHUB_SHA:-$(git -c safe.directory="$_dotfiles_root" -C "$_dotfiles_root" rev-parse HEAD)}" \

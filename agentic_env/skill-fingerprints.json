@@ -17,7 +17,6 @@
         "research": "3a4d83ff8ed2bb92af737f32ac24c8f83b0c978b3d3d3e9a9bbbe3d0932c2f22",
         "resolving-merge-conflicts": "7822327fcec1bb4f203b16098c5e1fa78a44ef31e2ef4a1df76e0d2969676b77",
         "tdd": "1397d089923dd98221b9c23c7eb7094a72586a3d1226b4f51659ad77487c3c32",
-        "teach": "d9fbfb966d425f19cdbeb34cceab6ead62041ccacd00da29b55412333cf9748a",
         "to-spec": "d0fc2e91f98fc86a70fe4d5ceba79a85268d877cae7b3853a838fb1055e32dc6",
         "to-tickets": "d8c45dea96290650569dae6525830eee0c173e56737140cdd4c0a1e1907c81b4",
         "wait-what": "d8c5157780c8b4933f887639779f807c51f18e0564bf6236e1a4cb2c793bd73c",
@@ -46,9 +45,10 @@
         "recall": "ae11245e76755b88c649d5fbcb8d2a31594217a08ec5c1be15bce941600f7016",
         "reflect": "c025d3a1ddb55a0c657c9cdd90335c84182f53673b45f7029c2945dce0319c1f",
         "show-me-your-work": "6b6add7e8091d8752241d1104f9c5784ac91d59e60bd5e40f5d9e51d086de692",
+        "teach": "cace7494b75c4767b5fa4e357a52b4dfe2c25562eb9f28fd42a3bea6f71219a6",
         "technical-writing": "eaea59364a15962d770c96bde6a7031c3b7de8dc31758e7ef0a2fa89bf356ae5",
         "unslop": "4c1f1fcd88d7f75cbe34f24c0a5e526c91e32a31212eb9e330bb03530470afa9",
-        "why": "699586d389d242cbc0877bad0071d9eec18707805231032a2a938ec0b3a2f3bf"
+        "why": "244b71648cd471d9d4ca5533525e58aff1bb120b805aa5de93c9826730b6b75f"
       }
     },
     "ponytail": {

@@ -1,6 +1,6 @@
 # Project memory stack
 
-This guide defines the first project template for agent-readable project context. The target is one repository at a time. Broader multi-repo patterns come later after this shape works in one repo.
+This guide defines the first project template for agent-readable project context. It targets one repository at a time; multi-repo patterns come after this shape works in one repo.
 
 ## Roles
 
@@ -11,12 +11,12 @@ Roles differ by harness:
 | OMP context access | OMP core | Native reads, search, shell, evaluation, and anchored edits | No |
 | OMP narrative memory | Mnemopi | Per-project transcript recall | No; retrieval layer |
 | Structural memory | `codebase-memory-mcp` | Code graph queries: symbols, callers, callees, routes, architecture, impact, dead-code candidates | No; rebuildable cache |
-| Secondary-agent narrative memory | `agentmemory` | Session history and rationale recall for Hermes, Claude Code, and Codex | No; retrieval layer |
+| Hermes narrative memory | `agentmemory` | Session history and rationale recall for Hermes | No; retrieval layer |
 | Plain-text project record | `CONTEXT.md` + `docs/adr/*.md` | Canonical domain language and accepted decisions | Yes |
 
-Rule: if losing the generated store would lose project truth, the fact belongs in plain text too.
+Rule: if losing a generated store would lose project truth, record the fact in plain text too.
 
-On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). `lean-ctx` was dropped from OMP on 2026-08-11 (ADR-0008 pre-registered fallback) and removed from the whole stack on 2026-09-02 (ADR-0009). `codebase-memory-mcp` remains available there, but its use is gated behind the codebase-memory litmus.
+On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). `lean-ctx` was dropped from OMP on 2026-08-11 (ADR-0008 pre-registered fallback) and removed from the whole stack on 2026-09-02 (ADR-0009). `codebase-memory-mcp` stays available on OMP, gated behind the codebase-memory litmus.
 
 ## Repository template
 
@@ -81,7 +81,7 @@ Examples:
 
 ### `agentmemory`
 
-Use on Hermes, Claude Code, and Codex for narrative recall:
+Use on Hermes for narrative recall:
 
 - why a session changed direction
 - discoveries that may matter later
@@ -89,7 +89,7 @@ Use on Hermes, Claude Code, and Codex for narrative recall:
 - debugging history
 - partial reasoning that should help future agents
 
-Do not use it as the only source for accepted decisions. Important decisions get promoted into ADRs. Do not mount it on OMP; Mnemopi is the sole narrative-memory owner there under ADR-0006.
+Do not use it as the only source for accepted decisions; promote important decisions into ADRs. Do not mount it on OMP, where Mnemopi is the sole narrative-memory owner under ADR-0006.
 
 ### `codebase-memory-mcp`
 
@@ -102,11 +102,11 @@ Use for structural questions:
 - find routes, channels, or cross-service edges
 - identify dead/unused candidates
 
-Do not store rationale here. The graph is derived from code and can be rebuilt.
+Do not store rationale here. The graph derives from code and can be rebuilt.
 
 ## Install and configure
 
-The [machine-provisioning runbook](../README.md#quick-usage) owns installation and per-agent configuration on supported macOS/Linux hosts; this document owns memory roles. Its checkout installation step starts in the `agentic-env` directory, not the dotfiles root.
+The [machine-provisioning runbook](../README.md#quick-usage) owns installation and per-agent configuration on supported macOS/Linux hosts; this document owns memory roles. The runbook's checkout installation step starts in the `agentic-env` directory, not the dotfiles root.
 
 The [custom-directory and Windows copy routes](../README.md#choose-an-installation-path) only copy skill packages. They do not install or configure this memory stack, MCPs, hooks or agent discovery.
 
@@ -116,7 +116,7 @@ Run this when opening a repo for agent work:
 
 1. Ensure `CONTEXT.md` exists.
 2. Ensure `docs/adr/` exists or create it on first ADR.
-3. On OMP, use native context I/O and Mnemopi; on a secondary agent, verify its `agentmemory` wiring (`agentic-stack-doctor` warns on it).
+3. On OMP, use native context I/O and Mnemopi; on Hermes, verify its `agentmemory` wiring (`agentic-stack-doctor` warns on it).
 4. If the codebase-memory litmus passes, index the repo with `codebase-memory-mcp` or enable auto-index.
 5. Ask structural questions through `codebase-memory-mcp` only after that litmus passes.
 6. During `grill-with-docs`, update `CONTEXT.md` immediately when a term is settled.
@@ -126,6 +126,6 @@ Run this when opening a repo for agent work:
 
 - `CONTEXT.md`: keep only current canonical language.
 - ADRs: keep forever; supersede with a new ADR when direction changes.
-- `agentmemory`: keep project sessions for secondary agents and let its lifecycle/decay manage recall quality.
+- `agentmemory`: keep project sessions for Hermes and let its lifecycle/decay manage recall quality.
 - Mnemopi: OMP's sole narrative-memory owner; treat it as transcript recall, not the canonical record.
-- `codebase-memory-mcp`: disposable/rebuildable index; optionally commit its shared graph artifact only after the team wants shared bootstrap speed.
+- `codebase-memory-mcp`: disposable, rebuildable index. Commit its shared graph artifact only if the team wants faster shared bootstrap.

@@ -6,26 +6,27 @@ Standards axis reads this file; each miss is one labelled finding. A repo
 standard overrides the reviewer's generic smell list.
 
 **Precedence.** These apply by default. A user instruction overrides any of
-them. When it does, say so once — which lens, what it would have wanted, what
-was done instead — then proceed. Never re-argue it, never silently comply.
+them. When it does, say once which lens applies, what it would have wanted,
+and what you did instead, then proceed. Never re-argue it, and never comply
+silently.
 
 ## 1. Prove it works
 
 Check the real thing, never a proxy: run the feature path, read the actual
 value, inspect the delegate's diff rather than its summary. When a check fails,
-suspect the observation before the system. Script the check when it can be
-scripted; keep the output where a reviewer can re-run it. Commit the script
-only when the trail must outlive the session.
+suspect the observation before the system. Script the check when possible, and
+keep the output where a reviewer can re-run it. Commit the script only when the
+trail must outlive the session.
 
 *Test:* "How would a reviewer re-prove this without trusting me?"
 
 ## 2. Build the lever (narrowed)
 
-For repetitive or hard-to-review edits, write the codemod, generator, or query
-and re-run it, rather than hand-applying units. Do the first unit by hand to
+For repetitive or hard-to-review edits, write and re-run a codemod, generator,
+or query instead of applying each unit by hand. Do the first unit by hand to
 learn the recipe, then let the tool do the rest and diff it against the hand
 version. Narrowing: the lever exists to make work reproducible or reviewable,
-not to manufacture a file in the diff. A couple of visible edits need no tool.
+not to add a file to the diff. A couple of visible edits need no tool.
 
 *Test:* "Would a reviewer rather read the script or re-do the edits?"
 
@@ -37,15 +38,15 @@ repeat the same arguments. Prefer returns over mutation, locals over fields,
 fields over module state; derive rather than sync. Name an invariant once, at
 the boundary.
 
-*Test:* "Where does X come from? What can change X?" — under thirty seconds for
-a new reader, or cut a layer or a piece of state.
+*Test:* "Where does X come from? What can change X?" A new reader should answer
+both in under thirty seconds; otherwise cut a layer or a piece of state.
 
 ## 4. Boundary and type discipline
 
 Validate at boundaries (CLI args, config, network, external APIs, env, DB
 rows); trust typed data inside. Parse raw input into domain types once; do not
-re-export transport or storage shapes through the public surface. Keep logic in
-pure functions the shell merely calls. Make illegal states unrepresentable:
+re-export transport or storage shapes through the public API. Keep logic in
+pure functions; the shell only calls them. Make illegal states unrepresentable:
 sum types over bags of optionals, branded ids for look-alike primitives,
 exhaustive matches the compiler enforces, types derived from the authoritative
 schema. Strengthen a type only where a runtime assertion marks it as too weak.
@@ -67,9 +68,9 @@ independent facts?"
 
 ## 6. Encode lessons in structure
 
-A correction that recurs becomes a mechanism, not a second instruction: an
-unrepresentable state, then a lint or banned API that fails CI, then a
-canonical helper, then a runtime check. Pick the strongest that fits. If the
+Turn a recurring correction into a mechanism, not a second instruction. From
+strongest to weakest: an unrepresentable state, a lint or banned API that fails
+CI, a canonical helper, a runtime check. Pick the strongest that fits. If the
 fix is structural, delete the instruction; if it needs judgment, make the
 instruction prominent and show the failure mode.
 

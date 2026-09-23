@@ -1,22 +1,22 @@
 # Matt Pocock + pstack: a mixed toolkit for efficient development
 
-Reviewed 2026-09-13. **This comparison does not use this host's installations, invocation history, previous adoption decisions, or familiarity with either author.** It replaces the selection rationale in the earlier [host-oriented fit review](skills-fit-review.md), not that report's installation evidence. Nothing has been installed, removed, activated, or rewritten in either upstream skill pack.
+Reviewed 2026-09-13. **This comparison ignores this host's installations, invocation history, earlier adoption decisions, and familiarity with either author.** It replaces the selection rationale of the earlier [host-oriented fit review](skills-fit-review.md), not that report's installation evidence. Nothing has been installed, removed, activated, or rewritten in either upstream skill pack.
 
 > Adjudicated 2026-09-15 (issue #42): the operative roster, roles, recipes and exclusions are `DECISIONS_AI_TOOLING.md` §6. Where this report and §6 differ (pstack `tdd`, `architect`, `swarm`, the `principle-*` skills), §6 is what is installed and why; the report stays as the evidence it was.
 
 ## Conclusion
 
-**Use Matt's skills to clarify intent, define domain language and testable interfaces, and separate specification review from code-quality review. Use pstack's skills to reconstruct system behavior, prove changes against reality, investigate downstream risk, and organize expensive parallel work when it earns its cost.** Neither collection deserves automatic ownership of the whole workflow.
+**Use Matt's skills to clarify intent, define domain language and testable interfaces, and separate specification review from code-quality review. Use pstack's skills to reconstruct system behavior, prove changes against reality, investigate downstream risk, and organize expensive parallel work when it earns its cost.** Neither pack should own the whole workflow by default.
 
-This is not a cosmetic endorsement of a mix. Relative to the earlier host-relative ranking:
+Changes from the earlier host-relative ranking:
 
-- **pstack `tdd` is my first choice for an ordinary bug with a practical regression path.** Matt's `tdd` is my first choice for deliberately test-first feature development at agreed interfaces.
-- **pstack `how` is a strong development tool**, not redundant merely because an agent can search code. It specifies the mental model that search must produce.
+- **pstack `tdd` is the first choice for an ordinary bug with a practical regression path.** Matt's `tdd` is the first choice for deliberate test-first feature work at agreed interfaces.
+- **pstack `how` is a strong development tool**, not redundant because an agent can search code. It specifies the mental model the search must produce.
 - **pstack `architect` is a strong option for consequential new architecture.** Matt's `codebase-design` is a lighter design reference; his architecture survey solves a different problem.
-- **Matt's `to-spec` and `to-tickets` are valuable when work needs durable transfer and dependency-aware execution.** Lack of previous use is not a reason to reject them.
-- **pstack `unslop` and selected principles have independent merit.** They are not rejected because another style or simplicity instruction happens to exist. Their value and overreach are assessed below.
+- **Matt's `to-spec` and `to-tickets` are valuable when work needs a durable handoff and dependency-aware execution.** Not having used them before is no reason to reject them.
+- **pstack `unslop` and selected principles have independent merit.** Other style or simplicity instructions do not make them redundant. Their value and overreach are assessed below.
 
-The efficient unit is **the smallest workflow that closes the task's actual uncertainty and produces credible evidence**. Installing both complete packs, or invoking every skill in sequence, is not the recommendation.
+The efficient unit is **the smallest workflow that closes the task's actual uncertainty and produces credible evidence**. The recommendation is not to install both packs or to run every skill in sequence.
 
 ### How to read this report
 
@@ -29,7 +29,7 @@ The efficient unit is **the smallest workflow that closes the task's actual unce
 
 ## Scope and efficiency criteria
 
-Primary-source coverage is **37 Matt skills** at `3cca18b368ae95cdbdebbff572ccafa662551015` and **47 registered pstack skills** at `cursor/plugins@5bf2b1544db739998121a306340631963c2ff3de`, including 23 principles. Matt's snapshot contains 25 promoted, eight beta, and four misc skills. Three additional pstack Benny automation bodies are considered separately. Current-source behavior is not inferred from old videos, package names, or release marketing. [Matt tree][mp-tree], [Matt maturity policy][mp-beta], [pstack source][ps-poteto-mode].
+Primary-source coverage is **37 Matt skills** at `3cca18b368ae95cdbdebbff572ccafa662551015` and **47 registered pstack skills** at `cursor/plugins@5bf2b1544db739998121a306340631963c2ff3de`, including 23 principles. Matt's snapshot has 25 promoted, eight beta, and four misc skills. Three pstack Benny automation bodies are covered separately. Claims about current behavior come from current source, not old videos, package names, or release marketing. [Matt tree][mp-tree], [Matt maturity policy][mp-beta], [pstack source][ps-poteto-mode].
 
 Efficiency means **verified correct delivery**, evaluated on:
 
@@ -39,13 +39,13 @@ Efficiency means **verified correct delivery**, evaluated on:
 4. Human decision burden and interruption frequency.
 5. Ongoing maintenance of generated tests, documents, scripts, and skill forks.
 
-These criteria are qualitative judgments, not a fabricated score out of ten. A longer run can be efficient if it prevents an expensive regression. A shorter prompt can still launch many agents. Body size alone is not runtime cost. A familiar principle can be valuable if its trigger and prescribed check prevent a common agent error.
+These are qualitative judgments, not a score out of ten. A longer run can be efficient if it prevents an expensive regression. A short prompt can still launch many agents, so body size is not runtime cost. A familiar principle earns its place if its trigger and prescribed check prevent a common agent error.
 
-Two axes remain separate: **method value** and **execution compatibility**. Both packs use portable instructional text, but some bodies require particular tools, paths, model routing, or supporting skills. Adaptation cost matters; it does not make the underlying method worthless. No current-host usage data enters either axis.
+The review keeps two axes separate: **method value** and **execution compatibility**. Both packs are portable instruction text, but some bodies need particular tools, paths, model routing, or supporting skills. Adaptation cost counts against a skill without making its method worthless. Neither axis uses current-host usage data.
 
 ## Public reviews and evidence quality
 
-**A direct review covering both exists.** Public evidence is more useful than a catalogue popularity ranking, but still does not establish a controlled Matt-versus-pstack productivity winner. I read the original auto-generated transcripts for Theo and Rob Shocks rather than relying only on search summaries. Transcription can garble names; exact skill contracts below come from repository bodies.
+**A direct review covering both exists.** Public evidence is more useful than a popularity ranking, but it does not establish a controlled Matt-versus-pstack productivity winner. For Theo and Rob Shocks I read the original auto-generated transcripts, not only search summaries. Transcripts can garble names, so exact skill contracts below come from repository bodies.
 
 | Source | What was actually reviewed or tried | What it supports | Evidence limit |
 |---|---|---|---|
@@ -60,57 +60,57 @@ Two axes remain separate: **method value** and **execution compatibility**. Both
 
 ### What the reviews agree on, and where I disagree
 
-**Agreement:** skills are most useful when they change a concrete decision or feedback loop, not simply repeat “be a senior engineer.” Clear requirements, usable code structure, real runtime proof, and readable findings recur across both communities. The strongest first-hand review of both prefers several pstack methods; there is no evidence-based reason to privilege Matt merely because he is more familiar.
+**Agreement:** skills help most when they change a concrete decision or feedback loop, not when they repeat “be a senior engineer.” Clear requirements, usable code structure, real runtime proof, and readable findings recur in both communities. The strongest first-hand review of both prefers several pstack methods; the evidence gives no reason to favor Matt because he is more familiar.
 
 **Qualification:** enthusiasm for `arena` does not show that four competing models are efficient on routine work. Rob's experiment illustrates the cost, not a universal doubling of development time. Theo's prose examples support trying `unslop`, not a measured reduction in software defects. Kayvane's small PRs are encouraging but do not isolate the plugin as the cause.
 
-**Corrections from current source:** Flavio's “nothing changes until you approve it” description of `reflect` is too broad: skill edits are approval-gated, while the current body separately instructs automatic Backlog ticket filing. His portability discussion correctly points to ports, but loading `SKILL.md` is not proof that Cursor APIs/transcript paths work unchanged. Matt's own TDD guide and several reviews describe red-green-refactor; the inspected skill explicitly moves refactoring to review. [Reflect][ps-reflect], [current Matt TDD][mp-tdd].
+**Corrections from current source:** Flavio's “nothing changes until you approve it” description of `reflect` is too broad. Skill edits need approval, but the current body also files Backlog tickets automatically. His portability discussion rightly points to ports, but loading `SKILL.md` does not prove that Cursor APIs and transcript paths work unchanged. Matt's own TDD guide and several reviews describe red-green-refactor; the inspected skill moves refactoring to review. [Reflect][ps-reflect], [current Matt TDD][mp-tdd].
 
-**Lower-weight material screened:** [Tosea's guide][public-tosea] is commercially promotional, uses older names, and overstates prose instructions as mechanical enforcement; [Mervin Praison's roundup][public-mervin] mixes useful description with unverified popularity/release claims; [Hysen Labs' open-pstack review][public-hysen] concerns a port, not a measured original-pack comparison; [The Agent Daily interview summary][public-interview] reports Matt's views rather than testing them. None supplies a comparative score here. [AIKit issue #110][public-aikit] records a concrete mixed-source integration proposal, later superseded by another issue; it shows composition interest, not delivered effectiveness.
+**Lower-weight material screened:** [Tosea's guide][public-tosea] is promotional, uses older names, and presents prose instructions as mechanical enforcement. [Mervin Praison's roundup][public-mervin] mixes useful description with unverified popularity and release claims. [Hysen Labs' open-pstack review][public-hysen] covers a port, not a measured comparison of the original packs. [The Agent Daily interview summary][public-interview] reports Matt's views without testing them. None supplies a comparative score. [AIKit issue #110][public-aikit] records a concrete proposal to integrate skills from both sources, later superseded by another issue; it shows interest in composition, not delivered effectiveness.
 
-**Search result:** I found a direct qualitative comparison, practitioner reports, source walkthroughs, and one pstack-versus-no-skills demonstration. I did **not find a controlled, repeated Matt-versus-pstack development benchmark** among the sources reviewed. Searches included both names together, Lauren Tan/Matt Pocock workflows, and pstack review/benchmark/cost terms. This is a bounded search finding, not a claim no evaluation exists anywhere.
+**Search result:** I found a direct qualitative comparison, practitioner reports, source walkthroughs, and one pstack-versus-no-skills demonstration. I did **not find a controlled, repeated Matt-versus-pstack development benchmark** among the sources reviewed. Searches covered both names together, Lauren Tan and Matt Pocock workflows, and pstack review, benchmark, and cost terms. This is a bounded search finding, not a claim that no evaluation exists anywhere.
 
 ## Which skills win each development job
 
-The choices below are my source-based expectations for helping a coding assistant. “Choose” means select for the named task, not run automatically on every request. `Matt/name` and `pstack/name` are comparison notation, **not newly installed aliases or promised invocation syntax**.
+The choices below are source-based expectations for a coding assistant. “Choose” means select for the named task, not run on every request. Prefixes such as Matt `teach` and pstack `teach` name the source pack; they are **not newly installed aliases or promised invocation syntax**.
 
 ### 1. Clarifying what to build: Matt grilling, with domain modeling when needed
 
-[Matt `grilling`][mp-grilling] asks dependency-ordered rounds of genuine decisions, recommends answers, and obtains factual context from tools rather than interrogating the user about the repository. [Domain modeling][mp-domain-modeling] turns ambiguous concepts into stable terms and records consequential trade-offs. [`grill-with-docs`][mp-grill-with-docs] is their convenient two-skill composition, not a separate planning engine.
+[Matt `grilling`][mp-grilling] asks about real decisions in dependency order, recommends answers, and gets factual context from tools instead of questioning the user about the repository. [Domain modeling][mp-domain-modeling] turns ambiguous concepts into stable terms and records consequential trade-offs. [`grill-with-docs`][mp-grill-with-docs] combines the two; it is not a separate planning engine.
 
-**My choice:** Matt for uncertain requirements, product boundaries, invariants, and acceptance criteria. The expected gain is avoiding a correct implementation of the wrong product. Stop when implementation-relevant choices are settled; a small explicit change needs no interview. Document meaningful terms and decisions, not every exchange.
+**My choice:** Matt for uncertain requirements, product boundaries, invariants, and acceptance criteria. The expected gain is not building the wrong product correctly. Stop once the choices that affect implementation are settled; a small explicit change needs no interview. Record meaningful terms and decisions, not every exchange.
 
-[pstack `interrogate`][ps-interrogate] is not a competing requirements interviewer. It reviews an intent/diff or sketch and assumes the goal is correct. [pstack `architect`][ps-architect] tackles solution shape after grounding. Use these later if needed. Do not force users through an interview about facts a source read can answer.
+[pstack `interrogate`][ps-interrogate] is not a requirements interviewer. It reviews an intent/diff or sketch and assumes the goal is correct. [pstack `architect`][ps-architect] works on solution shape after grounding. Use these later if needed. Do not interview users about facts a source read can answer.
 
 ### 2. Understanding existing software: pstack how, why only for historical rationale
 
-[pstack `how`][ps-how] specifies the useful output: concepts, runtime flow, ownership, important locations, and traps. It selects a simple route or 2–4 exploration angles plus synthesis. Even the simple route delegates once as authored, so it is not zero-overhead. Its distinction between a mental model and annotated source is valuable: I need to know where the invariant lives before editing.
+[pstack `how`][ps-how] specifies the useful output: concepts, runtime flow, ownership, important locations, and traps. It picks a simple route or 2–4 exploration angles plus synthesis. As authored, even the simple route delegates once, so it has overhead. It separates a mental model from annotated source, which matters because you need to know where the invariant lives before editing.
 
-[pstack `why`][ps-why] asks a different question. It searches available historical evidence and separates direct evidence from supported inference or speculation. It should recover why a fallback, threshold, or unusual dependency exists before I delete it. Seven source categories are not a requirement to provision seven services; unavailable or intentionally omitted evidence must be reported. [Confidence model][ps-epistemics].
+[pstack `why`][ps-why] asks a different question. It searches available history and separates direct evidence from supported inference and speculation. Use it to recover why a fallback, threshold, or unusual dependency exists before deleting it. Its seven source categories do not require provisioning seven services, but it must report evidence that was unavailable or deliberately skipped. [Confidence model][ps-epistemics].
 
-[Matt `research`][mp-research] is stronger for external APIs, standards, or an unfamiliar technical question requiring primary sources and a saved cited note. It is a small research contract, not a substitute for runtime tracing or historical reconstruction.
+[Matt `research`][mp-research] is stronger for external APIs, standards, or unfamiliar technical questions that need primary sources and a saved, cited note. It is a small research contract and does not replace runtime tracing or historical reconstruction.
 
-**My choice:** `how` for current mechanics, `why` for historical constraints, Matt `research` for outside facts. Compose only the missing views. Reuse an adequate current trace instead of paying to reconstruct it at every stage.
+**My choice:** `how` for current mechanics, `why` for historical constraints, Matt `research` for outside facts. Run only the views that are missing, and reuse an adequate current trace instead of rebuilding it at every stage.
 
 ### 3. Architecture: Matt for the design lens, pstack for consequential competing designs
 
-[Matt `codebase-design`][mp-codebase-design] defines the interface as everything callers must know, including invariants, ordering, errors and performance, not just a type signature. Its depth/locality/deletion tests help concentrate responsibility and choose testable interfaces. It is primarily a reference, with deeper design assets when needed.
+[Matt `codebase-design`][mp-codebase-design] defines the interface as everything callers must know, including invariants, ordering, errors and performance, not just a type signature. Its depth, locality, and deletion tests help concentrate responsibility and pick testable interfaces. It is mainly a reference, with deeper design assets when needed.
 
-[pstack `architect`][ps-architect] is a full workflow: `how` grounding, `why` when ownership/history matters, `arena` producing at least two structurally distinct designs, comparison, implementation, and redesign if repeated friction invalidates the sketch. It starts with caller usage. Its default model configuration names four runners. Human sign-off is **opt-in**, and default behavior proceeds into implementation.
+[pstack `architect`][ps-architect] is a full workflow: `how` grounding, `why` when ownership/history matters, `arena` producing at least two structurally distinct designs, comparison, implementation, and redesign if repeated friction invalidates the sketch. It starts from caller usage. Its default model configuration names four runners. Human sign-off is **opt-in**; by default it proceeds into implementation.
 
-**My choice:** Matt's reference for ordinary module/API decisions; pstack `architect` for high-consequence new architecture with genuinely different viable shapes. Supply “with checkpoint; no implementation before approval” when the task is design-only. Never deliver its provisional `not implemented` bodies as the finished feature. Its redesign loop needs a concrete new constraint, not endless preference changes.
+**My choice:** Matt's reference for ordinary module/API decisions; pstack `architect` for high-consequence new architecture with several viable, distinct shapes. For a design-only task, add “with checkpoint; no implementation before approval”. Never deliver its provisional `not implemented` bodies as the finished feature. Its redesign loop needs a concrete new constraint, not a change of preference.
 
-[Matt `improve-codebase-architecture`][mp-improve-codebase-architecture] is the best of these for **finding where an existing codebase needs deeper modules**. It produces a candidate survey and asks which to pursue. It is not the same job as designing one already-selected change. Use its shared `codebase-design` criteria in an architect comparison, not an additional whole-repo survey of an already-understood design.
+[Matt `improve-codebase-architecture`][mp-improve-codebase-architecture] is the best of these for **finding where an existing codebase needs deeper modules**. It surveys candidates and asks which to pursue, a different job from designing one change already chosen. In an architect comparison, borrow its shared `codebase-design` criteria instead of running another whole-repo survey of a design you already understand.
 
 ### 4. Specs, tickets and scheduling: Matt for durable contracts; pstack for coverage
 
-[Matt `to-spec`][mp-to-spec] synthesizes resolved context into a specification; it is not another interview. [`to-tickets`][mp-to-tickets] turns a spec/plan into vertically sliced execution tickets with explicit blocking edges. These artifacts let a different agent or human work without inheriting the entire discussion. That is distinct from having a todo tool.
+[Matt `to-spec`][mp-to-spec] synthesizes resolved context into a specification; it is not another interview. [`to-tickets`][mp-to-tickets] turns a spec/plan into vertically sliced execution tickets with explicit blocking edges. These artifacts let another agent or person do the work without inheriting the whole discussion, which a todo tool does not do.
 
-[Matt `wayfinder`][mp-wayfinder] manages an unresolved **decision map** across sessions. It does not replace implementation scheduling. [`implement-spec`][mp-implement-spec] is the actual beta ticket-graph executor with isolated worker branches/worktrees and integration into one PR.
+[Matt `wayfinder`][mp-wayfinder] manages a **decision map** of unresolved questions across sessions; it does not schedule implementation. [`implement-spec`][mp-implement-spec] is the beta ticket-graph executor, with isolated worker branches/worktrees integrated into one PR.
 
-[pstack `swarm`][ps-swarm] defines coverage/race/mixed jobs, selection rules, evidence and dropouts. It is well suited to “check each package/platform/caller group” once boundaries are known. [`figure-it-out`][ps-figure-it-out] creates a bespoke executable playbook for unusual work; it is not the first step for a normal feature.
+[pstack `swarm`][ps-swarm] defines coverage/race/mixed jobs, selection rules, evidence and dropouts. It suits “check each package/platform/caller group” once boundaries are known. [`figure-it-out`][ps-figure-it-out] creates a bespoke executable playbook for unusual work; it is not the first step for a normal feature.
 
-**My choice:** one acceptance statement for a small task; `to-spec`/`to-tickets` when handoff or parallel delivery needs durable contracts; `wayfinder` only while important decisions remain unresolved; `swarm` for independent coverage. `implement-spec` deserves a bounded trial when a whole issue DAG really must become one PR, but not automatic promotion from beta. One execution owner must coordinate any run; do not nest independent orchestrators over the same work.
+**My choice:** one acceptance statement for a small task; `to-spec`/`to-tickets` when handoff or parallel delivery needs durable contracts; `wayfinder` only while important decisions remain unresolved; `swarm` for independent coverage. `implement-spec` deserves a bounded trial when a whole issue DAG must become one PR, but it does not graduate from beta automatically. One execution owner coordinates any run; do not nest independent orchestrators over the same work.
 
 ### 5. TDD: different winners for features and bugs
 
@@ -122,89 +122,89 @@ The choices below are my source-based expectations for helping a coding assistan
 | Impractical test | Broader seam/design discipline; `implement` says use TDD where possible | Explicitly explain the limitation and use a script, runtime reproduction, browser path or other useful executable check |
 | Refactoring | Explicitly deferred to review in the inspected body | Small focused fix and nearby validation, not a full feature-design/refactoring cycle |
 
-**My choice:** **pstack for routine bug regressions; Matt for intentional feature TDD.** This is a meaningful change from defaulting to the previously installed name. Use Matt's test-quality criteria when evaluating a pstack regression, without launching another interview/cycle. A TDD test and real user-journey verification can both be necessary; they answer different questions. Conversely, a well-designed integration test may already be the required runtime evidence. Do not rerun an equivalent check just to satisfy two labels. [Matt body][mp-tdd], [pstack body][ps-tdd].
+**My choice:** **pstack for routine bug regressions; Matt for intentional feature TDD.** This changes the earlier default of using whichever name was installed. Judge a pstack regression test by Matt's test-quality criteria without starting another interview or cycle. A TDD test and real user-journey verification can both be needed because they answer different questions. A well-designed integration test may already be the required runtime evidence; do not rerun an equivalent check to satisfy two labels. [Matt body][mp-tdd], [pstack body][ps-tdd].
 
 ### 6. Hard bugs and performance: Matt diagnosis, pstack safety and runtime methods
 
-[Matt `diagnosing-bugs`][mp-diagnosing-bugs] has the clearest standalone feedback-driven diagnosis procedure in this pair: obtain a useful exact-symptom check, form/test hypotheses, use debugger or performance evidence, make the root-cause fix, then verify the original path. Its human-assisted observation template is useful when an agent cannot reach the failing environment.
+[Matt `diagnosing-bugs`][mp-diagnosing-bugs] has the clearest standalone diagnosis procedure in the pair. It gets a check for the exact symptom, forms and tests hypotheses, uses debugger or performance evidence, fixes the root cause, and verifies the original path. Its human-assisted observation template helps when an agent cannot reach the failing environment.
 
-pstack's [runtime-forensics][ps-runtime-forensics] and [trace-forensics][ps-trace-forensics] playbooks are valuable for **diagnosis without an unsolicited fix**. Its [attack-the-premise principle][ps-principle-attack-the-premise] is narrower than its title: after failed fixes share an assumption, look for actor/worker/shard imbalance instead of adding another compensation.
+pstack's [runtime-forensics][ps-runtime-forensics] and [trace-forensics][ps-trace-forensics] playbooks are for **diagnosis without an unsolicited fix**. Its [attack-the-premise principle][ps-principle-attack-the-premise] is narrower than its title. When failed fixes share an assumption, it looks for actor, worker, or shard imbalance instead of adding another compensation.
 
 **My choice:** Matt diagnosis as the bug investigation procedure, pstack TDD for a practical regression, and the relevant pstack forensics method for captured profiles or live runtime evidence. Add `why` if the supposedly broken behavior may be intentional. Do not stack a second full bug playbook over a working diagnosis loop.
 
 ### 7. Code review: separate conformance, adversarial review and safety proof
 
-- [Matt `code-review`][mp-code-review] answers **“Does it follow the project's standards, and does it implement the intended spec?”** Two independent review axes make omissions and unrequested behavior visible even when the code looks clean. Best general-purpose structured review in this pair.
-- [pstack `interrogate`][ps-interrogate] answers **“What can independent models find wrong with this intent/diff?”** Same input/rubric, different model families, and a lead that accepts or rejects findings. Best escalation for a consequential PR; multiple reports are not a vote or proof.
-- [pstack `blast-radius`][ps-blast-radius] answers **“Which one or two facts make this safe beyond the diff, and can we execute a check of them?”** Especially valuable for lifecycle order, cache invalidation, schemas, wire formats, and dependency behavior. Source navigation is necessary but does not itself prove safety.
+- [Matt `code-review`][mp-code-review] answers **“Does it follow the project's standards, and does it implement the intended spec?”** Its two independent axes expose omissions and unrequested behavior even when the code looks clean. It is the best general-purpose structured review in the pair.
+- [pstack `interrogate`][ps-interrogate] answers **“What can independent models find wrong with this intent/diff?”** Models from different families get the same input and rubric, and a lead accepts or rejects their findings. It is the best escalation for a consequential PR; several reports are neither a vote nor proof.
+- [pstack `blast-radius`][ps-blast-radius] answers **“Which one or two facts make this safe beyond the diff, and can we execute a check of them?”** It matters most for lifecycle order, cache invalidation, schemas, wire formats, and dependency behavior. Reading the source is necessary but does not prove safety.
 
-**My choice:** Matt's Standards/Spec split for substantial ordinary work; `blast-radius` when the risk is a concrete downstream assumption; `interrogate` when independent judgment can justify the extra inference and review triage. If both review styles are warranted, give one review effort explicit Standards/Spec coverage plus the adversarial rubric, rather than blindly running two complete panels. That is a proposed composition, not vanilla execution of both skills.
+**My choice:** Matt's Standards/Spec split for substantial ordinary work; `blast-radius` when the risk is a concrete downstream assumption; `interrogate` when independent judgment justifies the extra inference and triage. If both review styles are warranted, run one review with explicit Standards/Spec coverage plus the adversarial rubric instead of two complete panels. That is a proposed composition, not either skill run as authored.
 
-There is a real Matt source mismatch: `code-review` prescribes a diff ending at `HEAD`, but `implement` calls review **before committing**. Newly implemented uncommitted changes can fall outside that diff. Explicitly include the actual WIP scope, including new files, before trusting the review. This is a static contract finding, not a reproduced runtime incident.
+Matt's source has a real mismatch. `code-review` prescribes a diff ending at `HEAD`, but `implement` calls review **before committing**, so new uncommitted changes can fall outside that diff. Include the actual WIP scope, new files too, before trusting the review. This is a static contract finding, not a reproduced runtime incident.
 
 ### 8. Prototypes and alternatives: Matt for the experiment, pstack for comparison
 
-[Matt `prototype`][mp-prototype] produces a decision artifact: a shareable interactive logic model or distinct UI variants. It tests what a domain model or interaction should be, not whether production implementation is complete. Its UI branch already explores alternatives, so adding another arena is not always useful.
+[Matt `prototype`][mp-prototype] produces a decision artifact: a shareable interactive logic model or distinct UI variants. It answers what a domain model or interaction should be, not whether the production implementation is complete. Its UI branch already explores alternatives, so an extra arena is not always useful.
 
-[pstack `arena`][ps-arena] can compare code, designs, explanations or reports. It requires independent candidates, a rubric, choosing a base, selective grafts, and checking the synthesized result. Its differentiator is disciplined selection/integration, not merely “run agents in parallel.”
+[pstack `arena`][ps-arena] can compare code, designs, explanations or reports. It requires independent candidates, a rubric, a chosen base, selective grafts, and a check of the merged result. What sets it apart is disciplined selection and integration, not “run agents in parallel.”
 
-**My choice:** Matt for one concrete design question or UI exploration; pstack arena where materially different solutions remain and choosing badly would be expensive. If using arena to produce prototypes, frame one candidate-generation phase rather than recursively asking each candidate to launch another multi-variant workflow. Use `swarm`, not arena, for exhaustive coverage of distinct items.
+**My choice:** Matt for one concrete design question or UI exploration; pstack arena where materially different solutions remain and choosing badly would be expensive. If arena produces prototypes, run one candidate-generation phase; do not have each candidate launch another multi-variant workflow. Use `swarm`, not arena, for exhaustive coverage of distinct items.
 
 ### 9. Verification: pstack's most compelling reusable capability
 
-[`create-verification-skill`][ps-create-verification-skill] inspects the application and creates an operational recipe: Launch, Doctor, Drive, Evidence, Cleanup, plus a feature map. It requires exercising one real feature before delivery. The useful artifact is the **project-specific recipe and driver**, not another global instruction to “verify.”
+[`create-verification-skill`][ps-create-verification-skill] inspects the application and creates an operational recipe: Launch, Doctor, Drive, Evidence, Cleanup, plus a feature map. It must exercise one real feature before delivery. The useful artifact is the **project-specific recipe and driver**, not another global instruction to “verify.”
 
 [`maintain-verification-skill`][ps-maintain-verification-skill] compares the map with source and drives every mapped feature live through one coordinator. It can repair stale verification instructions but must not redefine a product regression as intended behavior.
 
-**My choice:** pstack wins this category. Reuse a good existing driver/recipe; create one only if missing, then run its affected paths during development. The generator is not a command to rerun on every change, and full-map maintenance is not the default gate for a one-line edit. For UI work, interact through the actual UI; for storage, inspect persistence; for an integration, check the communication chain. Never substitute fake state setters for the user path.
+**My choice:** pstack wins this category. Reuse a good existing driver or recipe; create one only if none exists, then run its affected paths during development. Do not rerun the generator on every change, and do not gate a one-line edit on full-map maintenance. For UI work, drive the actual UI; for storage, inspect what was persisted; for an integration, check the communication chain. Never replace the user path with fake state setters.
 
-This has high expected payoff for me because it replaces repeated rediscovery and unsupported “done” claims with executable knowledge. Initial tooling and maintenance cost can be substantial. Benefits remain an expectation until exercised on real projects.
+The expected payoff is high because executable knowledge replaces repeated rediscovery and unsupported “done” claims. Setup and maintenance can cost a lot, and the benefit stays an expectation until exercised on real projects.
 
 ### 10. Communication, documentation and learning: choose the audience
 
-[pstack `unslop`][ps-unslop] is a strong editorial option for readable implementation reports: concrete mechanisms, named sources, stable terminology, fewer stock phrases and less over-compression. That can reduce the human effort needed to audit my work. It does not improve factual correctness by itself. Its punctuation/word bans are taste, not engineering laws. The current body differs from the “add soul” version in Theo's video.
+[pstack `unslop`][ps-unslop] is a strong editing option for implementation reports. It asks for concrete mechanisms, named sources, stable terminology, fewer stock phrases and less over-compression, which can cut the human effort needed to audit the work. It does not make facts correct. Its punctuation and word bans are taste, not engineering laws. The current body differs from the “add soul” version in Theo's video.
 
-[pstack `technical-writing`][ps-technical-writing] goes further for tutorials, how-tos, reference and explanation. Its document-purpose discipline is the better choice for human-facing technical docs. [Matt `writing-for-agents`][mp-writing-for-agents] is the better choice for skill bodies, agent instructions, context pointers and completion criteria. These are different audiences, not rival prose styles.
+[pstack `technical-writing`][ps-technical-writing] goes further for tutorials, how-tos, reference and explanation. Its discipline about document purpose makes it the better choice for human-facing technical docs. [Matt `writing-for-agents`][mp-writing-for-agents] is better for skill bodies, agent instructions, context pointers and completion criteria. These are different audiences, not rival prose styles.
 
-[pstack `teach`][ps-teach] is the better everyday choice for explaining a subsystem or PR. It composes `how` and `why`, preserves evidence confidence, and deliberately avoids quizzes. [Matt `teach`][mp-teach] is the better choice for sustained learning: a teaching workspace, lessons, retrieval practice and learning records. Running both at once would create conflicting teaching contracts. Their image/HTML assumptions also require the actual delivery capability.
+[pstack `teach`][ps-teach] is the better everyday choice for explaining a subsystem or PR. It combines `how` and `why`, keeps evidence confidence, and avoids quizzes by design. [Matt `teach`][mp-teach] is better for sustained learning, with a teaching workspace, lessons, retrieval practice and learning records. Running both at once creates conflicting teaching contracts. Both also assume image/HTML output, which the runtime must actually be able to deliver.
 
-For a single confusing response, [`bro`][ps-bro] and [`wait-what`][mp-wait-what] are convenience commands; pick either rather than treating both as new engineering capability.
+For a single confusing response, [`bro`][ps-bro] and [`wait-what`][mp-wait-what] are convenience commands. Pick one; neither is a new engineering capability.
 
 ### 11. Learning from failures and preserving context
 
-[pstack `reflect`][ps-reflect] has the more complete retrospective workflow: judgment/tooling/divergent reviews, synthesis, Accepted/Rejected/Backlog, and approval before selected skill edits. [Matt `retro`][mp-retro] looks more broadly at the working environment, but its beta README still explicitly calls it a nonfunctional stub/design note. **Choose pstack reflect today for a deliberate retrospective**, with external publication separately authorized. Do not run it after every tiny success.
+[pstack `reflect`][ps-reflect] has the more complete retrospective workflow: judgment/tooling/divergent reviews, synthesis, Accepted/Rejected/Backlog, and approval before selected skill edits. [Matt `retro`][mp-retro] looks more broadly at the working environment, but its beta README calls it a nonfunctional stub/design note. **Choose pstack reflect today for a deliberate retrospective**, and authorize external publication separately. Do not run it after every small success.
 
-Pair it with [encode-lessons-in-structure][ps-principle-encode-lessons-in-structure]: a recurring mistake may deserve a type invariant, lint rule or repeatable check rather than another paragraph the agent can ignore. [Matt writing-for-agents][mp-writing-for-agents] then helps when the remaining fix really is instructional. [`automate-me`][ps-automate-me] is for intentionally mining histories and authoring a personalized workflow, with commit/PR side effects; not a prerequisite for using a mixed toolkit and not used in this review.
+Pair it with [encode-lessons-in-structure][ps-principle-encode-lessons-in-structure]. A recurring mistake may deserve a type invariant, lint rule or repeatable check instead of another paragraph the agent can ignore. When the remaining fix really is an instruction, [Matt writing-for-agents][mp-writing-for-agents] helps. [`automate-me`][ps-automate-me] deliberately mines histories to author a personalized workflow and has commit/PR side effects. A mixed toolkit does not need it, and this review did not use it.
 
-[Matt `handoff`][mp-handoff] prepares portable context for a known transfer. [pstack `recall`][ps-recall] reconstructs missing topic state from previous sessions and shared records, then checks current branches/issues. Preparation and recovery are not substitutes. Use the existing trustworthy capsule when it exists; forensic history mining is for missing or doubtful context. Neither should become a required manual ritual before every continuation.
+[Matt `handoff`][mp-handoff] prepares portable context for a known transfer. [pstack `recall`][ps-recall] reconstructs missing topic state from previous sessions and shared records, then checks current branches/issues. One prepares and the other recovers; neither replaces the other. Use a trustworthy existing capsule when there is one, and mine history only for missing or doubtful context. Neither should become a required manual step before every continuation.
 
 ### 12. pstack principles: useful development checks, not 23 compulsory modes
 
 The highest-value principles for this assistant are:
 
 - **[Prove it works][ps-principle-prove-it-works]:** real artifact evidence before success claims.
-- **[Build the lever][ps-principle-build-the-lever]:** a deterministic codemod/check can beat many agents doing repetitive work. The source applies this to any nontrivial task, not just repetition. I recommend narrowing its blanket “must produce a file in the diff” rule: use a tool when it improves execution or reviewability, not to manufacture a deliverable.
+- **[Build the lever][ps-principle-build-the-lever]:** a deterministic codemod/check can beat many agents doing repetitive work. The source applies this to any nontrivial task, not only repetition. Narrow its blanket “must produce a file in the diff” rule: build a tool when it improves execution or reviewability, not to manufacture a deliverable.
 - **[Minimize reader load][ps-principle-minimize-reader-load]:** count both indirection and hidden state. Fewer lines alone can make either worse.
 - **[Boundary discipline][ps-principle-boundary-discipline] / [type system discipline][ps-principle-type-system-discipline]:** validate external data and encode genuine invariants rather than scatter defensive branches.
 - **[Separate before serializing shared state][ps-principle-separate-before-serializing-shared-state]:** isolate writers before adding locks or letting them collide.
 - **[Encode lessons in structure][ps-principle-encode-lessons-in-structure]:** convert recurrent, checkable corrections into durable mechanisms.
 
-These can guide the selected task without becoming separate user-facing ceremonies. They complement Matt's design vocabulary rather than proving that either pack owns simplicity. Apply the actual test each principle suggests; saying its name adds no value.
+These guide the chosen task without becoming separate user-facing steps. They complement Matt's design vocabulary; neither pack owns simplicity. Apply the test each principle suggests; naming it adds nothing.
 
-The full principle catalogue below includes narrower tools and overreaches. In particular, “never block on the human” cannot authorize destructive/external actions, “migrate then delete” cannot erase a published compatibility promise, and serial verification should not be interpreted as a full-suite barrier after each keystroke.
+The full principle catalogue below also lists narrower tools and overreaches. For example, “never block on the human” cannot authorize destructive or external actions, and “migrate then delete” cannot erase a published compatibility promise. Serial verification does not mean a full-suite run after each keystroke.
 
 ## The mixed workflows I would use
 
-These are **routing recipes, not mandatory command chains**. Start from the task's unresolved uncertainty. Once a stage's artifact is adequate, reuse it downstream. No new orchestration framework is required to follow this plan.
+These are **routing recipes, not mandatory command chains**. Start from what the task still leaves uncertain. Once a stage's artifact is adequate, reuse it downstream. None of them needs a new orchestration framework.
 
 ### A. Small, well-specified feature
 
 1. Read the relevant implementation and state the observable acceptance condition. Use `how` only if the current mechanism is unclear.
-2. Implement the smallest coherent change. If the request is test-first, use Matt `tdd` at agreed seams; otherwise use the existing appropriate check without imposing a TDD interview.
+2. Implement the smallest coherent change. If the request is test-first, use Matt `tdd` at agreed seams; otherwise use the fitting existing check without a TDD interview.
 3. Exercise the changed behavior through an existing real-app recipe or focused command. Check the adjacent behavior at risk.
 4. Inspect the actual diff for acceptance and correctness; use Matt `code-review` if a structured independent review is warranted.
 
-**Do not add:** a spec issue, ticket graph, architecture arena, multi-model panel, or retrospective for an obvious local change. Completion is checked behavior, not passing through four branded skills.
+**Do not add:** a spec issue, ticket graph, architecture arena, multi-model panel, or retrospective for an obvious local change. Done means checked behavior, not a pass through four branded skills.
 
 ### B. Uncertain product feature
 
@@ -214,12 +214,12 @@ These are **routing recipes, not mandatory command chains**. Start from the task
 4. Use `codebase-design` for the interfaces. Escalate to pstack `architect` only if alternative whole designs have materially different trade-offs; do not add a second independent prototype/arena cascade.
 5. Implement one vertical slice, test it, and run the real feature path. Review against the settled spec.
 
-**Stop planning** when the next coherent slice has sufficient constraints and a check. Keep future unknowns explicit rather than specifying imagined details.
+**Stop planning** when the next coherent slice has enough constraints and a check. Name future unknowns instead of specifying imagined details.
 
 ### C. Production bug or intermittent failure
 
 1. Matt `diagnosing-bugs`: establish the observable failure and narrow the cause using an appropriate runtime signal.
-2. Use pstack `why` only if historical intent affects the diagnosis; use a forensics playbook for captured traces rather than general code guessing.
+2. Use pstack `why` only if historical intent affects the diagnosis; use a forensics playbook for captured traces instead of guessing from code.
 3. pstack `tdd`: preserve a practical failing-before check, or state why a focused runtime reproduction is the credible alternative.
 4. Fix the shared cause; verify the original failure no longer occurs and the neighboring invariant remains intact.
 5. Add pstack `blast-radius` if the fix changes lifecycle, concurrency, shared state or downstream behavior. Reserve `interrogate` for consequential residual uncertainty.
@@ -235,7 +235,7 @@ These are **routing recipes, not mandatory command chains**. Start from the task
 5. pstack `blast-radius` proves the affected compatibility/lifecycle facts; real-app checks cover the external path. Review Standards/Spec and use a different-model panel only if justified.
 6. Remove obsolete internal paths after callers migrate. Retain externally promised compatibility unless the approved release plan ends it. Keep `show-me-your-work` when someone must audit the run afterward.
 
-**Do not combine** `implement-spec` and another scheduler over the same graph. If trialing the beta executor, it owns execution; the task contract still comes from the spec/tickets.
+**Do not combine** `implement-spec` and another scheduler over the same graph. If you trial the beta executor, it owns execution; the spec/tickets still define the task contract.
 
 ### E. Unfamiliar repository or PR
 
@@ -251,8 +251,8 @@ These are **routing recipes, not mandatory command chains**. Start from the task
 1. Agree a falsifiable finish condition and publication/merge permissions. Resolve shared design contracts first.
 2. Use Matt `to-tickets` for persistent work units, pstack `swarm` for a bounded coverage job, or trial Matt `implement-spec` for an entire spec-to-one-PR run. Choose one execution owner.
 3. Give each writer separate outputs/worktrees; give reviewers the same intended contract and actual final artifacts. Use `arena` only for competing solutions, not distinct slices.
-4. Use pstack `show-me-your-work` for meaningful decisions and evidence pointers, with one canonical writer. It is not a replacement for the evidence files themselves.
-5. Integrate and run the real behavior on the integrated result. Parallel individual success is not integration proof.
+4. Use pstack `show-me-your-work` for meaningful decisions and evidence pointers, with one canonical writer. It does not replace the evidence files.
+5. Integrate and run the real behavior on the integrated result. Workers succeeding separately does not prove the integration.
 6. Run `reflect` only if mistakes or costly detours suggest a reusable improvement. Prefer a structural fix over growing the prompt library.
 
 **Do not confuse** wall-clock parallelism with less total inference. Compare the cost of worker setup, duplicate reading, synthesis and merge repair against the work they save.
@@ -260,17 +260,17 @@ These are **routing recipes, not mandatory command chains**. Start from the task
 ## Composition rules and source defects
 
 1. **One owner per artifact and execution phase.** A decision map, spec, execution tickets, project verification map and decision trail have distinct jobs. Reuse each one; do not generate multiple versions of the same contract under different skill names.
-2. **Resolve name collisions.** Both packs have `tdd` and `teach`. Preserve source qualification or select one deliberate entry point; do not let discovery order silently choose. Comparison notation in this report is not an implemented namespace.
-3. **Load dependencies deliberately.** `grill-with-docs` needs grilling/domain modeling; Matt TDD conditionally needs codebase-design; pstack architect needs how/arena and sometimes why; pstack recall's technical-topic path needs why; several pstack skills use unslop. Supporting references belong with the selected skill. A folder copied without its dependencies is not a complete workflow.
+2. **Resolve name collisions.** Both packs have `tdd` and `teach`. Qualify each by source or choose one entry point deliberately; do not let discovery order choose. Comparison notation in this report is not an implemented namespace.
+3. **Load dependencies deliberately.** `grill-with-docs` needs grilling/domain modeling; Matt TDD conditionally needs codebase-design; pstack architect needs how/arena and sometimes why; pstack recall's technical-topic path needs why; several pstack skills use unslop. Supporting references travel with the selected skill; a folder copied without its dependencies is not a complete workflow.
 4. **Keep real model independence honest.** Four named agents using one model are not a four-family panel. Fewer candidates/reviewers can be a good explicit adaptation, but do not describe that as the unchanged full upstream recipe.
 5. **Keep plan and execution permissions separate.** pstack architect implements by default; Matt implement commits on the current branch; triage/spec/ticket skills can publish; reflect has separate automatic Backlog writes. Specify authorized outputs, not just the slash command.
 6. **Match review scope to actual changes.** Matt's HEAD-ended diff can omit WIP, especially when composed with pre-commit implement. Include index, working tree and relevant new files when that is the request.
 7. **Do not confuse logs and proof.** show-me-your-work's TSV does not seal, revision-bind or freshness-check artifacts. The verification generator initially proves one feature, not the whole map. Maintenance must report product bugs rather than absorb them into expected output.
 8. **Prefer principles over unjustified absolutes.** Matt's strict terminology, “two adapters means a real seam,” and return-over-side-effects advice are useful lenses, not universal architecture laws. pstack's no-comments policy can delete rationale; build-the-lever can create needless script artifacts; sequence-verifiable-units prescribes rebasing and per-edit checks that are not appropriate for every branch or concurrent workflow.
 9. **One pstack testing heuristic is technically wrong.** `principle-test-behavior-not-implementation` claims a broad group of tests would pass if imported functions returned undefined, including assertion shapes that would fail. Judge whether a test defends a real consumer contract; do not use that heuristic as an automatic deletion classifier. [Source][ps-principle-test-behavior-not-implementation].
-10. **Metadata and runtime integration matter.** Many workflows are explicitly user-invoked. A matching description is not permission to auto-trigger them. Cursor model/Task schemas, transcript locations, cloud execution, image generation and project skill roots require actual supported equivalents. The same is true of Matt's Skill-tool calls, tracker conventions, and Claude-only helpers.
+10. **Metadata and runtime integration matter.** Many workflows are explicitly user-invoked; a matching description is not permission to auto-trigger them. Cursor model/Task schemas, transcript locations, cloud execution, image generation and project skill roots need actual supported equivalents, as do Matt's Skill-tool calls, tracker conventions, and Claude-only helpers.
 
-For efficient development, **keep the semantic contracts, then make any necessary adaptation explicit and small**. This report recommends no silent rewrites, no full-stack replacement and no installation action.
+**Keep the semantic contracts, and make any necessary adaptation explicit and small.** This report recommends no silent rewrites, no full-stack replacement and no installation action.
 
 ## How I would establish whether the mix really helps
 
@@ -282,7 +282,7 @@ Measure verified acceptance and regressions first; then elapsed time, total infe
 
 ## Full Matt catalogue
 
-The catalogue assesses every current skill once. **Primary** means a preferred choice for its development job, not mandatory on every task. **Conditional** means valuable for an explicit larger/specialized task. **Convenience** means a wrapper/rephrasing with limited incremental capability. **Specialized** needs the matching toolchain/integration. **Defer** denotes unresolved maturity or a risky default, not deletion from an installation.
+The catalogue rates each current skill once. **Primary** means the preferred choice for its development job, not mandatory on every task. **Conditional** means valuable for an explicit larger or specialized task. **Convenience** means a wrapper or rephrasing that adds little capability. **Specialized** needs the matching toolchain or integration. **Defer** means unresolved maturity or a risky default, not deletion from an installation.
 
 | Skill | Selection | Intrinsic value and limits |
 |---|---|---|
@@ -328,7 +328,7 @@ The catalogue assesses every current skill once. **Primary** means a preferred c
 
 ### Workflow and utility skills
 
-These 24 registered skills are distinct from the 23 principle files below. Supporting playbooks are part of the execution model, not another 23 equivalent standalone skills.
+These 24 registered skills are distinct from the 23 principle files below. Supporting playbooks are part of the execution model, not additional standalone skills.
 
 | Skill | Selection | Intrinsic value and limits |
 |---|---|---|
@@ -359,7 +359,7 @@ These 24 registered skills are distinct from the 23 principle files below. Suppo
 
 ### Engineering principles
 
-The displayed names omit the common `principle-` prefix; source links preserve the exact upstream names. These ratings concern the rule's engineering value, not whether a separate invocation should occur.
+Displayed names drop the shared `principle-` prefix; source links keep the exact upstream names. The ratings judge each rule's engineering value, not whether it deserves a separate invocation.
 
 | Principle | Selection | Intrinsic value and limits |
 |---|---|---|
@@ -389,25 +389,25 @@ The displayed names omit the common `principle-` prefix; source links preserve t
 
 ### Auxiliary playbooks and automation
 
-The full `poteto-mode` brings value beyond a collection of leaf prompts: routed steps, explicit skips and shared delegate instructions can keep a long run from silently dropping work. Its runtime/trace forensics playbooks are useful read-only investigation procedures, and [visual parity][ps-visual-parity] preserves a pre-change baseline and forbids manipulating the harness/baseline to fake a match. For repeated complex work, deliberate full-mode use is reasonable. For a mixed day-to-day workflow, load the task-specific method instead of importing every policy and dependency.
+The full `poteto-mode` does more than a set of leaf prompts. Routed steps, explicit skips and shared delegate instructions can keep a long run from silently dropping work. Its runtime and trace forensics playbooks are useful read-only investigation procedures. [Visual parity][ps-visual-parity] keeps a pre-change baseline and forbids editing the harness or baseline to fake a match. Deliberate full-mode use is reasonable for repeated complex work. For a mixed day-to-day workflow, load the task-specific method instead of every policy and dependency.
 
-The [Benny automation pack][ps-benny] is outside the registered skills root. Its three bodies were inspected; the deeper adapter/template implementations were not independently audited:
+The [Benny automation pack][ps-benny] is outside the registered skills root. This review inspected its three bodies but did not independently audit the deeper adapter/template implementations:
 
 - **setup-benny:** copies/configures the pack, preserves user configuration, verifies committed inputs and control adapters, and hands approved automation setup to Cursor's automation facilities.
 - **triage-issue-reports:** processes Slack reports using immutable thread coordinates, configured deduplication and tracker ownership, read-only investigation, and fail-closed publication behavior.
 - **reproduce-and-fix-issues:** requires trusted triage provenance, honors existing human/fix ownership, reproduces through the real UI, captures before/after evidence, and permits bounded fixes and draft PRs, not merge/deploy.
 
-These are substantial specialized automation methods, not ordinary slash-command substitutes. Their proof/ownership rules can inform a future incident workflow. Adopting the actual automation requires explicitly selecting its Slack/tracker/app-control integrations and publication permissions; it is not part of this recommendation's initial execution.
+These are substantial specialized automations, not substitutes for ordinary slash commands. Their proof and ownership rules can inform a future incident workflow. Adopting the automation itself requires explicitly choosing its Slack/tracker/app-control integrations and publication permissions; this recommendation does not include it in the initial rollout.
 
 ## Bottom line
 
-For helping an AI assistant deliver useful software, my preferred mix is **pstack's operational understanding and verification, Matt's intent and interface discipline, and risk-selected review from both**. I would give pstack more responsibility in ordinary execution than the earlier host-biased report did. I would also restore Matt's specs/tickets when they serve a real handoff instead of treating past non-use as a verdict.
+For helping an AI assistant deliver useful software, the preferred mix is **pstack's operational understanding and verification, Matt's intent and interface discipline, and risk-selected review from both**. That gives pstack more of ordinary execution than the earlier host-biased report did, and restores Matt's specs/tickets where they serve a real handoff; past non-use is not a verdict.
 
-Start small at invocation time, not by pretending the other useful skills do not exist. The best default for a well-specified tiny task is still direct work plus a credible check. The best escalation depends on whether the missing piece is intent, system knowledge, design evidence, delivery coordination, or proof.
+Keep invocations small without pretending the other useful skills do not exist. A well-specified tiny task still needs only direct work plus a credible check. How to escalate depends on what is missing: intent, system knowledge, design evidence, delivery coordination, or proof.
 
 ## Source links
 
-Individual skill links above are pinned to the inspected commits. Public reviews describe their own dates and sometimes earlier skill versions. Recommendations are analysis; source contracts, reported experience and measured outcomes are not interchangeable.
+Skill links above are pinned to the inspected commits. Public reviews carry their own dates and sometimes describe earlier skill versions. The recommendations are analysis; source contracts, reported experience and measured outcomes are not interchangeable.
 
 [author-lauren]: https://x.com/poteto/status/2092852487716065681
 [author-matt]: https://www.aihero.dev/5-agent-skills-i-use-every-day

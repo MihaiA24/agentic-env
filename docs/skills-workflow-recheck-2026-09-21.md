@@ -14,7 +14,7 @@ For [issue #42](https://github.com/MihaiA24/.dotfiles/issues/42). The approved r
 | Real reviewers | `anthropic/claude-haiku-4-5` and `openai-codex/gpt-5.6-luna` both returned the requested identities and found the planted `eligible(18)` boundary bug from identical frozen input. No substitutions; post-review integrity passed. |
 | Doctor | `uv run --frozen python -m agentic_env.stack_doctor`: **stack OK, zero secondary warnings**. |
 
-These checks establish installation, discovery and the review path—not every skill's end-to-end behavior, performance improvements or closure of all issue scenarios. Native Hermes provider review was not established; the verified route uses OMP. Hermes still advertises manual-only skills and warns about canonical-store symlink targets despite successful loading.
+These checks establish installation, discovery and the review path. They do not establish every skill's end-to-end behavior, performance improvements or closure of all issue scenarios. Native Hermes provider review was not established; the verified route uses OMP. Hermes still advertises manual-only skills and warns about canonical-store symlink targets, though loading succeeds.
 
 ## Historical research
 

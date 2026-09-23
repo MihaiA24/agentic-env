@@ -117,12 +117,13 @@ Each entry names the category and the kind of "why" it uniquely surfaces. Use it
 
 ### When to skip an investigator
 
-Only skip with an **explicit, written justification** that goes in the final "Sources Consulted" section. Two valid reasons:
+Only skip with an **explicit, written justification** that goes in the final "Sources Consulted" section. Three valid reasons:
 
 - **No authorized source is available for that category** in this environment: no MCP, or one that is configured but disabled or unauthenticated. Flag this as a gap, not a choice. Example: "Real-time team chat skipped. No matching MCP available, so the conversational record was not searchable."
 - **The source is provably irrelevant**, not just "probably irrelevant." A high bar. Example: "Error / exception tracking skipped. Target is a build-time script with no runtime code path."
+- **The ask sets an explicit scope.** The user, or a recipe they invoked such as `teach`'s narrow default, names the sources to search. Search those, and record each other category as "not searched: outside the requested scope". That line is a coverage limit, not a null result, and the Confidence Summary says the read comes from a scoped search.
 
-If your scope assessment suggests a single-commit trivial target where the PR description already contains the complete answer, you may answer inline **only after** confirming all seven available category searches would be redundant. Say so explicitly. This should be rare.
+If your scope assessment suggests a single-commit trivial target where the PR description already contains the complete answer, you may answer inline **only after** confirming every in-scope category search would be redundant: all seven available categories without an explicit scope, the requested ones with it. Categories outside an explicit scope still appear in Sources Consulted as coverage limits. Say so explicitly. This should be rare.
 
 ## Step 4. Synthesize
 

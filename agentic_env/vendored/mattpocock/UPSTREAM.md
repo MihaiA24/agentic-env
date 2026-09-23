@@ -2,7 +2,7 @@
 
 Source: [mattpocock/skills at `c55ee46073ed923f86ce59a5eb3b6d895095d1b7`](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7), 2026-09-18. Licence: [MIT, Matt Pocock](LICENSE).
 
-The [manifest](../../skill-packs.json) selects nineteen complete packages from `skills/engineering/` and `skills/productivity/`, flattened into `skills/`. Supporting files and per-skill descriptors are retained; category indexes and unselected skills are omitted. Vendoring preserves local adaptations, not a workaround for CLI pinning—the skills CLI supports tags and commit SHAs.
+The [manifest](../../skill-packs.json) selects eighteen complete packages from `skills/engineering/` and `skills/productivity/`, flattened into `skills/`. Supporting files and per-skill descriptors are retained; category indexes and unselected skills are omitted. `teach` was removed with its format files and descriptor; the public `teach` is pstack's. Vendoring exists to preserve local adaptations, not to work around CLI pinning, since the skills CLI supports tags and commit SHAs.
 
 ## Local adaptations
 

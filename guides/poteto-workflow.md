@@ -1,24 +1,24 @@
 # Start a new repo with the selected pstack skills
 
-Use this guide to establish a verification loop, then develop features, diagnose bugs, and make design decisions with [our selected skills](../DECISIONS_AI_TOOLING.md#6-skills). It adapts Lauren Tan's [Complete Guide to pstack, Part 1](https://x.com/poteto/status/2094457600259842065) on verification and [Part 2](https://x.com/poteto/status/2097732320606507506) on understanding and design. The linked posts are announcements; the repository keeps the [complete Part 1 text](../poteto/pstack-part-1.md) and [complete Part 2 text](../poteto/pstack-part-2.md).
+Use this guide in the repository you want to develop. It adapts Lauren Tan's pstack workflow to [our selected skills](../DECISIONS_AI_TOOLING.md#6-skills). You do not need her Cursor or Grok Bot setup.
 
-The numbered steps follow the articles' order, with host setup kept separate. You do not run all of them for every task. Start from the row that matches your situation:
+The instructions below apply to your project. [The Atlas example](#worked-example-atlas) is optional reading, not an app or CLI installed by this stack. [The comparison with Lauren's workflow](#what-the-articles-use-that-this-stack-does-not) is at the end.
 
-| Starting point | Begin here | Result before moving on |
-|---|---|---|
-| New or unfamiliar repo without a usable verifier | Prerequisites, then [steps 1–3](#1-create-the-project-verifier) | One real user path proved, with reusable instructions and preserved evidence |
-| Verifier instructions no longer match the app | [Step 4](#4-keep-the-verifier-useful) | Corrected instructions, rerun proof, and explicit coverage gaps |
-| Small feature or fix you already understand | [Step 5](#5-use-the-verifier-on-real-changes) | A focused change and proof of its user-visible behavior |
-| Unclear report, new interface, or consequential design choice | [Steps 6–8](#6-restate-the-problem-and-build-a-mental-model), then step 5 | A grounded problem and a design supported by a working experiment |
-| Settled design spans sessions or people | [Step 9](#9-write-an-execution-plan-only-when-needed) | Small implementation slices, each with observable acceptance criteria |
+## Start here
 
-The worked example is **Atlas, a fictional web task board**, not Lauren's desktop-assistant example with the same name. Assume it already supports creating, completing, reopening, and filtering tasks. Undo completion is a proposed feature that the verifier does not yet cover. Example commands, APIs, and evidence layouts illustrate what to ask for; they are not tools installed by this stack or results of a run. Replace `/verify-atlas` with your generated verifier's name.
+1. **Prepare your host once.** Check [skill installation and invocation](#before-you-start). Skip reinstalling if your reviewed skills already load.
+2. **Get one real user path running.** In an empty repo, build the smallest useful path first. In an existing app, exercise a path it already supports. Use [the startup prompts](#check-that-the-app-runs).
+3. **Prepare the verifier.** Give the agent [the setup prompt in step 1](#1-create-the-project-verifier). It covers the executable tooling and feature map described in steps 2 and 3. These are one setup task, not three separate generations.
+4. **Test and review the handoff.** Start a fresh agent session with [the replay prompt](#test-with-a-fresh-agent). Then [review the verifier files](#review-before-committing), using the setup brief as the specification. Resolve supported findings before product work.
+5. **Develop and review.** Use [step 5](#5-use-the-verifier-on-real-changes) for each understood feature or fix. It includes separate review and handoff prompts.
+
+Reuse a working verifier. Use [step 4](#4-keep-the-verifier-useful) when it has drifted. Use [steps 6–9](#part-2-understand-the-problem-then-design) only when the problem or design is unclear, or the work needs a durable plan. You do not run every skill for every task.
 
 ## Before you start
 
 ### Refresh the installed skills
 
-Refresh when setting up the host or adopting reviewed skill updates, not before every task. Preserve intentional edits to installed skills first. Run these commands from the `agentic-env` directory of your `.dotfiles` checkout. Replace `/path/to/.dotfiles` with the directory where you cloned it.
+Run this once when setting up a macOS/Linux host or adopting reviewed updates. Preserve intentional edits to installed skills first. Replace `/path/to/.dotfiles` with your checkout path.
 
 ```bash
 cd /path/to/.dotfiles/agentic-env
@@ -28,47 +28,52 @@ agentic-stack-doctor
 agentic-skill-drift --no-upstream
 ```
 
-The install writes the curated profile for Hermes, Claude Code, and Codex, and OMP reads Claude's skill links. It installs no MCPs. For OMP, the [refresh runbook](../README.md#refresh-skills-on-an-existing-omp-host) also checks the `skills` mapping in `~/.omp/agent/config.yml`.
+This installs the curated skills for Hermes, Claude Code, and Codex. OMP reads Claude's skill links. It installs no MCPs. For OMP, also check the `skills` mapping in `~/.omp/agent/config.yml` using the [refresh runbook](../README.md#refresh-skills-on-an-existing-omp-host). Native Windows and standalone copies use the [copying route](../README.md#python-only-copy-on-windows).
 
-Inspect doctor and drift failures before you continue, and never clear them with `--update-baseline`. A `foreign:<source>` finding means the recorded source differs, not necessarily the content. `--no-upstream` checks the installed skills against local sources; it does not check for newer upstream changes. These checks prove installation and wiring. They say nothing about whether a project verifier works.
-
-This managed refresh is for macOS/Linux. For standalone copies, including native Windows, use the [copying routes and discovery checks](../README.md#python-only-copy-on-windows) instead.
+Investigate doctor and drift failures. Do not use `--update-baseline` to clear them. `foreign:<source>` means the recorded source differs, not necessarily the content. `--no-upstream` compares installed skills with local sources, not newer upstream revisions. These checks prove installation, not application behavior.
 
 ### Invoke skills in your harness
 
-The prompts below use `/name` as shorthand. Translate every named skill to your harness's form:
+The prompts use `/name` as shorthand. Translate it to the form your harness accepts. Replace bracketed inputs with your task details and `<app>` with the name chosen from your repository.
 
-| Harness | Invoke a skill | Loads the repo's `.agents/skills/` |
+| Harness | Invoke a skill | Project-local skill discovery |
 |---|---|---|
-| OMP | `/skill:<name>`, or explicitly ask it to load `skill://<name>` and use it for the task | Yes |
-| Claude Code | `/<name>` | No, it reads `.claude/skills/`. Link `.claude/skills/verify-<app>` to `../../.agents/skills/verify-<app>`. |
-| Codex | `$<name>` | Yes |
-| Hermes | `/<name>` | Only after you run `hermes skills trust` for the repository |
+| OMP | `/skill:<name>`, or ask it to load `skill://<name>` and use it | Reads `.agents/skills/` |
+| Claude Code | `/<name>` | Reads `.claude/skills/`. Link `.claude/skills/verify-<app>` to `../../.agents/skills/verify-<app>`. |
+| Codex | `$<name>` | Reads `.agents/skills/` |
+| Hermes | `/<name>` | Reads `.agents/skills/` after you run `hermes skills trust` for the repository |
 
-Run the Hermes trust command yourself. Do not let the agent grant trust or change runtime settings for you.
+Run the Hermes trust command yourself. An agent must not grant trust or change global runtime settings for you.
 
-Pstack skills are manual-only. OMP and Claude Code honor that flag and hide them from the model's automatic skill list. Hermes ignores it, so the skill's own guard tells the agent to stop a run you did not request; this is not an enforced runtime boundary. In OMP and Hermes, invoking a recipe authorizes the skills it names, so `/teach` may run `/how`, `/why`, and `/unslop`.
+Pstack skills are manual-only. OMP hides them from its automatic skill list but can load them by name. Hermes ignores the flag, so the skill's own guard is a behavioral instruction, not an enforced boundary. In OMP and Hermes, invoking a recipe authorizes the skills it names.
 
-The vendored recipes that run other skills target OMP and Hermes only. [Claude Code blocks model invocation of manual-only skills](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), so there `/teach` cannot invoke `/how` or `/why`, and `/technical-writing` cannot invoke `/unslop`. In Claude Code, invoke each dependency yourself in a separate prompt, then ask for synthesis of those results rather than relying on nested invocation. `/recall` reads only OMP and Hermes session history. Codex recipe composition is untested; named loading is not evidence that a whole recipe works.
+[Claude Code blocks model invocation of manual-only skills](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill). Invoke dependencies yourself in separate prompts before requesting synthesis. For example, `/teach` needs separate `/how` and `/why` invocations; `/technical-writing` needs a separate `/unslop` pass. Codex recipe composition is untested. Named loading does not prove a composed recipe works.
 
-### Open the target repository
-
-Start your harness in the repository root and ask:
+After host setup, start your coding agent in your project's root, not the `.dotfiles` checkout. Confirm `create-verification-skill`, `code-review`, and `handoff` are discoverable. In Claude Code, check the `/` menu yourself without running the skills; in Codex, check its skill list. In OMP or Hermes, use this loading check:
 
 ```text
-Load the create-verification-skill, maintain-verification-skill, how, and
-teach skills by name. Report whether each loads. Do not run them.
+Load create-verification-skill, code-review, and handoff by name.
+Report whether each loads. Do not execute their recipes yet.
 ```
 
-Keep only app-specific verification knowledge in the repo's `.agents/skills/`. The shared skills stay on the host. Loading a skill for this discovery check does not authorize executing its recipe.
-
-Coding standards need no setup here. `/code-review` carries six shared lenses into every repo. Add a repo `CODING_STANDARDS.md` only for rules specific to that repo or for explicit waivers of a lens; it overrides the shared lenses rule by rule.
+Shared skills stay on the host. App-specific verification belongs in the repository's `.agents/skills/`. `/code-review` bundles the six shared coding standards. A repo `CODING_STANDARDS.md` is only for repo-specific rules or waivers of individual rules. The shared standards apply when you run the review; they are not automatically injected into implementation sessions.
 
 ### Check that the app runs
 
-Find the project instructions, run command, existing drivers, and any project-local verifier. Reuse a working verifier, and use step 4 if it has drifted. For an empty repo, first build and run the smallest useful user path, and do not map planned features. If an existing app will not start, fix or report that before writing verification instructions.
+For an empty repo, choose the stack and one useful outcome, then ask:
 
-For an existing app, use a bounded first prompt:
+```text
+Build the smallest working path for [user outcome] using [agreed stack].
+Read any project instructions first. Run the result with disposable data
+and prove the outcome through the real user interface or public API.
+Document the launch command and prerequisites. Do not create a verifier
+for planned features yet. Do not commit, push, or change global settings.
+Stop only the processes you started and retain the proof.
+```
+
+For example, the first outcome could be creating one record and finding it after restarting the app. Settle an unclear outcome with [step 6](#6-restate-the-problem-and-build-a-mental-model) before building it.
+
+For an existing app, use this instead:
 
 ```text
 Read this repository's instructions and find its documented launch command,
@@ -79,148 +84,274 @@ tooling. Do not create a new verifier yet, change global settings, commit,
 or push. Stop only the processes you started.
 ```
 
-For an empty repo, replace "one existing user path" with the smallest useful outcome you want to build, such as "create one task and see it after reload." Build that path using the agreed stack first. A feature map of planned screens is not a substitute for a running app.
-
-Use disposable data, test accounts, and isolated ports or profiles. Production data, credentials, infrastructure, and global runtime settings need separate authorization.
-
-## What the articles use that this stack does not
-
-Lauren works in Cursor and Grok Bot. These parts of the articles depend on them or on pstack skills we did not select:
-
-| In the articles | Tied to | Use instead |
-|---|---|---|
-| Dr Eggbot and the engineer bots it creates | Grok Bot | Nothing. We don't use Dr Eggbot. Invoke the skills yourself. |
-| `/poteto-mode` and its playbooks, pinned as a Custom Mode | pstack in Cursor | Invoke skills directly. Use `/prototype` in step 8 and `/to-spec` or `/to-tickets` in step 9. |
-| `.cursor/skills/verify-<app>/references/features/` | Cursor | `.agents/skills/verify-<app>/features/` |
-| Cloud Agents for parallel work | Cursor | Lauren prefers separate cloud machines to local worktrees. Here, drive shared app state serially. Parallel implementations each need their own checkout, ports, profile, and data. |
-| `/swarm` across cloud agents | Cursor Cloud Agents | Repeat the same verifier scenario and compare results. This shows local repeatability. It does not give you cloud scale, fuzzing coverage, or independent environments. |
-| Routines and Automations for daily maintenance and report reproduction | Grok Bot, Cursor | A cron job, systemd timer, or CI schedule that runs your harness non-interactively with `omp -p`, `claude -p`, `codex exec`, or `hermes -z`. It needs its own setup and authorization. |
-| `/architect` | Unselected pstack skill | Ground the problem, compare caller-facing sketches with `/codebase-design`, and measure open questions with `/prototype`, as in step 8. This is a manual adaptation, not the original architecture arena. |
-| `principle-build-the-lever` | Unselected pstack skill | [STANDARDS §2](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#2-build-the-lever-narrowed), which `/code-review` checks, and the helper checklist in step 2. [Build the Lever: Lauren's rule and ours](#build-the-lever-laurens-rule-and-ours) compares the two. |
-
-These substitutions keep the method but lose some platform capabilities. Before scheduling anything, prove one unattended run can load the intended skills, start its own environment, retain evidence, and stop safely. A headless command alone does not establish that.
+Continue once that path works. If startup fails, fix it as a separate task or record the blocker before generating instructions. Use disposable data, test accounts, and isolated ports or profiles. Production access, infrastructure changes, and credential changes need separate authorization.
 
 ## Part 1: establish verification
 
-Verification closes the development loop. The agent changes the code, drives the real app, observes the result and side effects, and corrects the implementation until it meets the task. Lauren treats the verifier as critical infrastructure because it lets agents check their own attempts instead of making you test every iteration.
-
-Her opening "gardener" argument also applies. When an agent repeats a mistake, fix it with stronger types, compiler checks, lints, or a shared implementation instead of making the agent instructions ever longer. Keep that principle alongside runtime verification. [STANDARDS §6](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#6-encode-lessons-in-structure) describes our version, which `/code-review` applies to every diff.
-
-For the worked examples below, assume Atlas already has a documented development command and Playwright-based browser automation. Completing a task has two entry points: a checkbox and a task-row menu. These are illustrative assumptions. Do not add Playwright, a menu, or any other tooling to your own app because of them.
-
 ### 1. Create the project verifier
 
-Lauren recommends asking Dr Eggbot to create an engineer bot that runs `/create-verification-skill`. We do not use Dr Eggbot. Once the app runs and no usable verifier exists, invoke the skill yourself. If a verifier already works, reuse it; if it has drifted, go to step 4.
-
-The installed generator first answers five questions from the repository:
-
-| Question | What the generated verifier must know |
-|---|---|
-| Surface | What a user touches: browser, terminal, desktop app, API, mobile app, or library |
-| Run | The actual launch command, readiness signal, required configuration, auth, and seed data |
-| Drive | Existing runners and drivers, plus stable selectors or commands for real user paths |
-| Observe | Screenshots, recordings, terminal output, responses, logs, files, or stored state |
-| Isolate | Which ports, profiles, and data belong to this run, and whether parallel instances are possible |
-
-The next agent to read the verifier may know nothing about the app, so the verifier must contain executable instructions, not a list of tools to investigate later.
+Invoke `create-verification-skill` with this brief once the app runs. If an existing verifier has the sections and feature map below, test its handoff first. Use step 4 for drift in a complete verifier. Use this setup brief to fill missing structure or control tooling without discarding working parts.
 
 ```text
-/create-verification-skill for this repository. Reuse its documented
-runner and existing automation before adding helpers or dependencies.
-For Atlas, map the existing create, complete, reopen, and filter flows.
-Undo completion is planned, not existing coverage.
+/create-verification-skill for this repository. Prepare it so another
+coding agent can verify its work without this conversation.
+Record the current commit, if one exists, and existing local changes
+before editing, so the later review has a baseline.
 
-Use an isolated instance and disposable state. Prove completing a task
-end to end through the UI: capture the action, the updated list, and the
-state after reload. Clean up what you started, including failed attempts,
-and confirm the evidence survives. List mapped features not exercised.
-Report how to load the generated skill in the harnesses I use.
-Do not commit, push, grant project trust, or change global configuration.
+Reuse the documented runner, existing automation, and any usable verifier.
+Deliver .agents/skills/verify-<app>/SKILL.md, a map of the main existing
+features, and executable commands for one representative user scenario.
+Record the exact scenario and its starting state for the next agent.
+
+Reuse a working scripted control path. If the next agent would need to
+reconstruct scripts, launch state, or evidence collection, implement the
+smallest missing helper now. Do not add a second automation framework.
+Every documented command must exist. Exercise the recorded scenario's
+commands; mark other feature recipes unverified until they are run.
+Any helper you add must target its owned run, expose --help, return stable
+results and evidence paths, and exit nonzero with a useful error on failure.
+Give destructive operations --dry-run and observe what it actually skips.
+
+Cover launch, readiness, read-only doctor, real user interaction, observed
+results and side effects, evidence, and cleanup. Use disposable data and
+owned instances. Keep credentials out of instructions and proof artifacts.
+
+Prove the scenario end to end. Exercise a useful failure case and check
+cleanup safety, including after failed attempts. Keep the evidence after
+cleanup. Distinguish mapped, exercised, and blocked paths. Mark unexercised
+recipes as unverified and check that every feature-index link resolves.
+
+Return replay instructions, prerequisites, evidence locations, and how to
+load the skill in the harnesses I use. Do not change product behavior to
+make verification pass. Report product or startup blockers. Do not commit,
+push, grant trust, change global settings, or schedule automation.
 ```
 
-Expect `.agents/skills/verify-<app>/SKILL.md` with `name` and `description` frontmatter, plus these sections:
+The installed generator requires the creator to prove one scenario. This setup brief requires reusable executable tooling; the replay prompt below adds proof by a fresh agent. Neither changes the installed skill.
 
-| Section | Concrete Atlas example of the required detail |
+The generated `SKILL.md` needs `name` and `description` frontmatter and these sections:
+
+| Section | Required content |
 |---|---|
-| Launch | Exact project command, isolated port and data directory, and a readiness check that actually succeeded |
-| Doctor | Read-only confirmation of the expected app/build, owned instance, usable auth, and correct data directory |
-| Drive | Actual accessible names and commands for creating a task, selecting its completion checkbox, and switching filters |
-| Evidence | Where to retain the action recording, before/after views, and independent readback of the saved change |
-| Cleanup | How to stop the run's owned processes and remove its temporary state without deleting evidence |
-| Helpers | Executable scripts, if any, with their invocations; reuse existing drivers when no helper is needed |
+| Launch | Exact command, configuration, test data, owned ports or profiles, and observed readiness signal |
+| Doctor | Read-only check of the intended build, owned instance, valid auth, and correct data location |
+| Drive | Real user commands or stable selectors, expected results, and starting state |
+| Evidence | Action, resulting state, side effects, and a location that survives cleanup |
+| Cleanup | Teardown of owned processes and disposable state, including failed attempts |
+| Helpers | Executable scripts with documented invocations, or the existing commands they reuse |
 
-The generated layout might be:
-
-```text
-.agents/skills/verify-atlas/
-  SKILL.md
-  features/
-    README.md
-    create-task.md
-    complete-task.md
-    reopen-task.md
-    filter-tasks.md
-```
-
-The app name and feature boundaries come from the repository. The articles call the generated skill `/control-app`; that is not another skill you need to install. Lauren's [example verifier](https://github.com/poteto/verification-skill-example) shows a finished desktop-app verifier with Cursor paths and a larger feature map. It documents CLI commands but does not include their implementation, so do not copy those commands and assume they exist.
-
-**Creation is complete when:** the agent has followed its own Launch, Doctor, Drive, Evidence, and Cleanup instructions in order, shown one real feature working, confirmed the evidence survives cleanup, and checked named discovery in a fresh session of each harness you use. A generated file that has never been executed is still a draft. One proved feature establishes the verifier but does not cover the whole application.
-
-Open the evidence yourself. If an unrelated missing asset blocks startup, the verifier may create temporary scaffolding only when it labels that scaffolding and removes it during cleanup. Use the discovery and trust rules in the prerequisites; the agent does not grant trust on your behalf.
+The creator must follow these instructions successfully before handing them over. One proved scenario establishes the verifier, not whole-app coverage. Open the evidence yourself, then run the fresh-agent check and review below.
 
 ### 2. Make verification reproducible
 
-Without a scripted control path, each agent improvises its own clicks, waits, and log reads, and two runs rarely check the same thing. This step has two stages. First expose the control the app already has. Then, only if agents keep repeating the same steps, wrap them in a small CLI.
+A new CLI is optional. A reusable executable control path is required for handoff. Do not wait for several agents to repeat the work before filling a known tooling gap.
 
-Give the agent the control you have by hand: interaction, debugging, logs, and performance traces. Prefer the richest runtime already available, such as Chrome DevTools Protocol for web and Electron apps, an iOS simulator, or lldb for a native process. A development-only sidecar is an option when the app otherwise exposes no usable control.
+Use the richest control already available, such as the project's browser automation, Chrome DevTools Protocol, a PTY driver, HTTP commands, or native debugging tools. Add only the missing operations needed to drive and observe the app. A development-only sidecar is an option when the app has no usable control.
 
-Lauren considers this control important enough to influence stack choice. For an existing project, first find the control you already have. Atlas's existing browser automation may already capture screenshots, recordings, traces, console output, and network traffic. A short, proved recipe is better than introducing a second driver.
+If you need a helper, require it to:
 
-#### Build the Lever: Lauren's rule and ours
+- Target the run it owns, using an explicit run ID or equivalent ownership check.
+- Drive real user actions and wait for observable results rather than fixed sleeps.
+- Expose its available commands through `--help` and return stable results and evidence paths, such as JSON.
+- Exit nonzero on failure and explain the next useful action.
+- Offer `--dry-run` for destructive operations. Observe what it skips rather than trusting the flag's name.
+- Remove only owned resources and keep evidence outside disposable app state.
 
-**Lauren's guideline.** pstack's `principle-build-the-lever` says to build the tool that does or proves any non-trivial work (a codemod, script, generator, or a skill your subagents follow) instead of working by hand. Its bar is triviality, not repetition: "Default to building the lever." It counts the principle as applied only when a tool file appears in the diff. The skill is manual-only (`disable-model-invocation: true`), so an agent follows it only when someone loads it.
+Document seed data, test accounts, required auth setup, and authorized test or staging APIs without storing credentials. Readiness only means the app is up. Doctor must also establish that it is the intended instance and build.
 
-**How Lauren applies it to verification.** In Part 1 the lever is a verification CLI: "we prefer to give agents tools rather than just markdown." Agents run one command instead of writing a throwaway script to click on something, which saves tokens and makes the verifier reproducible and testable. She builds the CLI early, alongside the feature map, and recommends "making this CLI good and error free before doing anything more advanced."
+#### Test with a fresh agent
 
-**How we implement it.** We did not install the principle skill. Its intent lives in [STANDARDS §2](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#2-build-the-lever-narrowed), narrowed: write a codemod, generator, or query for repetitive or hard-to-review work, because the lever exists to make work reproducible or reviewable, not to add a file to the diff. A couple of visible edits need no tool. `/code-review` applies §2 to every diff, so the rule is checked at review time rather than loaded while you work. For the verifier, `/create-verification-skill` drives the repo's existing harness first, and our copy tells it to use the repo's own runner rather than add a second test framework. Neither skill requires a CLI. This guide applies §2's threshold to helpers by analogy: build the CLI when agents keep repeating the same multi-step interaction, or when the runner is too awkward to use directly.
-
-| | Lauren | This stack |
-|---|---|---|
-| Where the rule lives | `principle-build-the-lever`, loaded on request | STANDARDS §2, bundled with `/code-review` |
-| When to build a tool | Any non-trivial work | Repetitive or hard-to-review work |
-| Proof of application | A tool file in the diff | Work a reviewer can rerun or check; a file is optional |
-| Verification CLI | Built early and polished before advanced work | Existing harness first; a CLI after repetition |
-| When it is checked | While the agent works, if the skill is loaded | At review time, by `/code-review` |
-
-#### Build a helper only for repeated work
-
-The command groups in her example are inspection, navigation, interaction, performance, log streaming, and health/cleanup. You do not need all of them. Start with the paths you actually repeat, and make them reliable before adding more.
-
-A useful helper:
-
-- Hides repeated mechanics behind a small interface. For example, one `complete` command can locate the task's row, act through the UI, wait for an observable result, and return that result. A collection of coordinate clicks and fixed sleeps leaves every agent to reconstruct the workflow.
-- Targets the run it owns instead of attaching to an arbitrary open browser or server.
-- Supports `--dry-run` on destructive commands such as cleanup. Observe what the dry run really skips; the name alone does not prove that files, processes, or network resources are untouched.
-- Reveals functionality gradually through subcommands, with a `--help` that explains the commands actually available.
-- Says what went wrong in each failure and which next command can resolve it.
-- Returns JSON or another stable format that carries results and evidence paths, so the agent does not have to interpret decorative terminal text.
-
-For Atlas, after repeated scripts justify a helper:
+Stop the creator's app instances and leave its chat session idle. Open a separate session in the same checkout, with no prior conversation, and supply the verifier path and recorded scenario. Use the discovery rules above. In Claude Code, create the project-local link if needed without replacing existing files, then invoke the generated skill yourself.
 
 ```text
-Wrap the existing Atlas driver in a small executable CLI inside
-.agents/skills/verify-atlas/. Add no second automation framework.
-Cover the repeated launch, doctor, complete, reopen, filter, reload,
-snapshot, and cleanup operations. Keep UI mutations on real user paths.
-Take an explicit run ID so commands cannot drive another session.
-Document invocations in SKILL.md and expose --help and JSON output.
-Give cleanup a --dry-run and verify its actual side effects.
-Exercise every documented command, including a useful failure case,
-then repeat one complete proof from two fresh launches. Keep evidence
-outside disposable app state. Do not commit or push.
+Use [generated verifier path] to repeat [recorded scenario]. Read the
+repository instructions and verifier; do not use the creator's session.
+Start your own isolated instance from the documented initial state.
+Run launch, doctor, drive, evidence, and cleanup in order.
+
+Do not reconstruct missing scripts or silently repair instructions.
+Report missing prerequisites and commands as handoff failures. Preserve
+evidence, including failures. Confirm cleanup leaves it accessible.
+Report the exact commands, observed result, and any coverage gaps.
+Do not edit files other than run artifacts, commit, or push.
 ```
 
-The interface might look like this. These commands are illustrative, not installed:
+Return failures to the creator, or give a new repair session the setup brief and replay report if no creator session exists. Repair verifier gaps, report product bugs separately, and repeat the check in another fresh session.
+
+The replay passes when both agents prove the same scenario and retain evidence after cleanup. Repeat in each harness you intend to support. Report unavailable runtimes as untested; discovery alone is not a pass. Then [review the verifier changes](#review-before-committing) against the setup brief. Setup is complete after the replay passes and supported review findings are resolved.
+
+Only one agent may drive shared app state at a time. Parallel implementations need separate checkouts, ports, profiles, and data. Read-only source research can run concurrently.
+
+### 3. Map the app's existing features
+
+The setup task creates `features/README.md` and one file per main feature, usually three to five initially. The index holds shared starting-state, evidence, and skip-reporting conventions. Each feature file uses these four sections in order:
+
+1. `Sub-features`
+2. `How to get to it (user POV)`
+3. `Driving it with <harness>`
+4. `Gotchas`
+
+Pair each entry point with an exact drive command and observable result. A checkbox and a menu action need separate recipes if both implement the feature. Proving one does not prove the other. Record blocked routes with the attempted action and missing prerequisite.
+
+Every index link must resolve. Confirm each added feature exists from a concrete source path, but keep implementation details out of the map. Add cross-feature journeys when needed and expand coverage as work touches more of the app. Mark unexercised recipes as unverified, not working coverage. See [the complete feature-file example](#example-feature-map-entry).
+
+### 4. Keep the verifier useful
+
+Run maintenance after substantial changes or when the instructions stop matching the app. This is a full-map pass, not the affected-path check for each change. Lauren recommends daily maintenance; use a cadence that matches your project's churn.
+
+```text
+/maintain-verification-skill for [verifier directory]. Check every mapped
+feature against source and exercise it live. Drive shared state serially.
+Fix only documentation and helper drift inside the verifier directory,
+and rerun corrected recipes. Report product regressions separately with
+reproduction evidence; do not redefine expected behavior to hide them.
+Keep evidence after cleanup. List blocked paths and missing prerequisites.
+Report clean, changed, or blocked. Do not commit, push, or open a PR.
+```
+
+Independent source readers may run in parallel with enforced read-only permissions. One coordinator drives the app serially, checks each fresh instance with Doctor, and checks again after surprises or failures. Short-lived CLIs may need a fresh isolated session per drive.
+
+- **Clean** means every mapped feature received source and live coverage without corrections.
+- **Changed** means verifier corrections were made and proved by rerunning them.
+- **Blocked** means coverage or a safe correction could not be completed.
+
+A feature marked "verified-unreachable" needs a concrete prerequisite and the route attempted. It proves an obstacle, not working behavior. A missing prerequisite in the map is documentation drift to correct.
+
+Report unclear product intent rather than guessing whether to change the map. Keep transient run notes out of commits. Product fixes belong in step 5.
+
+### 5. Use the verifier on real changes
+
+Record the baseline commit and existing local changes before editing. Name the user-visible outcome, read the affected feature-map entries, and use the verifier throughout implementation.
+
+```text
+Implement [approved outcome or ticket]. Read the affected verifier recipes
+and establish the baseline first. Keep the change focused.
+Use [project verifier] on disposable state to exercise the real user path,
+its relevant failure cases, and neighboring behavior that could regress.
+Check side effects and persistence where applicable. Correct failures and
+repeat the same scenario. Keep useful regression tests.
+Update the verifier for intentional behavior changes after proving them.
+Retain the action, resulting state, exact commands, and evidence locations
+through cleanup. Report blocked paths and risks. Do not commit or push.
+```
+
+For a UI, retain the interaction and resulting screen. For a CLI, retain the invocation, stdout/stderr, exit status, and changed files. For a service, retain requests, responses, and relevant stored state. Passing tests alone does not establish live behavior.
+
+For a reported bug, use `/diagnosing-bugs` when the cause is unclear. Capture the reported path before editing when possible, fix its cause, and run the same path afterward. The report remains evidence even if local reproduction fails. Record the differing conditions rather than applying a guessed fix.
+
+For performance work, define the start and end events before measuring. Keep fixture, machine, build mode, and cache policy consistent; separate cold and warm runs. Use repeated baseline and post-change runs, retain all samples and traces, and report the median and spread. Prefer a production build for user-performance claims. Report inconclusive results when noise obscures the effect.
+
+#### Review before committing
+
+Run this after verifier setup as well as after product changes. Invoke `/code-review` separately, naming a real baseline commit and the intended paths. Its scoped WIP snapshot includes uncommitted changes and non-ignored untracked files, so there is no need to commit first.
+
+Inspect runtime evidence separately. Reviewers read the frozen snapshot and supplied context, not arbitrary evidence paths. Put relevant redacted observations in the task brief. Supply the pre-existing-change notes recorded before editing; the snapshot alone cannot identify which uncommitted edits predate the task.
+
+```text
+/code-review the intended work in [paths], in WIP mode against
+[baseline commit]. Use [task brief or ticket] as the specification.
+Include [pre-existing-change notes] and the brief's recorded observations
+in the review context. Review Standards and Spec separately. Flag uncertain
+scope rather than guessing which edits belong to this task.
+Report findings only. Do not edit, commit, push, or publish anything.
+```
+
+In a new Git repository with no first commit, the snapshot helper has no valid baseline. Report that limitation and request a direct read-only review of the files and acceptance criteria instead. Do not create a commit merely to make the helper run.
+
+Fix supported findings and rerun affected verification before review is complete. When a defect recurs, encode the lesson in a type, lint, shared helper, or runtime check rather than another generic instruction. The shared standards remain review-time rules, not automatic implementation instructions.
+
+#### Hand off to another agent
+
+Keep reusable verifier files in the repository. Use the existing `/handoff` skill for the current task's state:
+
+```text
+/handoff for the next agent to [next task]. Reference the repository,
+current revision and uncommitted work, approved task, verifier path,
+replay command and initial state, evidence locations, prerequisites,
+proved paths, and remaining blockers. Name the skills to invoke next.
+Reference existing artifacts instead of copying them. Redact secrets.
+```
+
+The skill writes to the OS temporary directory, not the repository. Give the next agent that file and access to the same checkout. It summarizes the work; it does not replace the fresh-agent replay.
+
+For another machine, use an authorized transfer of the matching repository revision, tracked edits, and untracked files, including the verifier. Transfer the handoff and evidence too, then check their references. A patch alone may omit new files. `/handoff` does not package, commit, or upload the work; publication still needs separate approval.
+
+## Part 2: understand the problem, then design
+
+Use only the steps needed to resolve uncertainty. For an understood small change, return to step 5.
+
+### 6. Restate the problem and build a mental model
+
+Start with the report, not your proposed fix:
+
+```text
+Read [report or thread]. Restate in your own words and in plain English
+what you think the underlying issue is. Separate observations from
+assumptions and proposed solutions. List what the report does not tell
+us. Do not propose a fix yet or change any files.
+```
+
+Correct misunderstandings before investigating. Ask for observed behavior, supporting code or historical evidence, hypotheses, and what would distinguish them.
+
+| Skill | Use it to answer |
+|---|---|
+| `/how` | What runs, where, and in what order? |
+| `/why` | What evidence explains the design, and which constraints must remain? |
+| `/teach` | Why this approach rather than an alternative? It combines `/how` and `/why`. |
+| `/recall` | What did earlier OMP or Hermes sessions try or learn? Name the topic, workspace, and time range. |
+
+These skills explain code and history; they do not prove runtime behavior. `/recall` reads transcripts, not the durable memory bank. Skip it when the handoff is sufficient. `/why` should distinguish sources searched without results from sources it could not access. The articles' chat, monitoring, and analytics integrations are not installed by this guide.
+
+Continue when the problem, constraints, and remaining unknowns are explicit. Use the verifier to check consequential runtime claims.
+
+### 7. Work backwards from the caller's experience
+
+Use this for shared code with real callers. Skip it for a change confined to one component.
+
+Ask `/technical-writing` for a short caller tutorial before implementation. Each step should produce a visible result, including a failure case. Then use `/codebase-design` to assess what callers must know, which rules the module owns, and how consumers can test it. Invoke `/unslop` for the writing pass; follow the separate-invocation rules for Claude Code.
+
+Reuse an existing operation when its semantics fit. Do not add a pass-through module or an extension point for hypothetical callers. Turn unresolved semantics into experiments in step 8. If the module ships, keep the validated tutorial as product documentation; otherwise remove the temporary draft after the work lands.
+
+### 8. Answer design questions with prototypes
+
+Define a question and comparison criteria before building alternatives. Our `/prototype` comes from Matt Pocock's skills, not Lauren's `/poteto-mode`.
+
+| Question | Method | What it proves |
+|---|---|---|
+| What should this UI look like? | `/prototype` creates three structurally different variants by default, at most five, preferably on an existing route with `?variant=` and a switcher | The sketch's layout and interaction |
+| Do these state rules make sense? | `/prototype` creates a standalone HTML page with visible state and walkthroughs | The modeled transitions, not application integration |
+| Which timing, service, CLI, or native approach works? | Request a small throwaway experiment per viable alternative, using the existing runner | The behavior exercised under the recorded conditions |
+
+UI prototypes use stubbed mutations. Logic prototypes run outside the app. Neither establishes production persistence. For a real timing question, exercise the actual operation with disposable data and controlled conditions.
+
+Compare alternatives from the same starting state. For UI work, include keyboard access, focus, relevant error paths, and layout movement. Capture the action as well as the result. An accessibility tree does not prove screen-reader announcements; those require an assistive-technology check. Repeat timing measurements and report their spread.
+
+For a consequential interface decision, use `/codebase-design` and its Design It Twice reference. Compare at least three independent sketches with common constraints, caller examples, types, invariants, and failure behavior. This is not Lauren's `/architect` arena and does not guarantee different model families or a cross-judge. Test measurable unknowns instead of substituting adversarial review of a code-free plan.
+
+Choose a design from the evidence before production implementation. Revisit it if implementation exposes missing state or repeated caller workarounds. Rewrite the chosen UI under production constraints and remove prototype variants and switchers from shipped code. Creating a preservation branch, committing, or publishing it requires separate approval.
+
+### 9. Write an execution plan only when needed
+
+Plan after the design settles, when work spans sessions or people:
+
+- `/to-spec` synthesizes a specification and checks testing seams with you. It uses `docs/agents/issue-tracker.md` and asks where to publish if that file is missing.
+- `/to-tickets` proposes complete, demoable slices and genuine blocking dependencies. It can write local tickets under `.scratch/<feature-slug>/issues/<NN>-<slug>.md` while tracker configuration is unresolved.
+
+Ask to see the breakdown before writing ticket files or publishing issues. Each ticket needs the chosen semantics, exact verifier actions, observable results, existing behavior to preserve, and blockers. Do not split a small feature into database, API, and UI tickets that cannot demonstrate an outcome independently. See [the example ticket](#example-implementation-ticket).
+
+A mechanical migration may need expand–contract: introduce the replacement, migrate callers in verifiable batches, then remove the old form. Preserve visual behavior, including known quirks, and keep redesign separate. Each affected interaction needs before/after proof, not only a passing build.
+
+Implement an approved unblocked ticket using step 5. Mark only criteria actually proved. If implementation invalidates a design assumption, report the evidence before widening the task. After the work lands, remove temporary plans and scratch files while preserving useful documentation and agreed evidence. Do not delete tracker history, close parent issues, or publish without authorization.
+
+## Worked example: Atlas
+
+This is our fictional web task board, not Lauren's desktop-assistant example with the same name. Assume it already has a documented launch command, browser automation, and create, complete, reopen, and filter flows. Undo completion is a proposed feature. Nothing in this section is installed tooling or evidence of a run.
+
+In your project, derive names and commands from its code. Do not add Playwright, these features, or this CLI merely to match the example.
+
+### Example control commands
+
+Suppose the existing driver needs a helper. After implementing and exercising it, an agent might document commands like these:
 
 ```bash
 node .agents/skills/verify-atlas/control-atlas.mjs launch --run r1 --seed basic
@@ -231,25 +362,11 @@ node .agents/skills/verify-atlas/control-atlas.mjs cleanup --run r1 --dry-run
 node .agents/skills/verify-atlas/control-atlas.mjs cleanup --run r1
 ```
 
-For a misspelled task title, useful hypothetical error output would be:
+These commands do not constitute the full proof. The recipe must also check persistence and side effects, retain evidence, and test failure and cleanup behavior. Use the actual run ID, not the illustrative `r1`.
 
-```json
-{"ok":false,"error":"No task titled 'Write reprot'. Run snapshot --run r1 to inspect visible tasks."}
-```
+### Example feature-map entry
 
-Also document how to seed development data, which test accounts to use, which authorized test or staging APIs to call, and how to bring up the environment consistently. Keep credentials out of the verifier and proof artifacts. A readiness check is not the same as Doctor. An HTTP response can show that a server is up without proving it is the intended build, account, or run.
-
-**The control path is ready when:** documented commands have run successfully, an error gives a usable next step, repeated fresh runs produce the expected behavior, and cleanup removes only owned resources while preserving proof. Diagnose inconsistent runs before treating their results as evidence.
-
-Lauren introduces Cloud Agents here to increase parallelism once verification works. Locally, the requirement is isolation. Concurrent implementations need separate checkouts, ports, browser profiles, and data, and only one agent drives shared app state at a time. Independent source-only research can still run in parallel. Do not mistake local repetition for `/swarm`'s cloud scale or fuzzing coverage.
-
-### 3. Map the app's existing features
-
-The feature map is a searchable description of what the app does, how a user reaches each feature, and how to prove it works. Lauren calls it "materialized memory." Agents share it as a compact summary, and the code remains the source of truth. The map saves agents from rediscovering navigation and preconditions on every task.
-
-`features/README.md` indexes one file per feature and holds shared baseline, driving, evidence, and skip-reporting conventions. Each feature file has four sections, in order: `Sub-features`, `How to get to it (user POV)`, `Driving it with <harness>`, and `Gotchas`. Pair each action with an exact drive command and an observable result. Keep internal implementation tours out of this user-facing map.
-
-An illustrative `features/complete-task.md`, using the hypothetical helper from step 2:
+This file describes existing completion behavior. It assumes the helper implements every command shown, including both completion entry points.
 
 ```markdown
 # Complete a task
@@ -294,359 +411,11 @@ tasks "Write report" and "Buy milk". Start in All, using
   data and silently change the expected result.
 ```
 
-Use the run ID produced for your actual session instead of the example's `r1`. If the helper does not exist, record exact commands for the existing driver instead. An example command in this guide is not verification tooling.
+### Example implementation ticket
 
-The article aims to catalog every feature; the installed generator starts with the main three to five. Extend the map as changes touch other areas, or request a deliberate coverage expansion:
+Suppose users struggle to recover accidental completions in the Active view. Compare a toast, an inline recovery row, and a recently-completed tray before choosing. Check recovery effort, multiple completions, filter changes, and keyboard focus. Separately test what happens when Undo arrives before the save finishes.
 
-```text
-Extend the project verifier's map to the remaining user-facing features
-that exist today. Cite the source entry point behind each addition.
-Follow features/README.md and exercise each new recipe on disposable
-state. Report what you could not drive and why. Do not map planned
-features, commit, or push.
-```
-
-**The map is useful when:** every index entry resolves to a feature file, each described entry point has a drive recipe and expected result, and coverage limits are explicit. Proving the checkbox path does not prove the menu path. Record a blocked path with the attempted action and missing prerequisite, not as a pass through some other path. Add cross-feature journeys where real interactions cross those boundaries. Do not add flows that exist only in plans.
-
-### 4. Keep the verifier useful
-
-Lauren recommends running `/maintain-verification-skill` at least daily. Agents update the map as part of ordinary changes, and maintenance catches what they miss. Match the cadence to your app's churn. Run it after substantial changes or when instructions stop matching the app. Scheduled runs need separate setup and authorization.
-
-Full maintenance is not the affected-path check for every change. The installed maintenance skill:
-
-1. Reconciles the feature index and its files.
-2. Reads the source behind every mapped feature. Independent read-only readers may work in parallel; in OMP these are `scout` tasks. Without enforced read-only delegation, the coordinator reads the source itself.
-3. Reconciles drift and newly discovered features. Every map change needs source evidence.
-4. Drives every mapped feature serially, even if the source looks unchanged. It health-checks each new instance and checks again after surprises or failures.
-5. Fixes verifier problems, reruns corrected recipes, preserves evidence, and reports product regressions separately.
-
-For a long-lived web app, one coordinator drives one isolated instance. A short-lived CLI may need a fresh isolated session for each drive. Follow the verifier's Launch model; not every app runs like a long-lived server.
-
-Triage determines what may change:
-
-| Finding | Atlas example | Action |
-|---|---|---|
-| Documentation drift | An intentional rename changed Completed to Done | Update the map and prove the corrected route |
-| Harness gap | Users can reach the menu action, but the helper cannot | Fix the verifier-owned helper and rerun the action |
-| Product regression | Completion unexpectedly disappears after reload | Preserve reproduction evidence and report the product bug; do not redefine expected behavior |
-| Unclear intent | The observed change has no established requirement | Report the ambiguity instead of guessing whether it is the new contract |
-
-```text
-/maintain-verification-skill for .agents/skills/verify-atlas.
-Check the map against source and exercise every mapped feature.
-Drive shared state serially. Fix only documentation and harness drift
-inside the verifier directory, and rerun every corrected recipe.
-Report product regressions separately with reproduction evidence.
-Keep evidence after cleanup. List each blocked path, the attempted
-route, and the missing prerequisite. End with clean, changed, or blocked,
-explaining any incomplete coverage. Do not commit, push, or open a PR.
-```
-
-The outcomes have specific meanings: **clean** means complete source and live coverage with no correction needed; **changed** means proven verifier corrections; **blocked** means coverage or a safe correction could not be completed. When the skill marks a path "verified-unreachable," it has proved an obstacle. That result says nothing about whether the feature works.
-
-**Maintenance is complete when:** every mapped feature has source coverage and a live result or explicit blocker, each retained correction has rerun evidence, and changes stay inside the verifier directory. Inspect the report and evidence; keep transient run notes out of commits. A product fix is a separate task under step 5.
-
-### 5. Use the verifier on real changes
-
-Day to day, the loop is short:
-
-1. Name the user-visible outcome and read the affected feature-map entries.
-2. Establish a known baseline. For a bug, capture the failing path when possible; for performance, measure before editing.
-3. Make a focused change, then drive the affected user paths and check side effects.
-4. If the result is wrong, use the observed failure to correct the implementation and repeat.
-5. Update the verifier for intentional changes, check affected neighboring flows, and clean up while retaining evidence.
-
-Choose relevant success, cancellation, error, empty-state, and persistence cases. Do not run every conceivable case for every edit. Keep useful regression tests, but passing tests do not prove that the user path works.
-
-#### Build a feature with a defined outcome
-
-If the feature is still ambiguous, use Part 2 first. Once the Undo design is chosen:
-
-```text
-Implement the agreed Atlas Undo completion design in [ticket or decision].
-Reuse the existing task-state operations where their semantics fit.
-Use /verify-atlas on disposable state to complete a task, undo it through
-the chosen control, and reload to confirm the saved result.
-Exercise the ticket's repeated-completion, dismissal, and failure cases,
-plus existing complete, reopen, and filter paths that could regress.
-Show the interaction and resulting state with video or screenshots.
-Update the feature map and any helper that needs to drive the new action.
-Keep the change focused. Do not commit or push.
-```
-
-Do not add Undo to the map as working coverage until the behavior exists and its recipe has been exercised. The interface examples in Part 2 are proposals until selected and implemented.
-
-#### Fix a reported bug
-
-```text
-Bug: reopening a task from Completed does not show it under Active until
-reload. Use /verify-atlas to capture that path on disposable state before
-editing, then find and fix the cause. Run the same path afterward and
-show the before/after evidence, including state after reload.
-If this environment cannot reproduce it, report what differs and what
-evidence is missing rather than applying a guessed fix.
-Keep a regression test for the failure where practical, and check the
-affected reopen and filter paths. Do not commit or push.
-```
-
-The report is evidence even when local reproduction is blocked. A useful handoff distinguishes a confirmed fix, a plausible explanation, and a missing reproduction. Use `/diagnosing-bugs` for an unclear cause rather than patching the first plausible symptom.
-
-#### Improve performance with comparable measurements
-
-Lauren first traces the status quo, makes a targeted fix, and uses `/swarm` to collect more verification runs. Locally, repeat a controlled scenario instead:
-
-```text
-Investigate Atlas initial load with a fixed fixture of 2,000 tasks.
-Define the start and end events for time-to-usable-board before measuring.
-Use /verify-atlas and the existing tracing tools to collect repeated
-baseline runs. Keep the fixture, machine, build mode, and cache policy
-consistent, and separate cold from warm runs.
-Identify the measured bottleneck, make one targeted fix, then repeat the
-same scenario. Report all samples, the median and spread, and trace paths.
-Check the affected functional flows as well. Do not commit or push.
-```
-
-A production build is usually a better basis for user-performance claims than a development server, if the app supports one. Say how many samples you took and what reset between runs. Do not invent timings or declare a win from one fast sample.
-
-If noise obscures the effect, report the result as inconclusive and improve the measurement before changing more code. Local repeated runs do not reproduce `/swarm`'s independent environments or fuzzing coverage.
-
-#### Reproduce feedback before automating fixes
-
-Lauren uses feedback-channel reports as triggers for cloud reproduction, and may automate fixes once she trusts the verifier. Start with one report by hand. Once reliable, a scheduled or event-driven job can reproduce reports in its own environment and retain evidence. Grant permission to read feedback, reproduce it, modify code, and publish anything as separate decisions. A channel message must not authorize production actions.
-
-**A change is ready for your review when:** the handoff names the behavior changed, the checks actually run, evidence locations, any blocked paths, and remaining risks. For a UI, retain the interaction and resulting screen. For a CLI, retain the invocation, stdout/stderr, exit status, and changed files. For a service, retain requests, responses, and relevant stored state. Evidence must remain after cleanup.
-
-Review the diff and proof before committing. When the same defect recurs, encode the lesson in the strictest mechanism that fits, such as a type, a lint, or a verifier recipe, rather than another generic instruction.
-
-## Part 2: understand the problem, then design
-
-Lauren identifies two recurring failures: the agent misunderstands your intent, or it lacks the context to do the work correctly. Use the steps below to resolve those gaps before implementation. An understood small change still goes straight to step 5.
-
-### 6. Restate the problem and build a mental model
-
-#### Restate before prescribing
-
-Ask the agent to restate a report before it proposes a fix. Keep your own hypothesis out of the prompt. This compresses a noisy conversation, exposes misunderstandings while they are cheap to correct, and gives the agent room to find a cause you did not anticipate.
-
-```text
-Read [report or thread]. Restate in your own words and in plain English
-what you think the underlying issue is. Separate observations from
-assumptions and proposed solutions. List what the report does not tell
-us. Do not propose a fix yet or change any files.
-```
-
-For example, an Atlas user reports: "With Active selected on my phone, I accidentally completed 'Pay rent'. It vanished, and finding it under Completed took too long." Someone replies: "Add a five-second undo toast."
-
-A premature answer is "Implement a toast that calls Reopen." A useful restatement is:
-
-> Completing a task immediately removes it from the Active view. A user who completes the wrong task must leave that view to recover it. The user can recover it by opening Completed and choosing Reopen, but the reporter found that slow. We know the reported experience; we do not yet know whether list movement caused the mistake, whether Reopen restores the old position, or what recovery keyboard users need. A toast and a five-second duration are proposals, not requirements.
-
-Correct the restatement if it misses the problem. Then investigate the unknowns rather than treating the proposed fix as the specification.
-
-For an ambiguous failure, use Lauren's "what we know, what data, best hypotheses" pattern:
-
-```text
-Investigate why reopened Atlas tasks appear at the bottom of the list.
-Give me the observed behavior, the code and historical evidence behind
-it, and your best hypotheses. Say what would distinguish them. Use only
-authorized sources and list missing evidence. Do not fix anything yet.
-```
-
-Use `/diagnosing-bugs` when you need a full diagnosis loop. Capture a reproducible failing path with the verifier to guide the fix, not to decide whether to believe the report. If your environment cannot reproduce it, record the conditions and the coverage limit.
-
-#### Choose the explanation you need
-
-These skills build a mental model. They do not, by themselves, prove runtime behavior.
-
-| Skill | Question it answers | Useful Atlas prompt |
-|---|---|---|
-| `/how` | What runs, where, and in what order? | `/how does completing a task reach stored state and update the Active filter? Include what Reopen does differently and how ordering is decided.` |
-| `/why` | What evidence explains the current design? | `/why does Reopen put tasks at the bottom? Start with Git history and project documents. I am considering changing this: identify constraints to preserve and evidence that remains missing.` |
-| `/teach` | Can I understand and assess the agent's reasoning? | `/teach me why you implemented [change] this way rather than [alternative]. Explain the tradeoffs and distinguish code reading from behavior already verified.` |
-| `/recall` | What did we learn or try in earlier sessions? | `/recall my Atlas completion and Reopen work in this workspace over the last 7 days. Then compare it with [new report] and check the current state.` |
-
-`/how` handles a small question inline and uses parallel read-only explorers when the subsystem splits into independent parts. `/why` searches source control and, within your requested scope, already-authorized evidence sources.
-
-Lauren also uses PR comments, tickets, design documents, chat, monitoring, error tracking, and analytics. The article mentioning them does not make those integrations available here. Ask `/why` to list the categories it did not search, and keep "not found" separate from "could not search."
-
-`/teach` composes `/how` and `/why`, preserves their uncertainty, and replies without changing code or writing lesson files. Teaching also helps the agent, because explaining the mechanism forces it to read the code instead of asserting a plausible story. Collect any new runtime evidence as a separate verifier task, then ask `/teach` to explain it.
-
-`/recall` reconstructs in-scope transcripts and the shared record of reports, fixes, and reverts, then checks the current state. It is not the same as querying a durable memory bank. Name the topic, workspace, and time range; skip it when you already have a sufficient handoff or no relevant history. Its transcript support is limited to OMP and Hermes, as noted in the prerequisites.
-
-**Move on when:** the problem is clear, the affected runtime path and historical constraints are understood, and each remaining unknown is explicit. Read-only findings are evidence about code or history; verify consequential claims about the running app separately.
-
-### 7. Work backwards from the caller's experience
-
-For shared code or a package, write the caller's tutorial before the implementation. Lauren used this approach for Dune, her team's desktop framework. Describe building an app with the code, then work backwards to the interface. Writing the tutorial first keeps the design focused on what callers do, instead of filling a plan with implementation details.
-
-Use `/technical-writing` to keep four different jobs separate: a tutorial builds something visible; a how-to solves a specific problem; a reference describes APIs and options; an explanation covers background and tradeoffs. The skill ends with `/unslop`. Here, ask only for the tutorial.
-
-Skip this step if Undo belongs in one existing component. Use it if several actual callers need shared behavior. Do not invent a package or an extension point for hypothetical future callers.
-
-```text
-Use the /how and /why findings, plus relevant /recall results, to define
-what the existing Atlas task module must preserve. Use
-/technical-writing to draft a short caller tutorial for adding Undo
-completion to a view. Put it in .scratch/undo-completion/tutorial.md.
-Show one visible result at each step, including a failed or stale Undo.
-
-Use /codebase-design to assess the interface implied by the tutorial.
-Explain what the caller must know, what complexity the module hides,
-and how a consumer would test it. Stop before implementation.
-Then /teach me the tradeoffs, citing existing code and evidence already
-collected. Separate a predicted improvement from a demonstrated one.
-Do not commit or push.
-```
-
-In Claude Code, invoke the named skills yourself in separate prompts, including `/unslop`, rather than relying on the combined recipe above.
-
-An illustrative caller tutorial might propose this sequence. These are candidate APIs, not Atlas code or a library shipped by this stack:
-
-```ts
-const completed = await board.complete(taskId);
-// The task leaves Active. Show an Undo action for this completion.
-
-const restored = await board.undoCompletion(completed.operationId);
-// On success, the same task returns to Active at its previous position.
-```
-
-The tutorial should show how the UI offers those actions and displays the outcome. The sketch alone leaves open questions about interface, depth, locality, testability, and existing constraints:
-
-- Can Undo expire? What happens after a reload, another completion, or an intervening edit? How does the caller recognize a rejected operation? Callers depend on these behaviors, so they are part of the interface.
-- Does the module hide restoration and consistency rules that callers would otherwise duplicate? If Undo is exactly Reopen, reuse Reopen rather than adding a pass-through module.
-- Is the rule owned in one place, or must every view keep its own copy of previous state?
-- Can a consumer complete and undo through this interface and observe the result without reaching into internal storage?
-- Does the proposal respect what `/why` found? A nicer-looking call is not enough if it loses required behavior.
-
-State only the semantics you have settled. Turn unresolved questions into experiments in step 8. A tutorial is a target for verification, not proof that the proposed implementation works.
-
-**Move on when:** you can follow the caller's path, understand its success and failure outcomes, and name what remains to be measured. If the shared module ships, turn the validated tutorial into real documentation. Otherwise keep it temporary and remove it after the work lands.
-
-### 8. Answer design questions with prototypes
-
-Do not accept the agent's first design, and do not keep refining an abstract plan without evidence. Lauren uses throwaway alternatives to answer open questions before committing to production code. Define the question and the comparison criteria first.
-
-Our `/prototype` comes from Matt Pocock's skills, not Lauren's `/poteto-mode` playbook. Choose the route by the question you need answered:
-
-| Question | Local route | What the result can prove |
-|---|---|---|
-| What should this UI look like? | `/prototype`: three structurally different variants by default, at most five, preferably on the existing browser route with `?variant=` and a switcher | Layout and interaction of the sketch, driven by the verifier |
-| Does this logic or state model make sense? | `/prototype`: one standalone HTML page with visible state, free-play controls, and guided walkthroughs | Whether the modeled transitions express the intended rules; review it separately from the app |
-| Which behavior, timing strategy, CLI, service, or native approach works? | Ordinary request for a small throwaway script per alternative | The behavior actually exercised under the recorded conditions |
-
-The UI branch can create a throwaway route when no existing page is suitable. Its mutations use stubs, not the real backend. The logic page is not part of the running app. Neither proves production persistence or integration.
-
-#### Compare an interaction
-
-"Design Undo" is too vague. Ask a question about a user's action:
-
-```text
-/prototype the Undo completion affordance on the existing Atlas board.
-Question: with Active selected on a narrow mobile viewport, can a user
-recover an accidental completion without leaving the view?
-Build three structurally different variants behind ?variant=: a toast,
-an inline recovery row, and a recently-completed tray. Keep all prototype
-mutations in memory, separate from real application writes.
-
-Use /verify-atlas to drive each variant from the same baseline:
-complete and undo one task; complete two and undo the first; change the
-filter before undoing. Also try a keyboard-only path. Capture the action
-and result, compare the criteria below, and give me the variant URLs.
-Recommend one, then stop so I can choose. Do not commit, push, or create
-branches.
-```
-
-Collect the same observations for each variant:
-
-| Criterion | Observation to collect |
-|---|---|
-| Recovery effort | Actions needed from mistaken completion to restoration |
-| Task identity and position | Before/after screenshots and visible state for the same task |
-| Multiple completions and filter changes | Which Undo actions remain reachable, and what each restores |
-| Keyboard access and focus | A keyboard-only drive, including focus after the task disappears and returns |
-| Accessibility | Accessible names, focus, and live-region structure; actual screen-reader announcements require an assistive-technology check |
-| Layout stability | A recording or layout measurements showing whether the list shifts under a tap target |
-
-A screenshot of the final state does not establish the interaction. A browser accessibility tree does not establish what a screen reader actually announces. Record those limits. If you measure timing, repeat the same scenario and report the spread; timing from a sketch does not predict production performance.
-
-#### Explore the state rules
-
-```text
-/prototype the Undo completion state model as a logic prototype.
-Question: is Undo identical to Reopen, or must it restore more?
-Expose each task's status, position, and completion time. Include guided
-walkthroughs for immediate Undo, completing two tasks and undoing one,
-editing a completed task before Undo, and ordinary Reopen from Completed.
-Keep state in memory. Stop so I can open the HTML file and try the cases.
-Do not commit or push.
-```
-
-Click through the walkthroughs yourself. "That should not be possible" or "I expected the old position back" identifies a problem in the model before the implementation depends on it. The agent may also drive the standalone page if it has a suitable browser tool, but that is model evidence, not a run of the real app.
-
-#### Measure a timing or behavior question
-
-```text
-Compare two approaches when Undo happens before a completion save
-finishes: queue Reopen after the save, or cancel the pending completion
-where the existing save mechanism supports cancellation.
-Use the smallest throwaway script per viable alternative in a scratch
-directory. Reuse the existing runner or /verify-atlas driver. Exercise
-the real save path with disposable data and a controlled delay.
-Record action order, responses, and stored state after reload. Repeat
-under the same conditions and distinguish unsupported cancellation from
-a failed implementation. Recommend an approach and stop before production
-changes. Do not commit or push.
-```
-
-This is an ordinary experiment request, not a third `/prototype` branch. For a CLI, inspect output, exit status, and written files. For a service, inspect requests, responses, and stored state. Choose observations that answer the question, even when an easier measurement is available.
-
-#### Compare interfaces for larger changes
-
-For a larger change, Lauren's `/architect` grounds the problem, sketches competing interfaces, cross-judges and synthesizes them, implements against the sketch, and discards a design when implementation disproves it. We do not install that skill or its multi-model arena.
-
-Use `/codebase-design`'s Design It Twice reference when there is a real interface decision. It sends three or more independent designers with different constraints, such as minimizing the interface or making the common caller trivial. They return caller examples, types, invariants, error modes, hidden complexity, and tradeoffs. Compare depth, locality, and where callers cross into the module. This does not guarantee different model families or an independent cross-judge.
-
-Lauren's example is rate limiting for external webhooks. Our adapted prompt is:
-
-```text
-We need rate limiting for external webhooks. Use /how and /why to ground
-current ownership and delivery guarantees. Use /codebase-design and its
-Design It Twice reference to compare three interfaces. Give each designer
-the same constraints and ask for caller usage, types, and failure behavior.
-Answer measurable unknowns with throwaway experiments against disposable
-state. Recommend a design with evidence and unresolved limits.
-Stop before implementation so I can review it. Do not commit or push.
-```
-
-During implementation, unexpected parameters or state are a reason to revisit the sketch. Repeated workarounds at unrelated callers or forced type escapes are evidence that the interface may be wrong. Rework or discard the design instead of spreading the workaround. This is not an instruction to restart for every new detail.
-
-Do not send a code-free plan through adversarial reviewers as a substitute for these experiments. Lauren warns that such reviews invent theoretical risks. Review concrete designs, code, and measured behavior.
-
-**Move on when:** you have chosen an alternative and recorded the question, evidence, tradeoff, and remaining limits where the work is tracked.
-
-`/prototype` offers to preserve its source on a throwaway branch; creating that branch, committing, or publishing a pointer requires separate approval. Keep evidence accessible until implementation is verified.
-
-Rewrite the winning UI under production constraints, remove the variants and the switcher from shipped code, and keep or discard the scratch prototype as agreed. Do not let prototype shortcuts slip into production code unnoticed.
-
-### 9. Write an execution plan only when needed
-
-Plan after the design settles, when work spans sessions or people. Lauren's multi-phase playbook turns the design into small, verifiable PRs, validates the plan's structure with a script, and executes it item by item. Our substitutes are `/to-spec` and `/to-tickets`; this guide does not provide her plan validator or an automatic execution engine.
-
-- `/to-spec` synthesizes a specification from the conversation, checks testing seams with you, and publishes only after approval. It uses `docs/agents/issue-tracker.md`; if that is missing, it asks where to publish rather than choosing a tracker.
-- `/to-tickets` proposes complete, demoable vertical slices with genuine blocking dependencies. It asks you to review granularity and dependencies before publication. It can write one local file per ticket under `.scratch/<feature-slug>/issues/<NN>-<slug>.md`; when tracker configuration is missing, local files are its fallback while it asks where work belongs.
-
-Both methods need an explicit publication boundary. If you want drafts only, say so; even local ticket files are writes. Do not split a small feature into "database," "API," and "UI" tickets that cannot demonstrate anything independently.
-
-```text
-/to-tickets for the settled Undo completion design and prototype verdict.
-Split only where each slice delivers a complete, verifiable outcome.
-Each ticket must name the /verify-atlas action, the observable result,
-and existing behavior that must remain unchanged. Include only genuine
-blocking dependencies. Show me the breakdown and wait for approval before
-writing ticket files or publishing issues. Do not commit or push.
-```
-
-For a complete example, suppose the prototypes led you to choose a recently-completed tray with task-specific Undo actions. The following semantics are illustrative product decisions, not defaults the skill chooses for you:
+If you choose the tray and settle the semantics below, the resulting ticket could be:
 
 ```markdown
 # 01: Undo completion from the Active view
@@ -680,33 +449,33 @@ restoration succeeded. The tray is session-local, not durable undo history.
 - [ ] The feature map documents the new behavior and its proved recipe.
 ```
 
-Write the semantics you actually chose into your ticket instead of copying the example's. A fresh agent should not need your previous conversation to learn the acceptance criteria. If the slice is too large, split by complete supported cases, keeping unsupported cases explicit rather than shipping silent failure.
+These are example product decisions, not defaults chosen by a skill. Add Undo to the working feature map only after implementation and live verification.
 
-For a wide mechanical migration that cannot land safely as independent vertical slices, `/to-tickets` supports expand–contract: introduce the new form, migrate callers in verifiable batches, then remove the old form after every batch finishes. Do not retain compatibility paths once migration is complete. Lauren's StyleX example adds a strict constraint. Preserve visual behavior, including existing bugs, and do not mix migration with redesign.
+## What the articles use that this stack does not
 
-```text
-/to-tickets for the settled UI-library migration. Keep each slice
-reviewable and runnable. Preserve current visual behavior, including
-known quirks. Every ticket needs a before/after visual comparison and
-live verification of the affected interaction, not only a passing build.
-Separate unrelated fixes. Show the tickets before any publication.
-```
+Lauren Tan's [Part 1 announcement](https://x.com/poteto/status/2094457600259842065) links her verification article; [Part 2](https://x.com/poteto/status/2097732320606507506) covers understanding and design. This repository keeps the [complete Part 1 text](../poteto/pstack-part-1.md) and [complete Part 2 text](../poteto/pstack-part-2.md). Steps 1–9 retain that order, but the startup instructions above are specific to this stack.
 
-Once a ticket and its implementation are authorized, work on any ticket whose blockers are complete:
+| In Lauren's articles | In this stack |
+|---|---|
+| Dr Eggbot creates an engineer bot | You invoke the selected skills in your coding agent. No bot-creation step is needed. |
+| `/poteto-mode` and Cursor playbooks | Direct skill invocation, `/prototype`, and `/to-spec` or `/to-tickets` when needed |
+| `.cursor/skills/verify-<app>/references/features/` | `.agents/skills/verify-<app>/features/` |
+| Cursor Cloud Agents | Local agents with isolated checkouts, ports, profiles, and data. Shared app driving stays serial. |
+| `/swarm` | Repeated local scenarios establish repeatability, not cloud scale, independent environments, or fuzzing coverage. |
+| `/architect` and its multi-model arena | Ground the problem, compare interfaces with `/codebase-design`, and measure unknowns. This does not reproduce the arena. |
+| Multi-phase plan validator and execution engine | `/to-spec` and `/to-tickets` produce reviewed work items. No automatic engine is provided. |
+| Routines and Automations | Separately authorized scheduling through cron, systemd, or CI and a non-interactive harness |
 
-```text
-Implement [approved ticket path or URL]. Read its design decisions and
-blockers first. Work on this slice only, using disposable data.
-Run /verify-atlas for its acceptance criteria and affected existing paths.
-Show the action, resulting state, side effects, and evidence locations.
-Keep useful regression tests; passing tests alone are not live proof.
-If implementation invalidates a design assumption, explain the evidence
-before widening the task. Update the verifier for intended behavior
-changes, and mark only criteria you actually proved. Do not commit or push.
-```
+The articles call the generated verifier `/control-app`; it is not another skill to install. Lauren's [example verifier](https://github.com/poteto/verification-skill-example) documents a desktop assistant and CLI commands, but does not include their implementation.
 
-For the handoff, keep the ticket state, changed behavior, evidence locations, and remaining blockers explicit. Use `/recall` for relevant OMP/Hermes history, but treat the current checkout and ticket as authoritative.
+Before scheduling runs with `omp -p`, `claude -p`, `codex exec`, or `hermes -z`, prove one unattended run can load its skills, start its environment, retain evidence, and stop safely. Reading feedback, reproducing reports, modifying code, and publishing changes require separate permissions. A feedback message cannot authorize production actions.
 
-After the work lands, remove temporary local plans and scratch files while preserving useful product documentation and agreed evidence. Do not delete the tracker history, close parent issues, or publish changes without authorization.
+### Build the lever: Lauren's rule and ours
 
-For a small change you already understand, skip the plan and return to [step 5](#5-use-the-verifier-on-real-changes). [Choose a skill for the job](skill-routing.md) provides shorter prompts for individual routes.
+Lauren's [pinned `principle-build-the-lever`](https://github.com/cursor/plugins/blob/c1c0a32/pstack/skills/principle-build-the-lever/SKILL.md) calls for a tool for any non-trivial work and counts a tool file in the diff as proof of applying the principle. In Part 1 she builds and polishes a verification CLI early, alongside the feature map.
+
+We do not install that principle skill. [STANDARDS §2](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#2-build-the-lever-narrowed) narrows it to repetitive or hard-to-review work and applies when `/code-review` runs. [STANDARDS §6](../agentic_env/vendored/mattpocock/skills/code-review/STANDARDS.md#6-encode-lessons-in-structure) covers encoding recurring lessons in structure.
+
+This guide requires an executable handoff during verifier setup. Reuse existing commands when they suffice; build a helper when the next agent would otherwise have to reconstruct the work. Neither the bundled standards nor the installed generator alone enforces the fresh-agent replay. The setup and replay prompts above make those requirements explicit.
+
+For shorter prompts by task, use [Choose a skill for the job](skill-routing.md).

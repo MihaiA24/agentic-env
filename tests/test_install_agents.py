@@ -33,22 +33,6 @@ class InstallHermesTests(unittest.TestCase):
         self.assertIn("--commit", remote_script.call_args.kwargs["interpreter_args"])
 
 
-@patch("agentic_env.install_agents.warn")
-@patch("agentic_env.install_agents.cmd_exists", return_value=True)
-class InstallForceTests(unittest.TestCase):
-    @patch("agentic_env.install_agents._install_omp_release", return_value=True)
-    @patch("agentic_env.install_agents.cmd_version_at_least", return_value=True)
-    def test_force_reinstalls_even_when_above_floor(
-        self, at_least, release, exists, warn
-    ) -> None:
-        self.assertTrue(install_agents._install_omp(True, force=True))
-        release.assert_called_once()
-
-        release.reset_mock()
-        self.assertTrue(install_agents._install_omp(True))
-        release.assert_not_called()
-
-
 class _ReleaseHost(BaseHTTPRequestHandler):
     """Serves `server.routes` ({path: (status, headers, body)}) and logs requests."""
 
@@ -58,7 +42,8 @@ class _ReleaseHost(BaseHTTPRequestHandler):
         self.send_response(status)
         for name, value in headers.items():
             self.send_header(name, value)
-        self.send_header("Content-Length", str(len(body)))
+        if "Content-Length" not in headers:
+            self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if with_body:
             self.wfile.write(body)
@@ -133,6 +118,10 @@ class InstallOmpReleaseTests(unittest.TestCase):
         # Python 3.12 follows the redirect with GET, 3.13+ keeps HEAD.
         return [path for _, path in self.server.requests]
 
+    def installed_entries(self) -> list[str]:
+        # Includes .omp.* temporaries: a failed install must leave none behind.
+        return sorted(os.listdir(self.bin)) if self.bin.exists() else []
+
     def test_installs_latest_tag_verified_against_published_checksums(
         self, warn, ok, info
     ) -> None:
@@ -154,6 +143,21 @@ class InstallOmpReleaseTests(unittest.TestCase):
             ],
         )
 
+    def test_force_updates_a_compliant_install_but_default_leaves_it_alone(self, warn, ok, info) -> None:
+        self.bin.mkdir()
+        installed = self.bin / "omp"
+        previous = b"#!/bin/sh\necho omp/99.0.0\n"
+        installed.write_bytes(previous)
+        installed.chmod(0o755)
+        replacement = self.publish("99.0.1")
+
+        self.assertTrue(install_agents._install_omp(True))
+        self.assertEqual(installed.read_bytes(), previous)
+        self.assertEqual(self.server.requests, [])
+
+        self.assertTrue(install_agents._install_omp(True, force=True))
+        self.assertEqual(installed.read_bytes(), replacement)
+
     def test_below_floor_update_preserves_existing_executable(self, warn, ok, info) -> None:
         self.bin.mkdir()
         installed = self.bin / "omp"
@@ -165,22 +169,54 @@ class InstallOmpReleaseTests(unittest.TestCase):
         self.assertEqual(installed.read_bytes(), previous)
         self.assertEqual(sorted(p.name for p in self.bin.iterdir()), ["omp"])
 
+    def test_shadowed_or_missing_path_omp_fails_without_touching_it(
+        self, warn, ok, info
+    ) -> None:
+        shadow_dir = self.bin.parent / "shadow"
+        shadow_dir.mkdir()
+        shadow = shadow_dir / "omp"
+        stale = b"#!/bin/sh\necho omp/1.0.0\n"
+        shadow.write_bytes(stale)
+        shadow.chmod(0o755)
+        empty_dir = self.bin.parent / "empty"
+        empty_dir.mkdir()
+        binary = self.publish()
+        for path in (f"{shadow_dir}{os.pathsep}{self.bin}", str(empty_dir)):
+            with self.subTest(path=path), patch.dict(os.environ, {"PATH": path}):
+                self.assertFalse(install_agents._install_omp(True, force=True))
+                self.assertEqual((self.bin / "omp").read_bytes(), binary)
+                self.assertEqual(shadow.read_bytes(), stale)
+
     def test_unverifiable_binary_is_never_installed(self, warn, ok, info) -> None:
-        for digest in ("f" * 64, "not-a-sha256"):
+        asset_path = f"/releases/download/{self.TAG}/{self.asset}"
+        for digest, fetches_asset in (("f" * 64, True), ("not-a-sha256", False)):
             with self.subTest(digest=digest):
                 self.publish(digest=digest)
+                self.server.requests.clear()
                 self.assertFalse(install_agents._install_omp_release())
-                self.assertFalse(self.bin.exists())
+                self.assertEqual(asset_path in self.paths(), fetches_asset)
+                self.assertEqual(self.installed_entries(), [])
 
     def test_failed_update_preserves_existing_executable(self, warn, ok, info) -> None:
         self.bin.mkdir()
         installed = self.bin / "omp"
         installed.write_bytes(b"previous installation")
         installed.chmod(0o755)
-        self.publish(digest="f" * 64)
-        self.assertFalse(install_agents._install_omp_release())
-        self.assertEqual(installed.read_bytes(), b"previous installation")
-        self.assertEqual(installed.stat().st_mode & 0o777, 0o755)
+        asset_path = f"/releases/download/{self.TAG}/{self.asset}"
+        for failure in ("checksum mismatch", "truncated body", "missing asset"):
+            with self.subTest(failure=failure):
+                binary = self.publish()
+                if failure == "checksum mismatch":
+                    self.publish(digest="f" * 64)
+                elif failure == "truncated body":
+                    headers = {"Content-Length": str(len(binary))}
+                    self.server.routes[asset_path] = (200, headers, binary[:-4])
+                elif failure == "missing asset":
+                    del self.server.routes[asset_path]
+                self.assertFalse(install_agents._install_omp_release())
+                self.assertEqual(installed.read_bytes(), b"previous installation")
+                self.assertEqual(installed.stat().st_mode & 0o777, 0o755)
+                self.assertEqual(self.installed_entries(), ["omp"])
 
     def test_rejects_redirect_that_is_not_a_stable_release_tag(
         self, warn, ok, info

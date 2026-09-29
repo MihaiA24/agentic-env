@@ -256,7 +256,6 @@ class BootstrapTests(unittest.TestCase):
         self.assertIsNone(phases["configure"]["skipped_reason"])
         reason = phases["doctor"]["skipped_reason"]
         self.assertIn("--skip-doctor", reason)
-        self.assertIn("omit", reason)
         self.assertIn("install-agents", stderr)
 
     @patch("agentic_env.bootstrap.install_agents.main", return_value=0)

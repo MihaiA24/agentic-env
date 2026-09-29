@@ -38,7 +38,6 @@ class BootstrapPhaseResult:
     name: str
     argv: list[str]
     requested: bool
-    executed: bool = False
     error: str | None = None
     duration_ms: int = 0
 
@@ -247,7 +246,6 @@ def _run_phase(phase: BootstrapPhase) -> BootstrapPhaseResult:
         name=phase.name,
         argv=phase.argv,
         requested=True,
-        executed=True,
         error=error,
         duration_ms=int((time.perf_counter() - started_at) * 1000),
     )
@@ -278,7 +276,7 @@ def _summary(results: list[BootstrapPhaseResult], *, dry_run: bool) -> dict[str,
                 "name": result.name,
                 "argv": result.argv,
                 "requested": result.requested,
-                "executed": result.executed,
+                "executed": result.requested and not dry_run,
                 "skipped": not result.requested,
                 "skipped_reason": result.skipped_reason,
                 "error": result.error,
@@ -322,10 +320,6 @@ def _bootstrap(args: argparse.Namespace) -> list[BootstrapPhaseResult] | None:
 
     plan = _bootstrap_plan(args)
     if plan is None:
-        return None
-
-    if not any(phase.requested for phase in plan):
-        warn("agentic-bootstrap: no executable phases after argument validation")
         return None
 
     if args.dry_run:

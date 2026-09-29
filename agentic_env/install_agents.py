@@ -8,6 +8,7 @@ import hashlib
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -157,8 +158,6 @@ def _install_omp_release() -> bool:
         tag = _omp_latest_tag()
         release = f"{OMP_RELEASES_URL}/download/{tag}"
         sums = fetch_url(f"{release}/SHA256SUMS.txt", 30).decode()
-        # ponytail: whole binary (~200 MB) in memory; stream to disk if that bites.
-        payload = fetch_url(f"{release}/{asset}", 120)
     except Exception as exc:
         warn(f"OMP / Oh My Pi: release download failed: {exc}")
         return False
@@ -171,33 +170,50 @@ def _install_omp_release() -> bool:
     if len(expected) != 1 or not is_valid_sha256(expected[0]):
         warn(f"OMP / Oh My Pi: {tag} SHA256SUMS.txt has no single valid entry for {asset}")
         return False
-    actual = hashlib.sha256(payload).hexdigest()
-    if actual != expected[0].lower():
-        warn(f"OMP / Oh My Pi: {tag}/{asset} checksum mismatch")
-        warn(f"OMP / Oh My Pi: expected {expected[0]}, got {actual}")
-        return False
 
     install_dir = Path(os.environ.get("PI_INSTALL_DIR") or Path.home() / ".local" / "bin")
+    floor = STACK_VERSION_FLOORS["omp"]
+    request = urllib.request.Request(
+        f"{release}/{asset}", headers={"User-Agent": "agentic-env/1.0"}
+    )
     temporary: str | None = None
     try:
-        install_dir.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix=".omp.", dir=install_dir)
-        with os.fdopen(fd, "wb") as target:
-            target.write(payload)
+        with urllib.request.urlopen(request, timeout=120) as response:
+            install_dir.mkdir(parents=True, exist_ok=True)
+            fd, temporary = tempfile.mkstemp(prefix=".omp.", dir=install_dir)
+            digest = hashlib.sha256()
+            # Streamed in 1 MiB chunks; the checksum below catches truncation.
+            with os.fdopen(fd, "wb") as target:
+                while chunk := response.read(1 << 20):
+                    digest.update(chunk)
+                    target.write(chunk)
+        actual = digest.hexdigest()
+        if actual != expected[0].lower():
+            warn(f"OMP / Oh My Pi: {tag}/{asset} checksum mismatch")
+            warn(f"OMP / Oh My Pi: expected {expected[0]}, got {actual}")
+            return False
         os.chmod(temporary, 0o755)
-        if not cmd_version_at_least(temporary, STACK_VERSION_FLOORS["omp"]):
+        if not cmd_version_at_least(temporary, floor):
             warn("OMP / Oh My Pi: downloaded executable fails the reviewed version floor")
             return False
         os.replace(temporary, install_dir / "omp")
         temporary = None
-    except OSError as exc:
-        warn(f"OMP / Oh My Pi: failed to install {asset}: {exc}")
+    except Exception as exc:
+        warn(f"OMP / Oh My Pi: failed to install {tag}/{asset}: {exc}")
         return False
     finally:
         if temporary is not None:
             with contextlib.suppress(OSError):
                 os.remove(temporary)
     info(f"OMP / Oh My Pi: installed {tag} to {install_dir / 'omp'}")
+    # A different omp earlier on PATH wins; report it rather than touch it.
+    if not cmd_version_at_least("omp", floor):
+        warn(
+            f"OMP / Oh My Pi: `omp` on PATH ({shutil.which('omp') or 'not found'}) "
+            f"is missing or below {floor}"
+        )
+        warn(f"OMP / Oh My Pi: put {install_dir} first on PATH or remove the older omp")
+        return False
     return True
 
 

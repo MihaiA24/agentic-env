@@ -1,14 +1,23 @@
 # Coding standards
 
-Six review lenses, condensed from pstack's `principle-*` skills (`cursor/plugins`
-@ `c1c0a32`, MIT) and narrowed where the source overreaches. `/code-review`'s
-Standards axis reads this file; each miss is one labelled finding. A repo
-standard overrides the reviewer's generic smell list.
+Six review lenses bundled with `/code-review` and applied in every repository it
+reviews. Each miss is one labelled finding on the Standards axis.
 
-**Precedence.** These apply by default. A user instruction overrides any of
-them. When it does, say once which lens applies, what it would have wanted,
-and what you did instead, then proceed. Never re-argue it, and never comply
-silently.
+**Source.** Condensed from Lauren Tan's pstack `principle-*` skills
+(`cursor/plugins` @ `c1c0a32`) and narrowed where the source overreaches: §1
+`prove-it-works`, §2 `build-the-lever`, §3 `minimize-reader-load`, §4
+`boundary-discipline` and `type-system-discipline`, §5
+`separate-before-serializing-shared-state`, §6 `encode-lessons-in-structure`.
+Not Matt Pocock's work. Copyright (c) 2026 Lauren Tan, MIT License.
+
+**Precedence.** Highest first: the user's instruction, the reviewed
+repository's own standards, these lenses, then the Fowler smell baseline in
+`SKILL.md`. A repository standard (`CODING_STANDARDS.md`, `CONTRIBUTING.md` and
+similar) adds a rule or overrides one lens; every lens it does not mention
+still applies. Where it endorses what a lens would flag, report nothing. When a
+user instruction overrides a lens, say once which lens applies, what it would
+have wanted, and what you did instead, then proceed. Never re-argue it, and
+never comply silently.
 
 ## 1. Prove it works
 

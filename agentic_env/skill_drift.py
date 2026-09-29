@@ -7,22 +7,23 @@ Three questions per skill in the manifest:
 * `install`  — does the installed copy match that source, and, for a remote
   pack, did the skills CLI install it from that repo?
 
-Vendored packs carry documented local adaptations, so the upstream answer never
-diffs the vendored tree against upstream: it compares upstream at the pinned
-revision with upstream today. Adaptations therefore never register as drift, and
-a real upstream edit does.
+Vendored packs carry documented local adaptations. Upstream drift compares the
+pinned upstream revision with upstream today; local/upstream differences are
+reported separately and do not count as drift. Optional diffs expose both.
 """
 
 from __future__ import annotations
 
 import argparse
 import contextlib
+import difflib
 import hashlib
 import io
 import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -70,10 +71,15 @@ class SkillStatus:
     install: str
     upstream: str
     digest: str | None = None
+    local_upstream: str = "skipped"
+    pinned_ref: str | None = None
+    latest_ref: str | None = None
+    upstream_diff: str | None = None
+    local_diff: str | None = None
 
     def drifted(self) -> bool:
         return any(
-            value not in ("ok", UNKNOWN, "new")
+            value not in ("ok", UNKNOWN, "new", "skipped")
             for value in (self.source, self.install, self.upstream)
         )
 
@@ -93,6 +99,38 @@ def digest_tree(root: Path | None) -> str | None:
         digest.update(path.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def diff_skill(before: Path | None, after: Path | None, before_label: str, after_label: str) -> str:
+    """Unified diff of whole packages, including added/deleted and binary files."""
+    old_files = {p.relative_to(before).as_posix(): p for p in before.rglob("*") if p.is_file()} if before else {}
+    new_files = {p.relative_to(after).as_posix(): p for p in after.rglob("*") if p.is_file()} if after else {}
+    output: list[str] = []
+    for name in sorted(old_files.keys() | new_files.keys()):
+        old = old_files[name].read_bytes() if name in old_files else None
+        new = new_files[name].read_bytes() if name in new_files else None
+        if old == new:
+            continue
+        old_label = f"{before_label}/{name}" if old is not None else "/dev/null"
+        new_label = f"{after_label}/{name}" if new is not None else "/dev/null"
+        try:
+            old_text = (old or b"").decode("utf-8")
+            new_text = (new or b"").decode("utf-8")
+        except UnicodeDecodeError:
+            output.append(f"Binary files {old_label} and {new_label} differ\n")
+            continue
+        if "\0" in old_text or "\0" in new_text:
+            output.append(f"Binary files {old_label} and {new_label} differ\n")
+            continue
+        lines = list(difflib.unified_diff(
+            old_text.splitlines(keepends=True), new_text.splitlines(keepends=True),
+            fromfile=old_label, tofile=new_label,
+        ))
+        if not lines:  # An empty file was added or deleted.
+            output.append(f"--- {old_label}\n+++ {new_label}\n")
+        for line in lines:
+            output.append(line if line.endswith("\n") else line + "\n\\ No newline at end of file\n")
+    return "".join(output)
 
 
 def locate_skill(root: Path | None, name: str) -> Path | None:
@@ -123,14 +161,22 @@ def _api(route: str) -> object | None:
 
 
 def latest_ref(upstream: SkillUpstream) -> str | None:
-    """The revision upstream is at now: newest commit for a commit pin (scoped to
-    `path`), newest release tag otherwise."""
+    """Default-branch HEAD for commit pins; newest release tag otherwise."""
     if _COMMIT_PATTERN.fullmatch(upstream.ref):
-        scope = f"&path={upstream.path}" if upstream.path else ""
-        commits = _api(f"/repos/{upstream.repo}/commits?per_page=1{scope}")
-        if isinstance(commits, list) and commits and isinstance(commits[0], dict):
-            sha = commits[0].get("sha")
-            return sha if isinstance(sha, str) else None
+        # Git refs avoid GitHub's anonymous REST rate limit. The package comparison
+        # below still ignores unrelated commits elsewhere in a monorepo.
+        try:
+            result = subprocess.run(
+                ["git", "ls-remote", f"https://github.com/{upstream.repo}.git", "HEAD"],
+                capture_output=True, text=True, check=True, timeout=_TIMEOUT_SEC,
+                env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+            )
+            fields = result.stdout.split()
+            if len(fields) == 2 and _COMMIT_PATTERN.fullmatch(fields[0]) and fields[1] == "HEAD":
+                return fields[0]
+            warn(f"{upstream.repo}: could not resolve remote HEAD")
+        except (OSError, subprocess.SubprocessError) as exc:
+            warn(f"{upstream.repo}: remote HEAD lookup failed ({exc})")
         return None
 
     release = _api(f"/repos/{upstream.repo}/releases/latest")
@@ -262,6 +308,8 @@ def inspect_pack(
     lock: dict[str, dict],
     offline: bool,
     check_upstream: bool,
+    check_installed: bool = True,
+    show_diff: bool = False,
 ) -> list[SkillStatus]:
     upstream = manifest.packs[pack].upstream
     pinned_source = source_root(manifest, pack, upstream, offline=offline)
@@ -271,7 +319,7 @@ def inspect_pack(
     newest: str | None = None
     if check_upstream and upstream is not None:
         newest = latest_ref(upstream) if not offline else None
-        if newest is not None and newest != upstream.ref:
+        if newest is not None:
             upstream_pinned = _scoped(
                 fetch_tree(upstream.repo, upstream.ref, offline=offline), upstream
             )
@@ -292,31 +340,51 @@ def inspect_pack(
                 "new" if recorded is None else "ok" if recorded == source_digest else "changed"
             )
 
-        installed_digest = digest_tree(CANONICAL_SKILL_ROOT / skill)
-        if installed_digest is None:
-            install_status = "missing"
-        elif source_digest is None:
-            install_status = UNKNOWN
-        elif installed_digest != source_digest:
-            install_status = "modified"
-        else:
-            install_status = "ok"
-        if install_status in ("ok", "modified"):
-            install_status = _origin_status(manifest, pack, skill, lock) or install_status
+        install_status = "skipped"
+        if check_installed:
+            installed_digest = digest_tree(CANONICAL_SKILL_ROOT / skill)
+            if installed_digest is None:
+                install_status = "missing"
+            elif source_digest is None:
+                install_status = UNKNOWN
+            elif installed_digest != source_digest:
+                install_status = "modified"
+            else:
+                install_status = "ok"
+            if install_status in ("ok", "modified"):
+                install_status = _origin_status(manifest, pack, skill, lock) or install_status
 
-        # No upstream comparison asked for, no pinned revision to compare, or the
-        # newest revision could not be resolved: all indistinguishable here.
-        if not check_upstream or upstream is None or newest is None:
+        pinned_dir = locate_skill(upstream_pinned, skill)
+        latest_dir = locate_skill(upstream_latest, skill)
+        pinned_digest = digest_tree(pinned_dir)
+        latest_digest = digest_tree(latest_dir)
+        upstream_diff = local_diff = None
+        local_status = "skipped" if not check_upstream else UNKNOWN
+        if not check_upstream:
+            upstream_status = "skipped"
+        elif upstream_pinned is None or upstream_latest is None:
             upstream_status = UNKNOWN
-        elif newest == upstream.ref:
-            upstream_status = "ok"
         else:
-            pinned_digest = digest_tree(locate_skill(upstream_pinned, skill))
-            latest_digest = digest_tree(locate_skill(upstream_latest, skill))
             if pinned_digest is None or latest_digest is None:
-                upstream_status = "absent" if upstream_latest is not None else UNKNOWN
+                upstream_status = "absent"
             else:
                 upstream_status = "ok" if pinned_digest == latest_digest else "changed"
+            if show_diff:
+                upstream_diff = diff_skill(
+                    pinned_dir, latest_dir,
+                    f"{pack}@{upstream.ref}/{skill}", f"{pack}@{newest}/{skill}",
+                )
+
+        if check_upstream and upstream_latest is not None and pinned_source is not None:
+            if source_digest is None or latest_digest is None:
+                local_status = "absent"
+            else:
+                local_status = "ok" if source_digest == latest_digest else "different"
+            if show_diff:
+                local_diff = diff_skill(
+                    latest_dir, source_dir,
+                    f"{pack}@{newest}/{skill}", f"local/{pack}/{skill}",
+                )
 
         rows.append(
             SkillStatus(
@@ -326,6 +394,11 @@ def inspect_pack(
                 install=install_status,
                 upstream=upstream_status,
                 digest=source_digest,
+                local_upstream=local_status,
+                pinned_ref=upstream.ref if upstream else None,
+                latest_ref=newest,
+                upstream_diff=upstream_diff,
+                local_diff=local_diff,
             )
         )
 
@@ -385,6 +458,8 @@ _STYLES = {
     "ok": "green",
     "new": "cyan",
     UNKNOWN: "yellow",
+    "skipped": "dim",
+    "different": "cyan",
     "changed": "red",
     "modified": "red",
     "missing": "red",
@@ -399,11 +474,12 @@ def _cell(value: str) -> str:
 
 def report(rows: list[SkillStatus], extra: list[str]) -> None:
     table = Table(title="agentic-skill-drift", show_lines=False)
-    for column in ("Pack", "Skill", "Source", "Installed", "Upstream"):
+    for column in ("Pack", "Skill", "Source", "Installed", "Upstream", "Local/upstream"):
         table.add_column(column, overflow="fold")
     for row in rows:
         table.add_row(
-            row.pack, row.skill, _cell(row.source), _cell(row.install), _cell(row.upstream)
+            row.pack, row.skill, _cell(row.source), _cell(row.install), _cell(row.upstream),
+            _cell(row.local_upstream),
         )
     common.console.print(table)
 
@@ -413,8 +489,17 @@ def report(rows: list[SkillStatus], extra: list[str]) -> None:
         for row in drifted:
             if row.install in ("missing", "modified") or row.install.startswith("foreign:"):
                 warn(f"{row.skill}: install {row.install} — fix with `{FIX}`")
-    else:
-        ok(f"{len(rows)} curated skills match their sources")
+    elif not any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
+        ok(f"{len(rows)} curated skills: no drift (local adaptations excluded)")
+
+    if any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
+        warn("Check incomplete: unknown is not a pass")
+    for row in rows:
+        for label, diff in (("Upstream changes (pinned -> latest)", row.upstream_diff),
+                            ("Local differences (latest -> local)", row.local_diff)):
+            if diff:
+                common.console.print(f"\n{row.pack}/{row.skill}: {label}", markup=False)
+                common.console.print(diff, markup=False, highlight=False, end="")
 
     if extra:
         skip(f"{len(extra)} installed skills outside the manifest: {', '.join(extra)}")
@@ -447,12 +532,25 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         help="Skip the upstream comparison (no GitHub API calls).",
     )
     parser.add_argument(
+        "--no-installed",
+        action="store_true",
+        help="Check repository sources/upstreams only; ignore host installations.",
+    )
+    parser.add_argument(
+        "--diff",
+        action="store_true",
+        help="Include whole-package diffs: pinned upstream -> latest, latest -> local source.",
+    )
+    parser.add_argument(
         "--update-baseline",
         action="store_true",
         help="Record current source fingerprints as reviewed, then exit.",
     )
     parser.add_argument("--json", action="store_true", help="Emit findings as JSON.")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.diff and (args.no_upstream or args.offline or args.update_baseline):
+        parser.error("--diff requires an online upstream check, without --update-baseline")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -477,7 +575,7 @@ def main(argv: list[str] | None = None) -> int:
             packs = list(manifest.packs)
 
         baseline = load_baseline()
-        lock = load_lock()
+        lock = {} if args.no_installed else load_lock()
         rows: list[SkillStatus] = []
         for pack in packs:
             rows.extend(
@@ -488,19 +586,23 @@ def main(argv: list[str] | None = None) -> int:
                     lock=lock,
                     offline=args.offline,
                     check_upstream=not args.no_upstream,
+                    check_installed=not args.no_installed,
+                    show_diff=args.diff,
                 )
             )
 
         if args.update_baseline:
             return 0 if write_baseline(manifest, rows) else 1
 
-        extra = unmanaged_skills(manifest)
+        extra = [] if args.no_installed else unmanaged_skills(manifest)
         if args.json:
             findings = {"skills": [asdict(row) for row in rows], "unmanaged": extra}
             print(json.dumps(findings, indent=2), file=document)
         else:
             report(rows, extra)
 
+        if any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
+            return 2
         return 1 if any(row.drifted() for row in rows) else 0
 
 

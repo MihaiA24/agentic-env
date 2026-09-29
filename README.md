@@ -189,16 +189,38 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
 #### Source drift
 
 ```bash
-agentic-skill-drift                 # every pack; exits 1 on drift
+agentic-skill-drift                 # every pack and canonical installation
 agentic-skill-drift --pack ponytail --offline --no-upstream
 agentic-skill-drift --update-baseline
 ```
 
-The report has three columns per curated skill. **Source** compares the pack source with the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json); a moved tag or an unreviewed vendored edit shows as `changed`. **Installed** compares `~/.agents/skills/<skill>` with that source and reports `missing`, `modified`, or `foreign:<source>` when the skills CLI lockfile names another origin. **Upstream** compares upstream at the pinned revision with upstream today, so a vendored pack's documented adaptations never count as drift but a real upstream edit does.
+This is a deterministic, on-demand CLI: no agent is needed to fetch or compare skills. It checks complete packages (including scripts and references), limited to the manifest's curated roster—not newly published, unselected skills. It does not execute upstream skills, merge updates, change pins, or overwrite installed skills.
+
+To check **Matt Pocock and pstack from this checkout**, run from the repository root:
+
+```bash
+uv run --frozen --project agentic-env agentic-skill-drift \
+  --pack mattpocock --pack pstack --no-installed
+```
+
+Add `--diff` for unified diffs; add `--json` for machine-readable results. `--diff` requires an online upstream check and cannot be combined with `--offline`, `--no-upstream`, or `--update-baseline`.
+
+| Column | Comparison |
+|---|---|
+| **Source** | Pack source against the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json). Unreviewed vendored edits show as `changed`. |
+| **Installed** | `~/.agents/skills/<skill>` against the pack source; `missing`, `modified`, or `foreign:<source>` from the skills CLI lockfile. `--no-installed` skips this and the unmanaged-skill scan. |
+| **Upstream** | Pinned upstream package against the latest upstream package. Local adaptations do not affect this column. |
+| **Local/upstream** | Latest upstream package against our pack source. `different` exposes local deviations, including deliberate adaptations; it does **not** count as drift by itself. |
+
+`--diff` shows **pinned → latest** changes for update review and **latest → local** differences to identify adaptations. JSON includes both diffs and the pinned/latest refs per skill; a null diff means it was not computed, while an empty string means no differences.
+
+Exit status: **0** no drift in requested checks; **1** drift detected (or invalid manifest/pack); **2** an incomplete check or invalid CLI usage. Unknown results take precedence over drift: a failed lookup/download is not a pass. `skipped` means explicitly disabled, not unknown.
 
 This command has no `--skills-dir` override; the Installed column always checks the canonical managed store. Check standalone copies with [destination verification](#verify-and-refresh-standalone-copies) instead.
 
-Pinned revisions come from the pack `source` for remote packs and the `upstream` block for vendored ones. Source trees are cached under `~/.cache/agentic-env/skill-sources`; `--offline` uses that cache only, `--no-upstream` skips the GitHub API. Record a reviewed state with `--update-baseline` after every deliberate pack move.
+Pinned revisions come from the pack `source` for remote packs and the `upstream` block for vendored ones. Commit-pinned packs use `git ls-remote` to resolve default-branch HEAD, avoiding GitHub's anonymous REST API rate limit; Git must be on `PATH`. Tag-pinned packs use GitHub's latest release/tag API. Archives are cached under `${XDG_CACHE_HOME:-~/.cache}/agentic-env/skill-sources`. `--offline` uses cached trees but cannot establish today's upstream revision; use `--offline --no-upstream` for source/install checks only.
+
+**Accepting an update remains a human/agent review step.** Review the upstream diff against each pack's `UPSTREAM.md`, preserve required local adaptations, update vendored packages and their pin/provenance, then record the reviewed state with `--update-baseline`. Do not use that flag just to clear a finding. The CLI runs when invoked; no scheduler is installed.
 
 ## Configuration and updates
 

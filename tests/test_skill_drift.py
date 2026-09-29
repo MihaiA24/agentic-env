@@ -70,6 +70,22 @@ class DigestTests(unittest.TestCase):
 
             self.assertNotEqual(skill_drift.digest_tree(first), skill_drift.digest_tree(second))
 
+    def test_diff_includes_deleted_added_binary_and_unterminated_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            old = _write_skill(root / "old", "alpha", "old", {"removed.md": "gone\n"})
+            new = _write_skill(root / "new", "alpha", "new\n", {"added.md": "here\n", "empty": ""})
+            (old / "image").write_bytes(b"\xff\0")
+            (new / "image").write_bytes(b"\xfe\0")
+
+            diff = skill_drift.diff_skill(old, new, "old/alpha", "new/alpha")
+
+            self.assertIn("-old\n\\ No newline at end of file\n+new\n", diff)
+            self.assertIn("--- old/alpha/removed.md\n+++ /dev/null\n", diff)
+            self.assertIn("--- /dev/null\n+++ new/alpha/added.md\n", diff)
+            self.assertIn("--- /dev/null\n+++ new/alpha/empty\n", diff)
+            self.assertIn("Binary files old/alpha/image and new/alpha/image differ\n", diff)
+
 
 class LocateSkillTests(unittest.TestCase):
 
@@ -232,7 +248,7 @@ class CommandTests(unittest.TestCase):
                 contextlib.redirect_stdout(stdout),
             ):
                 exit_code = skill_drift.main(
-                    ["--skill-config", str(config), "--offline", "--json"]
+                    ["--skill-config", str(config), "--offline", "--no-upstream", "--json"]
                 )
 
             payload = json.loads(stdout.getvalue())
@@ -241,6 +257,101 @@ class CommandTests(unittest.TestCase):
                 [(row["skill"], row["install"]) for row in payload["skills"]],
                 [("alpha", "missing"), ("beta", "missing")],
             )
+
+
+class RemoteComparisonTests(unittest.TestCase):
+    """Exercise the CLI against real package trees; replace only remote lookup/download."""
+
+    def _fixture(self, root: Path) -> Path:
+        for tree in ("vendored", "pinned", "latest"):
+            _write_skill(root / tree / "skills", "alpha", "upstream alpha\n")
+            _write_skill(root / tree / "skills", "beta", "upstream beta\n")
+        config = root / "packs.json"
+        _manifest(
+            config, "./vendored/skills",
+            upstream={"repo": "owner/repo", "ref": "a" * 40, "path": "skills"},
+        )
+        return config
+
+    def _check(self, root: Path, config: Path, *, newest="b" * 40, pinned=True, latest=True):
+        trees = {
+            "a" * 40: root / "pinned" if pinned else None,
+            "b" * 40: root / "latest" if latest else None,
+        }
+        stdout = io.StringIO()
+        with (
+            patch.object(skill_drift, "latest_ref", return_value=newest),
+            patch.object(skill_drift, "fetch_tree", side_effect=lambda repo, ref, **kw: trees[ref]),
+            patch.object(skill_drift, "CANONICAL_SKILL_ROOT", root / "uninstalled"),
+            patch.object(skill_drift.common, "console", skill_drift.common.console),
+            contextlib.redirect_stdout(stdout),
+        ):
+            code = skill_drift.main([
+                "--skill-config", str(config), "--no-installed", "--diff", "--json",
+            ])
+        return code, {row["skill"]: row for row in json.loads(stdout.getvalue())["skills"]}
+
+    def test_separates_local_adaptations_from_new_upstream_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = self._fixture(root)
+            _write_skill(root / "vendored" / "skills", "alpha", "local adaptation\n")
+            _write_skill(root / "vendored" / "skills", "beta", "local beta\n")
+            _write_skill(root / "latest" / "skills", "alpha", "upstream alpha\n",
+                         {"references/example.md": "new reference\n"})
+
+            code, rows = self._check(root, config)
+
+            self.assertEqual(code, 1)
+            self.assertEqual(rows["alpha"]["upstream"], "changed")
+            self.assertEqual(rows["beta"]["upstream"], "ok")
+            self.assertEqual(rows["beta"]["local_upstream"], "different")
+            self.assertEqual(rows["alpha"]["install"], "skipped")
+            self.assertEqual(rows["alpha"]["latest_ref"], "b" * 40)
+            self.assertEqual(rows["alpha"]["pinned_ref"], "a" * 40)
+            self.assertIn("+new reference\n", rows["alpha"]["upstream_diff"])
+            self.assertNotIn("local adaptation", rows["alpha"]["upstream_diff"])
+            self.assertIn("+local adaptation\n", rows["alpha"]["local_diff"])
+            self.assertEqual(rows["beta"]["upstream_diff"], "")
+
+    def test_local_differences_do_not_fail_even_when_latest_equals_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = self._fixture(root)
+            _write_skill(root / "vendored" / "skills", "alpha", "local adaptation\n")
+            for newest in ("a" * 40, "b" * 40):
+                with self.subTest(newest=newest):
+                    code, rows = self._check(root, config, newest=newest)
+                    self.assertEqual(code, 0)
+                    self.assertEqual(rows["alpha"]["upstream"], "ok")
+                    self.assertEqual(rows["alpha"]["local_upstream"], "different")
+                    self.assertIn("+local adaptation\n", rows["alpha"]["local_diff"])
+                    self.assertEqual(rows["beta"]["local_upstream"], "ok")
+                    self.assertEqual(rows["beta"]["local_diff"], "")
+
+    def test_remote_failures_are_incomplete_not_absent_or_clean(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = self._fixture(root)
+            for failure in ({"newest": None}, {"pinned": False}, {"latest": False}):
+                with self.subTest(failure=failure):
+                    code, rows = self._check(root, config, **failure)
+                    self.assertEqual(code, 2)
+                    self.assertEqual(rows["alpha"]["upstream"], "unknown")
+                    self.assertIsNone(rows["alpha"]["upstream_diff"])
+
+    def test_remote_skill_deletion_is_reported_with_diff(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = self._fixture(root)
+            (root / "latest" / "skills" / "alpha" / "SKILL.md").unlink()
+
+            code, rows = self._check(root, config)
+
+            self.assertEqual(code, 1)
+            self.assertEqual(rows["alpha"]["upstream"], "absent")
+            self.assertIn("-upstream alpha\n", rows["alpha"]["upstream_diff"])
+            self.assertIn("+++ /dev/null\n", rows["alpha"]["upstream_diff"])
 
 
 class BaselineTests(unittest.TestCase):

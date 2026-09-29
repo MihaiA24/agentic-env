@@ -254,6 +254,8 @@ uv run --frozen pytest -q
 
 From the checkout, run other management commands as `uv run --frozen python -m agentic_env.<module>`; installed commands are `agentic-*`. The exception is the dependency-free copier, which you run directly with Python as shown above.
 
+The full suite requires Git. Its commit-pin regression uses local repositories and Git URL rewriting with network transports disabled; that check needs no GitHub access.
+
 To run the portable copier checks without installing dependencies, from `agentic-env`:
 
 ```powershell

@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -125,21 +126,50 @@ class UpstreamResolutionTests(unittest.TestCase):
                 )
 
     def test_commit_pin_resolves_remote_head_with_git_not_rest(self) -> None:
-        """Package scoping happens in the tree comparison; a failed lookup stays unresolved."""
         with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            repo = root / "owner" / "monorepo.git"
             manifest = _manifest(
-                Path(temp_dir) / "packs.json",
+                root / "packs.json",
                 "./vendored/pack/skills",
                 upstream={"repo": "owner/monorepo", "ref": "a" * 40, "path": "pstack"},
             )
-            upstream = manifest.packs["pack"].upstream
-            head = subprocess.CompletedProcess([], 0, stdout=f"{'b' * 40}\tHEAD\n")
-            failed = subprocess.CalledProcessError(128, "git")
-            with patch.object(skill_drift, "_api", side_effect=AssertionError("no REST fallback")):
-                with patch.object(skill_drift.subprocess, "run", return_value=head):
-                    self.assertEqual(skill_drift.latest_ref(upstream), "b" * 40)
-                with patch.object(skill_drift.subprocess, "run", side_effect=failed):
-                    self.assertIsNone(skill_drift.latest_ref(upstream))
+            # Git rewrites GitHub URLs to local fixtures; every network transport
+            # is disabled, so wrong repositories and refs fail without a request.
+            with (
+                patch.dict(os.environ, {
+                    "PATH": os.environ["PATH"],
+                    "HOME": str(root),
+                    "GIT_CONFIG_GLOBAL": os.devnull,
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_CONFIG_COUNT": "1",
+                    "GIT_CONFIG_KEY_0": f"url.{root.as_uri()}/.insteadOf",
+                    "GIT_CONFIG_VALUE_0": "https://github.com/",
+                    "GIT_ALLOW_PROTOCOL": "file",
+                }, clear=True),
+                patch.object(
+                    skill_drift, "fetch_url", side_effect=AssertionError("unexpected HTTP request"),
+                ) as fetch,
+            ):
+                subprocess.run(
+                    ["git", "init", "--quiet", "--initial-branch=trunk", str(repo)],
+                    check=True, capture_output=True, timeout=10,
+                )
+                subprocess.run(
+                    ["git", "-C", str(repo), "-c", "user.name=Test",
+                     "-c", "user.email=test@example.invalid",
+                     "commit", "--quiet", "--allow-empty", "-m", "upstream fixture"],
+                    check=True, capture_output=True, timeout=10,
+                )
+                head = subprocess.check_output(
+                    ["git", "-C", str(repo), "rev-parse", "HEAD"], text=True, timeout=10,
+                ).strip()
+                upstream = manifest.packs["pack"].upstream
+                self.assertEqual(skill_drift.latest_ref(upstream), head)
+
+                repo.rename(root / "unavailable.git")
+                self.assertIsNone(skill_drift.latest_ref(upstream))
+                fetch.assert_not_called()
 
 
 class InspectPackTests(unittest.TestCase):

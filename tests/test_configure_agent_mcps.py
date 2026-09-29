@@ -113,8 +113,8 @@ memory:
                         patch("agentic_env.configure_agent_mcps.HERMES_CONFIG_PATH", path)
                         if agent == "hermes"
                         else patch(
-                            "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
-                            [configure_agent_mcps._OmpConfigAdapter(path)],
+                            "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
+                            (path,),
                         )
                     )
                     with (
@@ -183,8 +183,8 @@ memory:
             with (
                 patch("agentic_env.configure_agent_mcps.HERMES_CONFIG_PATH", hermes),
                 patch(
-                    "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
-                    [configure_agent_mcps._OmpConfigAdapter(omp)],
+                    "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
+                    (omp,),
                 ),
             ):
                 for configure, path in ((configure_agent_mcps.configure_hermes, hermes), (configure_agent_mcps.configure_omp, omp)):
@@ -338,8 +338,8 @@ known_plugin_toolsets:
             path = Path(temp_dir) / "mcp.json"
             path.write_text("{}", encoding="utf-8")
             with patch(
-                "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
-                [configure_agent_mcps._OmpConfigAdapter(path=path)],
+                "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
+                (path,),
             ):
                 assert configure_agent_mcps.configure_omp(
                     [
@@ -370,8 +370,8 @@ known_plugin_toolsets:
                 encoding="utf-8",
             )
             with patch(
-                "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
-                [configure_agent_mcps._OmpConfigAdapter(path=path)],
+                "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
+                (path,),
             ):
                 assert configure_agent_mcps.configure_omp(
                     [configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]],
@@ -398,8 +398,8 @@ known_plugin_toolsets:
                 path = Path(temp_dir) / "mcp.json"
                 path.write_text(json.dumps(existing), encoding="utf-8")
                 with patch(
-                    "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
-                    [configure_agent_mcps._OmpConfigAdapter(path=path)],
+                    "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
+                    (path,),
                 ):
                     assert configure_agent_mcps.configure_omp(
                         [configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]],
@@ -505,8 +505,8 @@ known_plugin_toolsets:
             original = "[]"
             path.write_text(original, encoding="utf-8")
             with patch(
-                "agentic_env.configure_agent_mcps._OMP_CONFIG_ADAPTERS",
-                [configure_agent_mcps._OmpConfigAdapter(path=path)],
+                "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
+                (path,),
             ):
                 self.assertFalse(
                     configure_agent_mcps.configure_omp(

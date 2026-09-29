@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shlex
 import shutil
 import subprocess
@@ -49,10 +50,24 @@ from .stack_metadata import (
 
 _REMOTE_INSTALL_CONTRACT = SKILLS_INSTALL_REMOTE_CONTRACT
 SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
+_REMOTE_SOURCE_PATTERN = re.compile(r"^(?P<repo>[\w.-]+/[\w.-]+)(?:#(?P<ref>[^#]+))?$")
 _MCP_LABELS = {
     "codebase-memory-mcp": "codebase-memory-mcp (project code graph, checksum-pinned binary)",
     "agentmemory": "agentmemory (Hermes memory provider, npm)",
 }
+
+
+# Where selected skills go: global roots of these agents, or one exact directory.
+type SkillDestination = tuple[str, ...] | Path
+
+
+@dataclass(frozen=True)
+class SkillUpstream:
+    """The repo and revision a pack's skills come from; `path` scopes a monorepo."""
+
+    repo: str
+    ref: str
+    path: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,12 +77,8 @@ class SkillPack:
     label: str
     skills: tuple[str, ...]
     descriptions: dict[str, str] = field(default_factory=dict)
-    # Where the pack's skills come from upstream. Vendored packs must name a
-    # repo and the reviewed revision; remote packs derive both from `source`.
-    # `upstream_path` scopes the search inside a monorepo.
-    upstream_repo: str | None = None
-    upstream_ref: str | None = None
-    upstream_path: str | None = None
+    # None when neither an `upstream` block nor an `owner/repo#ref` source pins one.
+    upstream: SkillUpstream | None = None
 
 
 @dataclass(frozen=True)
@@ -112,7 +123,7 @@ class SkillAgentSelection:
 class SkillInstallPlan:
     skill_packs: tuple[str, ...]
     skill_names: tuple[str, ...]
-    skill_agents: SkillAgentSelection
+    destination: SkillDestination
     do_codebase: bool
     do_agentmemory: bool
 
@@ -209,16 +220,25 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
             warn(f"Invalid upstream for pack '{name}' in {path}: expected object")
             return None
 
-        upstream: dict[str, str | None] = {}
+        upstream_fields: dict[str, str] = {}
         for key in ("repo", "ref", "path"):
             value = upstream_payload.get(key)
             if value is None:
-                upstream[key] = None
                 continue
             if not isinstance(value, str) or not value.strip():
                 warn(f"Invalid upstream {key} for pack '{name}' in {path}: {value!r}")
                 return None
-            upstream[key] = value.strip()
+            upstream_fields[key] = value.strip()
+
+        # Resolve available metadata once; legacy partial blocks remain usable
+        # for installation but cannot support an upstream comparison.
+        remote = None if source_value.startswith("./") else _REMOTE_SOURCE_PATTERN.fullmatch(source_value)
+        repo = upstream_fields.get("repo") or (remote["repo"] if remote else None)
+        ref = upstream_fields.get("ref") or (remote["ref"] if remote else None)
+        if repo is not None and ref is not None:
+            upstream = SkillUpstream(repo=repo, ref=ref, path=upstream_fields.get("path"))
+        else:
+            upstream = None
 
         packs[canonical_name] = SkillPack(
             name=canonical_name,
@@ -226,9 +246,7 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
             label=label_value,
             skills=tuple(skill_values),
             descriptions=skill_descriptions,
-            upstream_repo=upstream["repo"],
-            upstream_ref=upstream["ref"],
-            upstream_path=upstream["path"],
+            upstream=upstream,
         )
 
     profiles_payload = payload.get("profiles", {"default": list(packs)})
@@ -330,7 +348,7 @@ def _parse_skill_agents(values: list[str] | None) -> SkillAgentSelection:
         if not value:
             continue
         if value == "all":
-            return SkillAgentSelection(selected=tuple(_all_skill_agents()), unknown=())
+            return SkillAgentSelection(selected=_all_skill_agents(), unknown=())
 
         canonical = SKILL_AGENT_LOOKUP.get(value)
         if canonical is None:
@@ -342,12 +360,12 @@ def _parse_skill_agents(values: list[str] | None) -> SkillAgentSelection:
     return SkillAgentSelection(selected=tuple(selected), unknown=tuple(unknown))
 
 
-def _all_skill_agents() -> list[str]:
-    return [agent for agent, _, _ in SKILL_AGENTS]
+def _all_skill_agents() -> tuple[str, ...]:
+    return tuple(agent for agent, _, _ in SKILL_AGENTS)
 
 
 def _build_install_plan(
-    args: argparse.Namespace, manifest: SkillManifest, *, non_interactive: bool
+    args: argparse.Namespace, manifest: SkillManifest
 ) -> SkillInstallPlan | None:
     if args.skills_dir is not None and (args.skill_agent or args.mcp or args.all_mcps):
         warn("--skills-dir cannot be combined with --skill-agent, --mcp or --all-mcps")
@@ -394,10 +412,15 @@ def _build_install_plan(
         warn(f"Available: {', '.join(_MCP_LABELS)}")
         return None
 
+    destination: SkillDestination = (
+        args.skills_dir.expanduser().resolve()
+        if args.skills_dir is not None
+        else selected_skill_agents.selected or _all_skill_agents()
+    )
     return SkillInstallPlan(
         skill_packs=tuple(selected_skill_packs),
         skill_names=skill_names,
-        skill_agents=selected_skill_agents,
+        destination=destination,
         do_codebase=bool(args.all_mcps) or "codebase-memory-mcp" in requested_mcps,
         do_agentmemory=bool(args.all_mcps) or "agentmemory" in requested_mcps,
     )
@@ -443,7 +466,7 @@ def _pick_skills(manifest: SkillManifest, requested: list[str]) -> dict[str, lis
     return selection
 
 
-def _pick_skill_destination() -> tuple[list[str], Path | None]:
+def _pick_skill_destination() -> SkillDestination:
     destination = questionary.select(
         "Install skills where?",
         choices=[
@@ -454,10 +477,12 @@ def _pick_skill_destination() -> tuple[list[str], Path | None]:
     if destination is None:
         raise SystemExit(130)
     if destination == "agents":
-        return choose(
-            "Install skills for which agents?",
-            [Option(agent, label, True) for agent, _, label in SKILL_AGENTS],
-        ), None
+        return tuple(
+            choose(
+                "Install skills for which agents?",
+                [Option(agent, label, True) for agent, _, label in SKILL_AGENTS],
+            )
+        )
     path = questionary.path(
         "Skills directory (exact folder)",
         only_directories=True,
@@ -466,7 +491,7 @@ def _pick_skill_destination() -> tuple[list[str], Path | None]:
     if path is None:
         raise SystemExit(130)
     try:
-        return [], Path(path).expanduser().resolve()
+        return Path(path).expanduser().resolve()
     except (OSError, RuntimeError) as exc:
         warn(f"Invalid skills directory: {exc}")
         raise SystemExit(1) from exc
@@ -612,10 +637,9 @@ def _resolve_pack_skills(
 def _summarize_selection(
     manifest: SkillManifest,
     selection: dict[str, list[str]],
-    skill_agents: list[str],
+    destination: SkillDestination,
     do_codebase: bool,
     do_agentmemory: bool,
-    skills_dir: Path | None = None,
 ) -> None:
     for name, skills in selection.items():
         pack = manifest.packs[name]
@@ -627,10 +651,10 @@ def _summarize_selection(
             detail = ", ".join(skills)
         info(f"{pack.label}: {detail}")
     if selection:
-        if skills_dir is not None:
-            info(f"Skill destination: {skills_dir}")
+        if isinstance(destination, Path):
+            info(f"Skill destination: {destination}")
         else:
-            info(f"Skill target agents: {', '.join(skill_agents)}")
+            info(f"Skill target agents: {', '.join(destination)}")
     for name, wanted in (("codebase-memory-mcp", do_codebase), ("agentmemory", do_agentmemory)):
         if wanted:
             info(f"MCP server: {name}")
@@ -639,10 +663,9 @@ def _summarize_selection(
 def _replay_command(
     manifest: SkillManifest,
     selection: dict[str, list[str]],
-    skill_agents: list[str],
+    destination: SkillDestination,
     do_codebase: bool,
     do_agentmemory: bool,
-    skills_dir: Path | None = None,
 ) -> str | None:
     """The flag-only command that repeats this selection, or None when the flags
     cannot express it because `--skill` would widen a per-pack subset."""
@@ -663,10 +686,10 @@ def _replay_command(
         parts.append(f"--skill-pack {','.join(packs)}")
         if skills:
             parts.append(f"--skill {','.join(skills)}")
-        if skills_dir is not None:
-            parts.append(f"--skills-dir {shlex.quote(str(skills_dir))}")
+        if isinstance(destination, Path):
+            parts.append(f"--skills-dir {shlex.quote(str(destination))}")
         else:
-            parts.append(f"--skill-agent {','.join(skill_agents)}")
+            parts.append(f"--skill-agent {','.join(destination)}")
     mcps = [
         name
         for name, wanted in (("codebase-memory-mcp", do_codebase), ("agentmemory", do_agentmemory))
@@ -681,24 +704,21 @@ def _replay_command(
 
 
 def _install_skills(
-    manifest: SkillManifest,
-    selection: dict[str, list[str]],
-    skill_agents: list[str],
-    skills_dir: Path | None = None,
+    manifest: SkillManifest, selection: dict[str, list[str]], destination: SkillDestination
 ) -> bool:
     if not cmd_exists("skills") and not cmd_exists("npm"):
         warn("skills CLI requires npm or a global skills binary")
         return False
 
-    if skills_dir is not None:
-        return _install_skill_directory(manifest, selection, skills_dir)
+    if isinstance(destination, Path):
+        return _install_skill_directory(manifest, selection, destination)
 
-    if not skill_agents:
+    if not destination:
         warn("No target agents selected for skill installation")
         return False
 
     for name, skills in selection.items():
-        if not _install_skill_package(manifest.source(name), skills, skill_agents):
+        if not _install_skill_package(manifest.source(name), skills, destination):
             warn(f"{manifest.packs[name].label}: installation failed")
             return False
     return True
@@ -715,9 +735,7 @@ def _install_skill_directory(
         with TemporaryDirectory(prefix="agentic-skills-") as temporary:
             staging = Path(temporary)
             for name, skills in selection.items():
-                if not _install_skill_package(
-                    manifest.source(name), skills, ["codex"], directory=staging
-                ):
+                if not _install_skill_package(manifest.source(name), skills, staging):
                     return False
             packages = sorted((staging / ".agents" / "skills").iterdir())
             copy_skill_packages(packages, destination)
@@ -729,12 +747,19 @@ def _install_skill_directory(
 
 
 def _install_skill_package(
-    source: str, skills: list[str], skill_agents: list[str], *, directory: Path | None = None
+    source: str, skills: list[str], destination: SkillDestination
 ) -> bool:
-    command = ["add", source, "--yes", "--copy" if directory is not None else "--global"]
+    """`skills add` into the agents' global roots, or a project-local copy under
+    `destination`; Codex's project root is `.agents/skills`, which the directory
+    installer stages through."""
+    if isinstance(destination, Path):
+        directory, agents, mode = destination, ("codex",), "--copy"
+    else:
+        directory, agents, mode = None, destination, "--global"
+    command = ["add", source, "--yes", mode]
     for skill in skills:
         command.extend(["--skill", skill])
-    for skill_agent in skill_agents:
+    for skill_agent in agents:
         command.extend(["--agent", SKILL_AGENT_CLI_NAMES[skill_agent]])
 
     if skills:
@@ -888,7 +913,6 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse(argv if argv is not None else sys.argv[1:])
     set_verbose(args.verbose)
     non_interactive = bool(args.yes) or not interactive()
-    skills_dir = args.skills_dir.expanduser().resolve() if args.skills_dir is not None else None
 
     if not _validate_remote_contract():
         return 1
@@ -901,29 +925,24 @@ def main(argv: list[str] | None = None) -> int:
     if manifest is None:
         return 1
 
-    plan = _build_install_plan(args, manifest, non_interactive=non_interactive)
+    plan = _build_install_plan(args, manifest)
     if plan is None:
         return 1
 
-    selected_skill_packs = list(plan.skill_packs)
-    requested_skill_names = list(plan.skill_names)
-    selected_skill_agents = list(plan.skill_agents.selected) or _all_skill_agents()
-
-    skill_selection = _resolve_pack_skills(manifest, selected_skill_packs, requested_skill_names)
-    do_skills = bool(selected_skill_packs)
+    skill_selection = _resolve_pack_skills(manifest, list(plan.skill_packs), list(plan.skill_names))
+    destination = plan.destination
     do_codebase = plan.do_codebase
     do_agentmemory = plan.do_agentmemory
 
-    if not do_skills and not do_codebase and not do_agentmemory and not non_interactive:
-        skill_selection = _pick_skills(manifest, requested_skill_names)
-        if skill_selection and not args.skill_agent and skills_dir is None:
-            selected_skill_agents, skills_dir = _pick_skill_destination()
-            if not selected_skill_agents and skills_dir is None:
+    if not plan.skill_packs and not do_codebase and not do_agentmemory and not non_interactive:
+        skill_selection = _pick_skills(manifest, list(plan.skill_names))
+        if skill_selection and not args.skill_agent and args.skills_dir is None:
+            destination = _pick_skill_destination()
+            if destination == ():
                 warn("No target agent selected")
                 skill_selection = {}
-        do_skills = bool(skill_selection)
 
-        if skills_dir is None:
+        if not isinstance(destination, Path):
             selected_mcps = choose(
                 "Select MCP tooling",
                 [Option(name, label, True) for name, label in _MCP_LABELS.items()],
@@ -931,35 +950,25 @@ def main(argv: list[str] | None = None) -> int:
             do_codebase = "codebase-memory-mcp" in selected_mcps
             do_agentmemory = "agentmemory" in selected_mcps
 
-        if do_skills or do_codebase or do_agentmemory:
+        if skill_selection or do_codebase or do_agentmemory:
             _summarize_selection(
-                manifest,
-                skill_selection,
-                selected_skill_agents,
-                do_codebase,
-                do_agentmemory,
-                skills_dir=skills_dir,
+                manifest, skill_selection, destination, do_codebase, do_agentmemory
             )
             replay = _replay_command(
-                manifest,
-                skill_selection,
-                selected_skill_agents,
-                do_codebase,
-                do_agentmemory,
-                skills_dir=skills_dir,
+                manifest, skill_selection, destination, do_codebase, do_agentmemory
             )
             if replay:
                 info(f"Same selection without prompts: {replay}")
             if not ask("Install this selection", default=True, non_interactive=False):
                 skip("nothing installed")
                 return 0
+    elif not skill_selection and (args.skill or args.skills_dir is not None):
+        warn("--skill/--skills-dir: the selected packs provide no matching skills; nothing to install")
+        return 1
 
     ok_all = True
-    if do_skills:
-        ok_all = (
-            _install_skills(manifest, skill_selection, selected_skill_agents, skills_dir=skills_dir)
-            and ok_all
-        )
+    if skill_selection:
+        ok_all = _install_skills(manifest, skill_selection, destination) and ok_all
     else:
         skip("skill packs: skipped")
 

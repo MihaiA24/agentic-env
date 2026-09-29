@@ -16,8 +16,8 @@ from .remote_install_contract import (
 # Reviewed stack release. These are version floors, not pins: install and update
 # fetch the latest release and verify it is at or above the floor. At each
 # review, take the latest stable version and record it here.
-# Reviewed 2026-09-09: OMP v18.1.14 and Codex 0.153.4; OMP installer
-# SHA256 re-verified unchanged. Other floors last reviewed 2026-09-02:
+# Reviewed 2026-09-09: OMP v18.1.14 and Codex 0.153.4.
+# Other floors last reviewed 2026-09-02:
 # Hermes v2026.8.31, Claude 2.1.258, and agentmemory 0.9.29.
 HERMES_COMMIT: Final[str] = "29112bef099274229cadff79cdff7bf7b99c4b77"
 OMP_VERSION: Final[str] = "18.1.14"
@@ -41,10 +41,11 @@ HERMES_INSTALL_URL: Final[str] = (
 HERMES_INSTALL_SHA256: Final[str] = (
     "5854b15670b51a8daae8f59ddfa917062de9f74be261eb73b4b8d719710f8968"
 )
-OMP_INSTALL_URL: Final[str] = "https://omp.sh/install"
-OMP_INSTALL_SHA256: Final[str] = (
-    "3b0e54e890586ef86e699c58be90db97e2406e1f04730feaadebd22f64d29a17"
-)
+# OMP installs from GitHub release assets checked against the release's
+# SHA256SUMS.txt, not via omp.sh/install: that script resolves every release
+# (even with --ref) on the unauthenticated api.github.com REST API, which shared
+# CI runner IPs exhaust (HTTP 403).
+OMP_RELEASES_URL: Final[str] = "https://github.com/can1357/oh-my-pi/releases"
 CLAUDE_INSTALL_URL: Final[str] = "https://claude.ai/install.sh"
 CLAUDE_INSTALL_SHA256: Final[str] = (
     "3a68d3406cf674e17bed1733a4dcf37805e2e47d87417700007d7e1aa766a944"
@@ -127,14 +128,6 @@ AGENTS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "sha256": HERMES_INSTALL_SHA256,
         "reason": "Fetched at a fixed upstream commit and hash-pinned; "
         "the floating endpoint drifted (#39).",
-    },
-    "omp": {
-        "label": "OMP / Oh My Pi installer script",
-        "reference": OMP_INSTALL_URL,
-        "kind": REMOTE_KIND_SCRIPT,
-        "pinned": True,
-        "sha256": OMP_INSTALL_SHA256,
-        "reason": "Floating script endpoint is hash-pinned for reproducibility.",
     },
     "codex": {
         "label": "OpenAI Codex npm package",

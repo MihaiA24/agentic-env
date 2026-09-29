@@ -146,12 +146,9 @@ for command in hermes omp codex claude codebase-memory-mcp agentmemory; do
 done
 
 echo "[5/5] Verifying stack wiring (agentic-stack-doctor) and Hermes artifacts"
-if [ "$SKIP_INSTALL" = "1" ] && [ "$(uname -s)" != Darwin ]; then
-  # Force path on an already-compliant host: every floating component must
-  # reinstall to the current latest and the run must stay green (with floors and
-  # no force, update would be a permanent no-op). Skipped on macOS: the shared
-  # runner IP already trips api.github.com 403 on a single OMP install, so do
-  # not double the remote fetches there.
+if [ "$SKIP_INSTALL" = "1" ]; then
+  # Exercise forced updates on every host, including an already-compliant OMP.
+  # OMP resolves release assets without the rate-limited GitHub REST API.
   run_cmd "agentic-update-stack"
 fi
 run_cmd "agentic-stack-doctor"

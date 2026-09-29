@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
+import os
+import platform
+import re
+import shutil
+import subprocess
 import sys
+import tempfile
+import urllib.request
+from pathlib import Path
 
 from .common import (
     Option,
@@ -11,8 +21,10 @@ from .common import (
     choose,
     cmd_exists,
     cmd_version_at_least,
+    fetch_url,
     info,
     interactive,
+    is_valid_sha256,
     ok,
     run,
     run_remote_script,
@@ -28,8 +40,7 @@ from .stack_metadata import (
     HERMES_COMMIT,
     HERMES_INSTALL_SHA256,
     HERMES_INSTALL_URL,
-    OMP_INSTALL_SHA256,
-    OMP_INSTALL_URL,
+    OMP_RELEASES_URL,
     OPENAI_CODEX_PACKAGE,
     STACK_VERSION_FLOORS,
 )
@@ -79,25 +90,130 @@ def _install_omp(non_interactive: bool, *, force: bool = False) -> bool:
         ):
             skip("OMP / Oh My Pi: at or above the reviewed version")
             return True
-    elif cmd_exists("omp"):
+    elif not force and cmd_exists("omp"):
         warn("OMP / Oh My Pi: below the reviewed version; installing the latest release")
 
     info("Installing OMP / Oh My Pi...")
-    if not run_remote_script(
-        label="OMP installer",
-        url=OMP_INSTALL_URL,
-        expected_sha256=OMP_INSTALL_SHA256,
-        interpreter="sh",
-        # --binary: the installer's source path (bun install -g on a workspace
-        # member) cannot resolve catalog: deps; the prebuilt release binary
-        # avoids bun entirely. No --ref: the latest release is what we want.
-        interpreter_args=["--binary"],
-    ):
-        return False
-    if not cmd_version_at_least("omp", STACK_VERSION_FLOORS["omp"]):
-        warn("OMP / Oh My Pi: installed version is below the reviewed version")
+    if not _install_omp_release():
         return False
     ok("OMP / Oh My Pi: installed")
+    return True
+
+
+# Stable releases only; also keeps the tag a single safe URL path segment.
+_OMP_TAG = re.compile(r"v\d+\.\d+\.\d+")
+
+
+def _omp_latest_tag() -> str:
+    """Resolve the latest stable release from github.com's releases/latest
+    redirect; the api.github.com REST lookup is rate-limited per IP."""
+    request = urllib.request.Request(
+        f"{OMP_RELEASES_URL}/latest",
+        method="HEAD",
+        headers={"User-Agent": "agentic-env/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        resolved = response.url
+    prefix = f"{OMP_RELEASES_URL}/tag/"
+    tag = resolved.removeprefix(prefix)
+    if not resolved.startswith(prefix) or not _OMP_TAG.fullmatch(tag):
+        raise ValueError(f"unexpected latest-release redirect to {resolved}")
+    return tag
+
+
+def _omp_asset() -> str | None:
+    """Release asset for this host, mirroring upstream scripts/install.sh."""
+    system, machine = platform.system(), platform.machine().lower()
+    if system == "Darwin":
+        # sysctl, not the machine name: a Rosetta Python reports x86_64 on arm64.
+        probe = subprocess.run(
+            ["/usr/sbin/sysctl", "-in", "hw.optional.arm64"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return "omp-darwin-" + ("arm64" if probe.stdout.strip() == "1" else "x64")
+    arch = {"x86_64": "x64", "amd64": "x64", "arm64": "arm64", "aarch64": "arm64"}
+    if system != "Linux" or machine not in arch:
+        warn(f"OMP / Oh My Pi: unsupported platform {system}/{machine}")
+        return None
+    musl = Path("/etc/alpine-release").exists()
+    if not musl and cmd_exists("ldd"):
+        # musl's ldd prints its banner to stderr and exits non-zero.
+        ldd = subprocess.run(
+            ["ldd", "--version"], capture_output=True, text=True, check=False
+        )
+        musl = "musl" in (ldd.stdout + ldd.stderr).lower()
+    return f"omp-linux{'-musl' if musl else ''}-{arch[machine]}"
+
+
+def _install_omp_release() -> bool:
+    """Install the latest release binary after checking it against the
+    release's SHA256SUMS.txt. That file comes over the same TLS channel, so
+    this proves integrity, not publisher signature."""
+    asset = _omp_asset()
+    if asset is None:
+        return False
+    try:
+        tag = _omp_latest_tag()
+        release = f"{OMP_RELEASES_URL}/download/{tag}"
+        sums = fetch_url(f"{release}/SHA256SUMS.txt", 30).decode()
+    except Exception as exc:
+        warn(f"OMP / Oh My Pi: release download failed: {exc}")
+        return False
+
+    expected = [
+        fields[0]
+        for fields in map(str.split, sums.splitlines())
+        if len(fields) == 2 and fields[1].removeprefix("*") == asset
+    ]
+    if len(expected) != 1 or not is_valid_sha256(expected[0]):
+        warn(f"OMP / Oh My Pi: {tag} SHA256SUMS.txt has no single valid entry for {asset}")
+        return False
+
+    install_dir = Path(os.environ.get("PI_INSTALL_DIR") or Path.home() / ".local" / "bin")
+    floor = STACK_VERSION_FLOORS["omp"]
+    request = urllib.request.Request(
+        f"{release}/{asset}", headers={"User-Agent": "agentic-env/1.0"}
+    )
+    temporary: str | None = None
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            install_dir.mkdir(parents=True, exist_ok=True)
+            fd, temporary = tempfile.mkstemp(prefix=".omp.", dir=install_dir)
+            digest = hashlib.sha256()
+            # Streamed in 1 MiB chunks; the checksum below catches truncation.
+            with os.fdopen(fd, "wb") as target:
+                while chunk := response.read(1 << 20):
+                    digest.update(chunk)
+                    target.write(chunk)
+        actual = digest.hexdigest()
+        if actual != expected[0].lower():
+            warn(f"OMP / Oh My Pi: {tag}/{asset} checksum mismatch")
+            warn(f"OMP / Oh My Pi: expected {expected[0]}, got {actual}")
+            return False
+        os.chmod(temporary, 0o755)
+        if not cmd_version_at_least(temporary, floor):
+            warn("OMP / Oh My Pi: downloaded executable fails the reviewed version floor")
+            return False
+        os.replace(temporary, install_dir / "omp")
+        temporary = None
+    except Exception as exc:
+        warn(f"OMP / Oh My Pi: failed to install {tag}/{asset}: {exc}")
+        return False
+    finally:
+        if temporary is not None:
+            with contextlib.suppress(OSError):
+                os.remove(temporary)
+    info(f"OMP / Oh My Pi: installed {tag} to {install_dir / 'omp'}")
+    # A different omp earlier on PATH wins; report it rather than touch it.
+    if not cmd_version_at_least("omp", floor):
+        warn(
+            f"OMP / Oh My Pi: `omp` on PATH ({shutil.which('omp') or 'not found'}) "
+            f"is missing or below {floor}"
+        )
+        warn(f"OMP / Oh My Pi: put {install_dir} first on PATH or remove the older omp")
+        return False
     return True
 
 

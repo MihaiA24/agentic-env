@@ -138,7 +138,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                     "SKILLS_TEST_STATUS": str(status),
                 }):
                     result = install_skills_mcps._install_skill_package(
-                        "example/pack#v1", ["example"], ["claude"]
+                        "example/pack#v1", ["example"], ("claude",)
                     )
                 self.assertEqual(result, expected)
                 self.assertEqual((root / "installed").exists(), expected)
@@ -178,6 +178,74 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         mock_install_skills.assert_not_called()
         mock_install_codebase_memory.assert_not_called()
         mock_install_agentmemory.assert_not_called()
+
+    def test_upstream_is_explicit_or_derived_from_a_pinned_remote_source(self) -> None:
+        def load(*packs: dict) -> install_skills_mcps.SkillManifest | None:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir) / "skill-packs.json"
+                path.write_text(json.dumps({"packs": list(packs)}), encoding="utf-8")
+                return install_skills_mcps.load_skill_manifest(path)
+
+        manifest = load(
+            {"name": "vendored", "source": "./v", "upstream": {"repo": "o/mono", "ref": "abc", "path": "p"}},
+            {"name": "pinned", "source": "Owner/repo#v1", "upstream": {"path": "skills"}},
+            {"name": "repo-override", "source": "owner/alternate#v1", "upstream": {"repo": "owner/other"}},
+            {"name": "ref-override", "source": "owner/repo", "upstream": {"ref": "abc"}},
+            {"name": "unpinned", "source": "owner/unpinned"},
+            {"name": "local", "source": "./local"},
+        )
+        assert manifest is not None
+        Upstream = install_skills_mcps.SkillUpstream
+        self.assertEqual(
+            {name: pack.upstream for name, pack in manifest.packs.items()},
+            {
+                "vendored": Upstream("o/mono", "abc", "p"),
+                "pinned": Upstream("Owner/repo", "v1", "skills"),
+                "repo-override": Upstream("owner/other", "v1"),
+                "ref-override": Upstream("owner/repo", "abc"),
+                "unpinned": None,
+                "local": None,
+            },
+        )
+        self.assertEqual(manifest.source("pinned"), "Owner/repo#v1")
+
+        for source, upstream in (
+            ("./vendored", {"repo": "owner/other"}),
+            ("./vendored", {"ref": "abc"}),
+            ("./vendored", {"path": "skills"}),
+            ("owner/unpinned", {"path": "skills"}),
+        ):
+            with self.subTest(source=source, upstream=upstream):
+                partial = load({"name": "pack", "source": source, "upstream": upstream})
+                assert partial is not None
+                self.assertEqual(partial.source("pack"), str((partial.config_path.parent / source[2:]).resolve()) if source.startswith("./") else source)
+                self.assertIsNone(partial.packs["pack"].upstream)
+
+    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_skills", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_codebase_memory", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_agentmemory", return_value=True)
+    def test_explicit_selection_matching_no_skills_fails_without_installing(
+        self,
+        _mock_install_agentmemory,
+        _mock_install_codebase_memory,
+        mock_install_skills,
+        _mock_validate_remote_contract,
+    ) -> None:
+        for argv in (
+            ["--skill-pack", "caveman", "--skill", "tdd"],
+            ["--skill", "tdd"],
+            ["--skills-dir", "skills"],
+        ):
+            with self.subTest(argv=argv):
+                self.assertEqual(install_skills_mcps.main([*argv, "--yes"]), 1)
+                mock_install_skills.assert_not_called()
+
+        self.assertEqual(
+            install_skills_mcps.main(["--skill-pack", "caveman,mattpocock", "--skill", "tdd", "--yes"]),
+            0,
+        )
+        mock_install_skills.assert_called_once()
 
     @patch("agentic_env.install_skills_mcps._configure_hermes_agentmemory", return_value=True)
     @patch("agentic_env.install_skills_mcps.cmd_version_at_least")
@@ -347,7 +415,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         )
         assert manifest is not None
 
-        def stage(source, skills, agents, *, directory):
+        def stage(source, skills, directory):
             for skill in skills:
                 shutil.copytree(Path(source) / skill, directory / ".agents" / "skills" / skill)
             return True
@@ -390,7 +458,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             with self.subTest(conflicting=conflicting):
                 args = install_skills_mcps._parse(["--skills-dir", "skills", *conflicting])
                 self.assertIsNone(
-                    install_skills_mcps._build_install_plan(args, manifest, non_interactive=True)
+                    install_skills_mcps._build_install_plan(args, manifest)
                 )
 
     def test_replay_command_round_trips_or_reports_nothing(self) -> None:
@@ -400,11 +468,11 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         assert manifest is not None
         replay = install_skills_mcps._replay_command
 
-        def assert_replays(manifest, selection, agents, codebase, agentmemory, destination=None):
-            command = replay(manifest, selection, agents, codebase, agentmemory, destination)
+        def assert_replays(manifest, selection, destination, codebase, agentmemory):
+            command = replay(manifest, selection, destination, codebase, agentmemory)
             assert command is not None
             args = install_skills_mcps._parse(shlex.split(command)[1:])
-            plan = install_skills_mcps._build_install_plan(args, manifest, non_interactive=True)
+            plan = install_skills_mcps._build_install_plan(args, manifest)
             assert plan is not None
             self.assertEqual(
                 install_skills_mcps._resolve_pack_skills(
@@ -413,21 +481,21 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 selection,
             )
             if selection:
-                self.assertEqual(plan.skill_agents.selected, () if destination else tuple(agents))
+                expected = destination.resolve() if isinstance(destination, Path) else destination
+                self.assertEqual(plan.destination, expected)
                 self.assertEqual(Path(args.skill_config).resolve(), manifest.config_path.resolve())
-            self.assertEqual(args.skills_dir, destination)
             self.assertEqual((plan.do_codebase, plan.do_agentmemory), (codebase, agentmemory))
 
-        assert_replays(manifest, {"caveman": ["caveman"]}, ["claude"], False, True)
-        assert_replays(manifest, {}, ["claude"], True, True)
+        assert_replays(manifest, {"caveman": ["caveman"]}, ("claude",), False, True)
+        assert_replays(manifest, {}, ("claude",), True, True)
         assert_replays(
             manifest,
             {"mattpocock": ["tdd"]},
-            [],
-            False,
-            False,
             Path("/tmp/another project's skills"),
+            False,
+            False,
         )
+
         # A pack that ships no roster takes everything it ships, so a `--skill`
         # filter needed by another pack would narrow it. That has no flag-only form.
         open_manifest = install_skills_mcps.SkillManifest(
@@ -442,9 +510,9 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             config_path=Path("my project's manifest.json"),
         )
         self.assertIsNone(
-            replay(open_manifest, {"rostered": ["tdd"], "open": []}, ["claude"], False, False)
+            replay(open_manifest, {"rostered": ["tdd"], "open": []}, ("claude",), False, False)
         )
-        assert_replays(open_manifest, {"open": []}, ["claude"], False, False)
+        assert_replays(open_manifest, {"open": []}, ("claude",), False, False)
 
     def test_guided_pty_run_with_everything_cleared_installs_nothing(self) -> None:
         """Drive the real pickers through a pseudo-terminal: clear every skill and
@@ -494,7 +562,7 @@ import shutil, sys
 from pathlib import Path
 from unittest.mock import patch
 from agentic_env import install_skills_mcps as m
-def stage(source, skills, agents, *, directory):
+def stage(source, skills, directory):
     for skill in skills:
         shutil.copytree(Path(source) / skill, directory / ".agents" / "skills" / skill)
     return True

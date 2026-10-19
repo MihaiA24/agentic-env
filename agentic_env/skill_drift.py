@@ -22,6 +22,7 @@ import io
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -58,7 +59,18 @@ _BASELINE_VERSION = 1
 _COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 UNKNOWN = "unknown"
-FIX = "agentic-install-skills-mcps --skill-profile default --yes"
+
+
+def _fix(manifest: SkillManifest, row: SkillStatus) -> str:
+    """Restore missing skills from the manifest that was checked."""
+    command = ["agentic-install-skills-mcps"]
+    if manifest.config_path != SKILL_PACK_CONFIG_PATH:
+        command.extend(["--skill-config", str(manifest.config_path.resolve())])
+    if row.pack in manifest.profiles.get("default", ()):
+        command.extend(["--skill-profile", "default"])
+    else:
+        command.extend(["--skill-pack", row.pack, "--skill", row.skill])
+    return shlex.join([*command, "--yes"])
 
 
 @dataclass
@@ -312,6 +324,7 @@ def inspect_pack(
     show_diff: bool = False,
 ) -> list[SkillStatus]:
     upstream = manifest.packs[pack].upstream
+    check_upstream = check_upstream and upstream is not None
     pinned_source = source_root(manifest, pack, upstream, offline=offline)
 
     upstream_pinned: Path | None = None
@@ -472,7 +485,7 @@ def _cell(value: str) -> str:
     return f"[{style}]{value}[/]"
 
 
-def report(rows: list[SkillStatus], extra: list[str]) -> None:
+def report(manifest: SkillManifest, rows: list[SkillStatus], extra: list[str]) -> None:
     table = Table(title="agentic-skill-drift", show_lines=False)
     for column in ("Pack", "Skill", "Source", "Installed", "Upstream", "Local/upstream"):
         table.add_column(column, overflow="fold")
@@ -488,7 +501,7 @@ def report(rows: list[SkillStatus], extra: list[str]) -> None:
         warn(f"{len(drifted)} of {len(rows)} curated skills drifted")
         for row in drifted:
             if row.install in ("missing", "modified") or row.install.startswith("foreign:"):
-                warn(f"{row.skill}: install {row.install} — fix with `{FIX}`")
+                warn(f"{row.skill}: install {row.install} — fix with `{_fix(manifest, row)}`")
     elif not any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
         ok(f"{len(rows)} curated skills: no drift (local adaptations excluded)")
 
@@ -599,7 +612,7 @@ def main(argv: list[str] | None = None) -> int:
             findings = {"skills": [asdict(row) for row in rows], "unmanaged": extra}
             print(json.dumps(findings, indent=2), file=document)
         else:
-            report(rows, extra)
+            report(manifest, rows, extra)
 
         if any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
             return 2

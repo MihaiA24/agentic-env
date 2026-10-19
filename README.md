@@ -56,13 +56,45 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) selects 38 skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 40 skills: the unchanged 38-skill `default` profile plus two opt-in Apache Spark skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, explicit `--skill` or `--skills-dir` selections that resolve to no packages fail without installing anything. An intentionally empty interactive selection remains a successful no-op.
 
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
 [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
+
+#### Apache Spark: optimize existing jobs
+
+Two first-party, model-discoverable skills in the opt-in `agentic-env` pack cover existing Spark jobs (SQL, DataFrame or RDD, in any language):
+
+- [`apache-spark-static`](agentic_env/skills/apache-spark-static/SKILL.md): review code and initial plans without executing the workload. Input volume may be known, estimated, or unknown; performance findings remain hypotheses.
+- [`apache-spark-runtime`](agentic_env/skills/apache-spark-runtime/SKILL.md): diagnose live or completed cluster executions and verify targeted optimizations. Live findings remain provisional; final-plan and end-to-end conclusions require action completion.
+
+From this directory, select one installation route. These commands install both skills; pass just one name to select only that workflow:
+
+```bash
+# Managed harness targets; this does not change the default profile.
+uv run agentic-install-skills-mcps --skill-pack agentic-env --skill apache-spark-static,apache-spark-runtime --yes
+
+# Or Python-only copy into a fresh exact skills directory.
+python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.agents/skills" --skill apache-spark-static,apache-spark-runtime
+```
+
+Use the harness's skill invocation syntax and supply sanitized artifacts. An analysis-only request does not authorize edits or cluster runs. Neither skill is a mandatory prerequisite for the other. For example:
+
+```text
+/apache-spark-static Review jobs/daily_orders.py without running it.
+Input volume is unknown; identify code-level risks and conditional changes.
+```
+
+```text
+/apache-spark-runtime Diagnose app-42 using the UI/history exports in
+artifacts/spark-run/. Rank observations and hypotheses; if the job is still
+running, keep conclusions provisional. Do not edit or rerun.
+```
+
+Each skill is a single `SKILL.md`; detailed Apache findings and version-pinned citations live in [research and design](docs/apache-spark-optimization-research.md) for maintainers, not in the agent's instructions. Existing profiles remain unchanged; `--all-skills` includes both packages. Their reviewed fingerprints are recorded in the baseline. First-party upstream comparisons are automatically skipped; check the pack's sources with `--pack agentic-env --no-installed`.
 
 #### Install into another harness's directory
 
@@ -121,7 +153,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic-env/agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **30 vendored Matt/pstack skills**, including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies the **32 locally packaged skills** (30 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 
@@ -200,6 +232,8 @@ agentic-skill-drift --update-baseline
 
 This is a deterministic, on-demand CLI: no agent is needed to fetch or compare skills. It checks complete packages (including scripts and references), limited to the manifest's curated roster—not newly published, unselected skills. It does not execute upstream skills, merge updates, change pins, or overwrite installed skills.
 
+Recovery commands preserve a custom `--skill-config` and select missing opt-in skills instead of reinstalling an unrelated profile. Pack names are valid selectors without repeating them in `aliases`.
+
 To check **Matt Pocock and pstack from this checkout**, run from the repository root:
 
 ```bash
@@ -218,7 +252,7 @@ Add `--diff` for unified diffs; add `--json` for machine-readable results. `--di
 
 `--diff` shows **pinned → latest** changes for update review and **latest → local** differences to identify adaptations. JSON includes both diffs and the pinned/latest refs per skill; a null diff means it was not computed, while an empty string means no differences.
 
-Exit status: **0** no drift in requested checks; **1** drift detected (or invalid manifest/pack); **2** an incomplete check or invalid CLI usage. Unknown results take precedence over drift: a failed lookup/download is not a pass. `skipped` means explicitly disabled, not unknown.
+Exit status: **0** no drift in requested checks; **1** drift detected (or invalid manifest/pack); **2** an incomplete check or invalid CLI usage. Unknown results take precedence over drift: a failed lookup/download is not a pass. `skipped` means explicitly disabled or not applicable because the pack has no comparable upstream metadata, not unknown.
 
 This command has no `--skills-dir` override; the Installed column always checks the canonical managed store. Check standalone copies with [destination verification](#verify-and-refresh-standalone-copies) instead.
 

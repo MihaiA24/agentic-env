@@ -4,13 +4,17 @@ import contextlib
 import io
 import json
 import os
+import re
+import shlex
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentic_env import skill_drift
+from rich.console import Console
+
+from agentic_env import install_skills_mcps, skill_drift
 from agentic_env.install_skills_mcps import load_skill_manifest
 
 
@@ -321,6 +325,47 @@ class CommandTests(unittest.TestCase):
             )
             self.assertIn("agentic-skill-drift", normal.getvalue())
 
+    def test_fix_hints_restore_custom_manifest_and_missing_skill(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for pack in ("core", "extra"):
+                _write_skill(root / pack, f"{pack}-skill", f"{pack} source\n")
+            config = root / "custom skills' packs.json"
+            config.write_text(json.dumps({
+                "packs": [
+                    {"name": pack, "source": f"./{pack}", "label": pack, "skills": [f"{pack}-skill"]}
+                    for pack in ("core", "extra")
+                ],
+                "profiles": {"default": ["core"]},
+            }), encoding="utf-8")
+            output = io.StringIO()
+
+            with (
+                patch.object(skill_drift, "CANONICAL_SKILL_ROOT", root / "store"),
+                patch.object(skill_drift.common, "console", Console(file=output, width=4096)),
+            ):
+                code = skill_drift.main(["--skill-config", str(config), "--offline", "--no-upstream"])
+
+            self.assertEqual(code, 1)
+            commands = dict(re.findall(
+                r"(\S+): install missing — fix with `([^`]+)`", output.getvalue(),
+            ))
+            self.assertEqual(set(commands), {"core-skill", "extra-skill"})
+            for pack in ("core", "extra"):
+                with self.subTest(pack=pack):
+                    command = shlex.split(commands[f"{pack}-skill"])
+                    self.assertEqual(command[0], "agentic-install-skills-mcps")
+                    args = install_skills_mcps._parse(command[1:])
+                    manifest = load_skill_manifest(Path(args.skill_config))
+                    self.assertIsNotNone(manifest)
+                    plan = install_skills_mcps._build_install_plan(args, manifest)
+                    self.assertIsNotNone(plan)
+                    selection = install_skills_mcps._resolve_pack_skills(
+                        manifest, list(plan.skill_packs), list(plan.skill_names),
+                    )
+                    self.assertEqual(selection, {pack: [f"{pack}-skill"]})
+                    self.assertEqual(manifest.source(pack), str((root / pack).resolve()))
+
 
 class RemoteComparisonTests(unittest.TestCase):
     """Exercise the CLI against real package trees; replace only remote lookup/download."""
@@ -352,6 +397,29 @@ class RemoteComparisonTests(unittest.TestCase):
                 "--skill-config", str(config), "--no-installed", "--diff", "--json",
             ])
         return code, {row["skill"]: row for row in json.loads(stdout.getvalue())["skills"]}
+
+    def test_first_party_pack_skips_upstream_without_hiding_remote_failures(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = self._fixture(root)
+            _write_skill(root / "first-party", "gamma", "first-party source\n")
+            payload = json.loads(config.read_text(encoding="utf-8"))
+            payload["packs"].append({
+                "name": "first-party", "source": "./first-party",
+                "label": "first-party", "skills": ["gamma"],
+            })
+            config.write_text(json.dumps(payload), encoding="utf-8")
+
+            for newest, expected_code, remote_status in (
+                ("b" * 40, 0, "ok"),
+                (None, 2, "unknown"),
+            ):
+                with self.subTest(newest=newest):
+                    code, rows = self._check(root, config, newest=newest)
+                    self.assertEqual(code, expected_code)
+                    self.assertEqual(rows["gamma"]["upstream"], "skipped")
+                    self.assertEqual(rows["gamma"]["local_upstream"], "skipped")
+                    self.assertEqual(rows["alpha"]["upstream"], remote_status)
 
     def test_separates_local_adaptations_from_new_upstream_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

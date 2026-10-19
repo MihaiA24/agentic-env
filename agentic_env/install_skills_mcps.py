@@ -203,7 +203,7 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
             if alias:
                 raw_aliases.append(alias)
 
-        resolved_aliases = [source_value.lower(), *raw_aliases]
+        resolved_aliases = [canonical_name, source_value.lower(), *raw_aliases]
 
         for alias in dict.fromkeys(resolved_aliases):
             existing = alias_lookup.get(alias)

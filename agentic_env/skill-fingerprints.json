@@ -62,6 +62,14 @@
         "ponytail-help": "92f909eddf3b371e4737a85f60a8024cec6ae5cfb523561b8c56f86fcf3f52b0",
         "ponytail-review": "cd3715f0513d93e4caab8cc30ad09080ae62f763ed8b95304fd84efda5fbf0be"
       }
+    },
+    "agentic-env": {
+      "source": "./skills",
+      "upstream": null,
+      "skills": {
+        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
+        "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8"
+      }
     }
   }
 }

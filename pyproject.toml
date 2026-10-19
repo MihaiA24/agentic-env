@@ -29,4 +29,5 @@ artifacts = [
   "agentic_env/skill-fingerprints.json",
   "agentic_env/skill_bodies/*.md",
   "agentic_env/vendored/**",
+  "agentic_env/skills/**",
 ]

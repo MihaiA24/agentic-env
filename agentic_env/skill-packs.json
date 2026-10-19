@@ -95,6 +95,17 @@
         { "name": "ponytail-help", "description": "Quick-reference card for ponytail modes and commands" },
         { "name": "ponytail-review", "description": "Review a diff only for over-engineering" }
       ]
+    },
+    {
+      "name": "agentic-env",
+      "source": "./skills",
+      "note": "first-party domain skills; opt-in while reviewed independently of default profiles",
+      "label": "agentic-env skills",
+      "aliases": ["agentic-env"],
+      "skills": [
+        { "name": "apache-spark-static", "description": "Review Spark code and initial plans without runtime evidence; input volume may be unknown" },
+        { "name": "apache-spark-runtime", "description": "Diagnose live or completed Spark jobs from execution evidence and verify targeted optimizations" }
+      ]
     }
   ],
   "profiles": {

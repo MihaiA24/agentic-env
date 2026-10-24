@@ -1,8 +1,11 @@
 FROM archlinux:base
 
+# --disable-sandbox: pacman's download sandbox needs seccomp, which fails (EINVAL)
+# when this amd64 image builds under Rosetta on Apple Silicon. Packages are still
+# signature-checked; the sandbox only confines the throwaway build's downloader.
 RUN pacman-key --init \
     && pacman-key --populate archlinux \
-    && pacman -Syu --noconfirm --needed \
+    && pacman -Syu --noconfirm --needed --disable-sandbox \
       ca-certificates curl git uv python nodejs npm \
       bash coreutils findutils grep sed gawk procps-ng tar gzip xz unzip \
       base-devel libffi \

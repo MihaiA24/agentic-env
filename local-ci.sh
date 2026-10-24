@@ -31,6 +31,14 @@ fi
 [ "$#" -eq 0 ] || { echo "Usage: $0 [--verify [REF]]" >&2; exit 2; }
 [ "$(uname -s)/$(uname -m)" = Darwin/arm64 ] || { echo "The native acceptance leg needs an Apple Silicon Mac" >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Start Docker first" >&2; exit 1; }
+if [ -z "${AGENTIC_PREREQ_PATH:-}" ]; then
+  brew list --versions uv python@3.12 node@24 xz >/dev/null 2>&1 || {
+    echo "Native acceptance needs: brew install uv python@3.12 node@24 xz ca-certificates (or set AGENTIC_PREREQ_PATH)" >&2
+    exit 1
+  }
+  AGENTIC_PREREQ_PATH="$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@24)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+fi
+export AGENTIC_PREREQ_PATH
 
 sha=$(git rev-parse HEAD)
 work=$(mktemp -d "${TMPDIR:-/tmp}/agentic-env-local-ci.XXXXXX")
@@ -58,7 +66,6 @@ linux_leg() {  # service [compose flags]: one container through all three passes
 
 macos_leg() {  # native, in a fresh acceptance HOME inside $work
   export AGENTIC_SMOKE_HOME="$work/macos-home"
-  export AGENTIC_PREREQ_PATH="${AGENTIC_PREREQ_PATH:-$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@24)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin}"
   sh ./clean-acceptance.sh
   sh ./clean-acceptance.sh --update
   SKIP_INSTALL=1 sh ./clean-acceptance.sh

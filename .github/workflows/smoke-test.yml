@@ -2,8 +2,15 @@ name: Agentic env smoke test
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# Private repo: hosted minutes are billed. A newer push to the same PR
+# supersedes the running check; main runs always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   unit:

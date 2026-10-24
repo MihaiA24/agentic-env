@@ -3,7 +3,7 @@
     {
       "name": "mattpocock",
       "source": "./vendored/mattpocock/skills",
-      "note": "reviewed c55ee46073ed923f86ce59a5eb3b6d895095d1b7 with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
+      "note": "reviewed 49dd158d1076134a641b33efb035946536778336 with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
       "label": "mattpocock skills",
       "aliases": [
         "mattpocock",
@@ -11,7 +11,7 @@
       ],
       "upstream": {
         "repo": "mattpocock/skills",
-        "ref": "c55ee46073ed923f86ce59a5eb3b6d895095d1b7",
+        "ref": "49dd158d1076134a641b33efb035946536778336",
         "path": "skills"
       },
       "skills": [
@@ -27,7 +27,8 @@
         { "name": "tdd", "description": "Test-driven development, red-green-refactor, integration tests" },
         { "name": "code-review", "description": "Review changes since a commit against standards and spec" },
         { "name": "handoff", "description": "Compact the conversation into a handoff document" },
-        { "name": "resolving-merge-conflicts", "description": "Resolve an in-progress merge or rebase conflict" },
+        { "name": "pr", "description": "Draft a PR body: summary visual, before/after evidence, merge danger" },
+        { "name": "retro", "description": "Retrospective that reports environment improvements for future runs" },
         { "name": "diagnosing-bugs", "description": "Diagnosis loop for hard bugs and performance regressions" },
         { "name": "writing-for-agents", "description": "How to write skills, AGENTS.md, and docs an agent reads" },
         { "name": "improve-codebase-architecture", "description": "Report deepening opportunities, then grill the one you pick" },
@@ -60,7 +61,7 @@
       ],
       "upstream": {
         "repo": "cursor/plugins",
-        "ref": "640ea3abfbdef74aad432b58d8586e4bf645f42d",
+        "ref": "1dcc2bacde73ddd284803b7af28164d0436198fc",
         "path": "pstack"
       },
       "skills": [
@@ -75,7 +76,9 @@
         { "name": "technical-writing", "description": "Diataxis structure and plain-sentence rules for human-facing docs" },
         { "name": "show-me-your-work", "description": "TSV decision log for long or unattended runs" },
         { "name": "reflect", "description": "Review the transcript and route learnings into skill edits" },
-        { "name": "recall", "description": "Rebuild recent working context into a current-state brief" }
+        { "name": "recall", "description": "Rebuild recent working context into a current-state brief" },
+        { "name": "benchmark-checklist", "description": "Vet a measured perf number before you report or act on it" },
+        { "name": "correct", "description": "Turn mistakes agents repeat into guards that make them impossible" }
       ]
     },
     {

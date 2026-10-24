@@ -42,6 +42,8 @@ Copy `template.sh` to the target path. Replace the example stage with one `stage
 
 Hold the bar the template sets: open the URL before asking for its value, use `ask_secret` for anything secret, `write_env` every persisted value, `set_secret` only the values CI actually needs, and `confirm` before any irreversible action. Each `stage` clears the screen so only the current step is visible: keep a stage to one focused task so nothing the human needs scrolls away. Don't touch the library above the marker.
 
+`write_env` writes literal single-line dotenv values using a quote delimiter absent from the value, not shell quote concatenation. It rejects CR/LF, both quote types together, or apostrophes combined with literal `\n`/`\r` before changing the file; those values need the target consumer's serializer. Dotenv files are data, not scripts to `source` or `eval`. Check serialization with synthetic values through the project's actual dotenv reader.
+
 ### 4. Verify and hand off
 
 - `bash -n <script>`; run `shellcheck` if available.

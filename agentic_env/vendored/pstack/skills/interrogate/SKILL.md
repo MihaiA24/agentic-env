@@ -82,22 +82,16 @@ Accounting rules:
 
 ## Step 6. Synthesize
 
-1. Parse all findings.
-2. Findings raised independently by two or more models are the highest signal.
-3. Lone-model findings still matter; weight them accordingly.
-4. Deduplicate: different models describe the same issue differently. Merge them and record who raised it.
-5. Note explicit disagreements. One model asserting the opposite of another is useful context.
+Parse every completed reviewer's findings. Merge findings that describe the same issue differently, and note which models raised each one. Findings two or more models raised independently are the highest signal. Read a lone model's finding, but weight it accordingly. Note disagreements. If one model flags something and another explicitly says the opposite, that is context for the verdict.
 
 ## Step 7. Lead judgment
 
-You are the lead reviewer, a pragmatic senior engineer, not a neutral aggregator. Read `references/lead-judgment.md` for the framework.
+You are the lead reviewer, a pragmatic senior engineer, not a neutral aggregator. Read `references/lead-judgment.md` for the full framework. Put every finding in one of four buckets, with the model(s) that raised it and a one-line rationale.
 
-Every finding gets a bucket, the model(s) that raised it, and a one-line rationale:
-
-- **Act on.** Real correctness, security or maintainability problems given the actual goals. These would block a real PR.
-- **Consider.** Legitimate, but the cost of addressing it now is arguable. Worth the user's attention.
-- **Noted.** Valid but not actionable: context-dependent, premature, or low-impact at this stage.
-- **Dismissed.** Wrong, nitpicky, or missing context. Say briefly why.
+- **Act on.** Real issues affecting correctness, security, or maintainability given the actual goals. They would block a real PR.
+- **Consider.** Legitimate, but you're not sure they outweigh the cost of addressing them now. Worth the user's attention.
+- **Noted.** Technically valid but not actionable. Context-dependent, premature optimization, or low-impact at this stage.
+- **Dismissed.** Wrong, nitpicky, or missing context, with a brief reason.
 
 A finding is evidence-based or it is dismissed. A reviewer that could not read the code path it speculates about does not get promoted to "act on" on assertion alone.
 
@@ -113,19 +107,19 @@ A finding is evidence-based or it is dismissed. A reviewer that could not read t
 - Reviewer [label]: requested `<selector>`, answered `<provider>/<model>`, [N findings] — one bullet per reviewer, including failures and substitutions.
 
 ### Act On
-[Findings to address: description, which models raised it, why it matters.]
+[Each: description, which models raised it, why it matters.]
 
 ### Consider
-[Findings worth thinking about: description, which models raised it, the tradeoff.]
+[Each: description, which models raised it, the tradeoff.]
 
 ### Noted
-[Valid but low-priority. Brief list.]
+[Brief list.]
 
 ### Dismissed
-[Rejected findings with brief rationale.]
+[Each with a brief rationale.]
 
 ### Agreement Map
-[Where models agreed, where they diverged, and what that pattern says about confidence.]
+[Where models agreed and diverged, and what that pattern tells us.]
 
 Stop there. Fixes, commits and PRs are separate work under their own authorization.
 

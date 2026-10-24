@@ -8,11 +8,11 @@ disable-model-invocation: true
 
 Manual skill. Start a trail when the user asks for one, or when a recipe the user invoked routes its audit trail here. If it loads without either, say so and stop instead of logging.
 
-Keep one canonical log.
+Keep one canonical log per run.
 
 ## The format
 
-A single TSV file, one row per decision. Cells stay single-line. Evidence is a pointer, not prose.
+A single TSV file per run, one row per decision. Cells stay single-line. Evidence is a pointer, not prose.
 
 Copy `references/decision-log-template.tsv` (the header row) to start a clean log. Columns:
 
@@ -23,7 +23,7 @@ Copy `references/decision-log-template.tsv` (the header row) to start a clean lo
 - **evidence.** A link or path that proves it: commit SHA, PR number, `file:line`, or an artifact, trace, or screenshot path. Never a paragraph.
 - **result.** The outcome or predicate state: `tests green`, `reverted`, `pixel-diff 0`, `INCONCLUSIVE`, `open`.
 
-An example, plain-spoken so a reviewer reads it at a glance. This is illustration only. Don't copy these rows into a real log.
+An example, plain-spoken so a reviewer reads it at a glance.
 
 ```
 ts	phase	decision	why	evidence	result
@@ -41,28 +41,36 @@ Use the helper `scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <re
 
 Log decision points and checkpoints, not every action: a fork chosen, a unit completed with its verification result, a pivot or revert with its trigger, a blocker surfaced, a gate fixed. For loop runs, one row per iteration. Skip the trivial and self-evident.
 
+A run is one agent conversation, including its later turns and any summary of it. A pickup, a replacement agent, a new chat, or a delegated child starts a new run with its own file. Later turns in the same conversation resume that file. Its first row has phase `start` and identifies the run in its evidence using the exposed session handle or agent id; if neither is available, record that limitation rather than invent an identity. File ownership, not timestamp ranges or intervening `start` rows, determines whose decisions these are.
+
 ## Where it lives
 
-By default the log is a working artifact, not committed. Keep it at `decisions.tsv` in the work dir, or `.audit/<task-slug>.tsv` when several efforts run at once, and leave it out of git.
+By default the log is a working artifact, not committed. Reserve a fresh directory for each run, including concurrent runs on the same task:
+
+```bash
+mkdir -p .audit
+run_dir=$(mktemp -d .audit/<task-slug>.XXXXXX)
+logfile="$run_dir/decisions.tsv"
+```
+
+Replace `<task-slug>` with a short task name and keep the returned path for later turns. Leave it out of git. Each run is the sole writer of its file; children return pointers to their own logs. Keep earlier shared logs read-only. For a combined review, read the separate files together while retaining each row's source filename; do not merge them into a shared writable log.
 
 Commit it only when the work is ambitious enough that a reviewer needs the trail to trust the result, and only with the user's go-ahead for that commit. Committing is its own permission; running this skill is not one.
 
 ## Rules
 
-- One row is one decision or checkpoint.
 - Append-only. A wrong call gets a new row that supersedes it. Never edit or delete history.
 - Prefer evidence produced by committed scripts over hand-made one-offs. A mechanism anyone can rerun outlives a claim in a row.
 
 ## Audit the log against the transcript
 
-At the end of the run, check the log against this run's own transcript and named children. Use the runtime's current session handle or path; OMP stores sessions under `~/.omp/agent/sessions/<workspace-directory>/`, Hermes under its active home's `sessions/`. Never select a transcript by recency alone, guess a workspace slug, or inspect unrelated chats. If no unambiguous current transcript is exposed, state that limitation and audit against the current conversation and its evidence. Walk the log against what actually happened:
+At the end of the run, before handing back, check this run's file against its own transcript, and any explicitly named child logs against their scoped transcripts. Use the runtime's current session handle or path; OMP stores sessions under `~/.omp/agent/sessions/<workspace-directory>/`, Hermes under its active home's `sessions/`. Never select a transcript by recency alone, guess a workspace slug, or inspect unrelated chats. If no unambiguous current transcript is exposed, state that limitation and audit against the current conversation and its evidence. Walk every row in the owned file against what actually happened:
 
-- Every row maps to a real action. Cut invented or aspirational entries.
-- Each row's evidence resolves and shows what the row claims.
+- Check that every row maps to a real decision or action.
+- Check that each row's evidence resolves and shows what the row claims.
 - A fork, pivot, or abandoned approach that shaped the work but isn't logged is a gap. Add it.
-- Drop padding.
 
-Fix the log, not the story. If the work diverged from what a row claims, the row is wrong.
+Correct the log, not the story. The audit never edits or removes a row, even an invented one. When a row records neither a real decision nor a real action, or its claim or evidence is wrong, append a row to this run's file that supersedes it with what actually happened and a pointer that resolves. If this run's evidence exposes an error in another log, put the correction in this run's file and link the original file and row; do not append to another run's log.
 
 ## Cross-model review of the trail
 
@@ -89,7 +97,7 @@ Every reply for a run that produced a trail ends with an "Attention" section. Le
 
 ## Reviewing the trail
 
-Read top to bottom, follow the evidence pointers, spot-check. GitHub renders a committed TSV as a table. `column -s$'\t' -t decisions.tsv` renders it in a terminal.
+Read each file top to bottom, follow the evidence pointers, spot-check. GitHub renders a committed TSV as a table. `column -s$'\t' -t <run-dir>/decisions.tsv` renders it in a terminal.
 
 ## Composing this skill
 

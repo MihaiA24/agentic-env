@@ -297,12 +297,13 @@ def main(argv: list[str] | None = None) -> int:
         ok("agentic-install-agents: remote contract check passed")
         return 0
 
-    rows = [
-        Option("hermes", "Hermes Agent", True),
-        Option("omp", "OMP / Oh My Pi", True),
-        Option("codex", "OpenAI Codex CLI", True),
-        Option("claude", "Claude Code", True),
+    installers = [
+        (Option("hermes", "Hermes Agent", True), _install_hermes),
+        (Option("omp", "OMP / Oh My Pi", True), _install_omp),
+        (Option("codex", "OpenAI Codex CLI", True), _install_codex),
+        (Option("claude", "Claude Code", True), _install_claude),
     ]
+    rows = [option for option, _ in installers]
     if args.all:
         picked = [option.value for option in rows]
     elif non_interactive:
@@ -310,31 +311,12 @@ def main(argv: list[str] | None = None) -> int:
     else:
         picked = choose("Select agent CLIs to install", rows)
 
-    do_hermes = "hermes" in picked
-    do_omp = "omp" in picked
-    do_codex = "codex" in picked
-    do_claude = "claude" in picked
-
     ok_all = True
-    if do_hermes:
-        ok_all = _install_hermes(non_interactive) and ok_all
-    else:
-        skip("Hermes Agent: skipped")
-
-    if do_omp:
-        ok_all = _install_omp(non_interactive) and ok_all
-    else:
-        skip("OMP / Oh My Pi: skipped")
-
-    if do_codex:
-        ok_all = _install_codex(non_interactive) and ok_all
-    else:
-        skip("OpenAI Codex CLI: skipped")
-
-    if do_claude:
-        ok_all = _install_claude(non_interactive) and ok_all
-    else:
-        skip("Claude Code: skipped")
+    for option, installer in installers:
+        if option.value in picked:
+            ok_all = installer(non_interactive) and ok_all
+        else:
+            skip(f"{option.label}: skipped")
 
     return 0 if ok_all else 1
 

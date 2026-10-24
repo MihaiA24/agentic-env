@@ -245,5 +245,22 @@ class InstallOmpReleaseTests(unittest.TestCase):
         self.assertFalse(self.bin.exists())
 
 
+class InstallAgentsTests(unittest.TestCase):
+    def test_failure_does_not_stop_remaining_installers(self) -> None:
+        agents = ("hermes", "omp", "codex", "claude")
+        for failed in (*agents, None):
+            with self.subTest(failed=failed):
+                attempted = []
+                installers = {
+                    f"_install_{agent}": (
+                        lambda non_interactive, agent=agent: attempted.append(agent) or agent != failed
+                    )
+                    for agent in agents
+                }
+                with patch.multiple(install_agents, **installers):
+                    self.assertEqual(install_agents.main(["--all", "--yes"]), int(failed is not None))
+                self.assertEqual(attempted, list(agents))
+
+
 if __name__ == "__main__":
     unittest.main()

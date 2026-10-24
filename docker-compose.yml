@@ -1,5 +1,5 @@
 services:
-  fresh-install:
+  fresh-install: &fresh-install
     platform: linux/amd64
     build:
       context: .
@@ -17,19 +17,8 @@ services:
       - ..:/dotfiles:ro
 
   fresh-install-arch:
+    <<: *fresh-install
     profiles: ["arch"]
-    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.arch
-    working_dir: /dotfiles/agentic-env
-    command: ["/bin/sh", "./clean-acceptance.sh"]
-    environment:
-      AGENTIC_SMOKE_HOME: /home/node/acceptance
-      SKIP_INSTALL: ${SKIP_INSTALL:-0}
-      VERBOSE: ${VERBOSE:-0}
-      GITHUB_RUN_ID: ${GITHUB_RUN_ID:-local}
-      GITHUB_RUN_ATTEMPT: ${GITHUB_RUN_ATTEMPT:-1}
-      GITHUB_SHA: ${GITHUB_SHA:-}
-    volumes:
-      - ..:/dotfiles:ro

@@ -12,18 +12,18 @@ Explore the codebase to answer "how does X work?" questions. Produce architectur
 
 Manual only. If this skill loaded without the user asking for it, stop and say so rather than exploring; a runtime that ignores `disable-model-invocation` is not an invocation. A user-invoked recipe that calls `how` by name is a real invocation and proceeds normally.
 
-## Step 1. Assess complexity
+## 1. Assess complexity
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): explain it yourself, inline. Read the code, then write the answer using the structure in `references/explainer-prompt.md`. No subagents.
-- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview) **and genuinely separable**: the question splits into slices each of which can be traced without waiting on another slice's findings. Go to Step 2.
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): explain it yourself, inline. Read the code, then write the answer using the structure in `references/explainer-prompt.md`. No subagents. Go to step 4.
+- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview) **and genuinely separable**: the question splits into slices each of which can be traced without waiting on another slice's findings. Go to step 2.
 
 When in doubt, take the simple path. Fan-out that hands back what one read would have found costs more than it explains, and a slice that needs another slice's answer serializes anyway.
 
-## Step 2. Explore (complex questions only)
+## 2. Explore (complex only)
 
-Decompose the question into 2 to 4 exploration angles, each a distinct, independent slice of the subsystem. Dispatch them in one batch so they run concurrently, and give each explorer the prompt in `references/explorer-prompt.md` with its angle filled in.
+Decompose the question into 2 to 4 angles, each a distinct, independent slice of the subsystem. Dispatch them in one batch so they run concurrently, each with `references/explorer-prompt.md` and its angle filled in.
 
 Runtime:
 
@@ -32,17 +32,17 @@ Runtime:
 - **Model:** use the runtime's default unless the user names a model you have confirmed exists here. Do not copy model aliases from another harness.
 - If Hermes cannot enforce a read/query-only grant, investigate inline instead of calling a write-capable worker "read-only".
 
-Explorers return findings, not prose. Go to Step 3.
+Explorers return findings, not prose.
 
-## Step 3. Synthesize (complex questions only)
+## 3. Synthesize (complex only)
 
-Merge the explorer findings into one explanation. Their slices overlap and can contradict; reconcile them and re-read the code yourself wherever they disagree.
+Once all explorers have returned, merge their findings into one explanation. Their slices overlap and can contradict; reconcile them and re-read the code yourself wherever they disagree.
 
-Do this inline when the findings are small enough to hold. When they are not, delegate it to a single synthesizer (OMP `scout`, Hermes `delegate_task` without write tools) built from `references/explainer-prompt.md` with every explorer's findings filled in.
+Do this inline when the findings are small enough to hold. When they are not, delegate it to a single explainer (OMP `scout`, Hermes `delegate_task` without write tools) built from `references/explainer-prompt.md` with every explorer's findings filled in.
 
-## Step 4. Present
+## 4. Present
 
-Present the explanation to the user. If a subagent wrote it, light edits for clarity or conversation context are fine. Do not substantially rewrite it.
+Present the explanation. If a subagent wrote it, light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
 
 ## Output format
 

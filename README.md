@@ -56,7 +56,7 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) contains 40 skills: the unchanged 38-skill `default` profile plus two opt-in Apache Spark skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, explicit `--skill` or `--skills-dir` selections that resolve to no packages fail without installing anything. An intentionally empty interactive selection remains a successful no-op.
 
@@ -110,7 +110,7 @@ cd /path/to/your/dotfiles/agentic-env
 # Skip the destination prompts; still choose skills interactively.
 uv run agentic-install-skills-mcps --skills-dir "/path/to/project/.devin/skills"
 
-# All 38 curated skills without prompts.
+# Default profile: 41 skills, without prompts.
 uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/project/.devin/skills" --skill-profile default --yes
 
@@ -153,7 +153,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic-env/agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **32 locally packaged skills** (30 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 
@@ -366,6 +366,8 @@ Keep that HOME for inspection/rechecks; use a new empty directory for another fr
 ### CI and recorded evidence
 
 [CI](../.github/workflows/agentic-env-smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and Bun retention-canary regressions pass. Each acceptance job runs fresh installation, then checks-only with forced updates on all three hosts. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml) when needed.
+
+Linux acceptance uses a non-fail-fast Debian/Arch matrix; each leg retains the same container for both passes. The Compose services share common settings, with separate Dockerfiles and an opt-in Arch profile.
 
 The independent **Windows Python-only skill copy** job uses `windows-latest` and Python 3.12 to run the dependency-free checks above. It covers complete vendored copies, reported remote exclusions, selection errors, collision preflight and refusal to copy into a source package. It does not install agents or MCPs or validate skill workflows.
 

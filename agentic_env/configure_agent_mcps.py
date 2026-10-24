@@ -510,22 +510,15 @@ OMP_AGENT_CONFIG_CONTRACT = (
     ("skills", "enableAgentsUser", False),
 )
 
-_OMP_AGENT_CONFIG_TEMPLATE = """memory:
-  backend: mnemopi
-mnemopi:
-  polyphonicRecall: false
-{extensions}compaction:
-  thresholdTokens: 150000
-  idleEnabled: true
-  handoffSaveToDisk: true
-  methodOrder:
-    - handoff
-    - remote
-    - soft
-skills:
-  enableClaudeUser: true
-  enableAgentsUser: false
-"""
+
+def _omp_agent_config_text(hooks_dir: Path) -> str:
+    sections: dict[str, dict[str, object]] = {}
+    for block, key, value in OMP_AGENT_CONFIG_CONTRACT:
+        sections.setdefault(block, {})[key] = value
+    return yaml.safe_dump(
+        {**sections, "extensions": [str(hooks_dir / name) for name in OMP_HOOK_FILES]},
+        sort_keys=False,
+    )
 
 
 def omp_extension_paths(data: dict[str, object]) -> list[str]:
@@ -582,9 +575,7 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
                 "not seeding a config the doctor would fail"
             )
             return False
-        hook_lines = "\n".join(f"  - {hooks_dir / name}" for name in OMP_HOOK_FILES)
-        extensions = f"extensions:\n{hook_lines}\n"
-        content = _OMP_AGENT_CONFIG_TEMPLATE.format(extensions=extensions)
+        content = _omp_agent_config_text(hooks_dir)
         if not _write_atomic_text(path, content, dry_run=dry_run):
             return False
         if not dry_run:

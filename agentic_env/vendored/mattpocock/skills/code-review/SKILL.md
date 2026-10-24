@@ -64,7 +64,7 @@ An empty `commits.txt` is normal in WIP and means "no commits", never "no spec":
 
 ### 3. Identify the standards sources
 
-Anything in the repo that documents how code should be written, such as `CODING_STANDARDS.md` or `CONTRIBUTING.md`. Read each from the snapshot's `tree/` when the snapshot carries it, so a standards file the change itself edits is read at the same instant as the code it governs.
+Search the repo for every file that documents how code should be written. When `CODING_STANDARDS.md` or `CONTRIBUTING.md` exists, it must be on the list. Read each from the snapshot's `tree/` when the snapshot carries it, so a standards file the change itself edits is read at the same instant as the code it governs.
 
 Then read `<this skill's directory>/STANDARDS.md`: six bundled lenses that apply in every repo, whether or not it documents anything. The repo's documents add rules and override a lens rule by rule; every lens they don't mention still applies.
 
@@ -90,7 +90,7 @@ Each smell reads *what it is* → *how to fix*; match it against the snapshot:
 
 ### 4. Dispatch both sub-agents in parallel
 
-Dispatch both axes in one batch with the runtime's delegation tool. In OMP, use a read-only agent (`scout`) unless a dedicated reviewer has an enforced read-only grant. In Hermes, delegate only with read/query tools if those grants can actually be restricted; otherwise use tool-less one-shots with the complete frozen material supplied inline. A "do not edit" prompt is not a tool permission boundary.
+Dispatch both axes in one batch with the runtime's delegation tool, in the foreground: wait for both and aggregate the reports they return. In OMP, use a read-only agent (`scout`) unless a dedicated reviewer has an enforced read-only grant. In Hermes, delegate only with read/query tools if those grants can actually be restricted; otherwise use tool-less one-shots with the complete frozen material supplied inline. A "do not edit" prompt is not a tool permission boundary.
 
 Both prompts must include:
 

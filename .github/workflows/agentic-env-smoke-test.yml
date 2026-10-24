@@ -63,9 +63,21 @@ jobs:
 
   agentic-smoke-test:
     needs: unit
-    name: Debian bookworm x86_64 clean install
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Debian bookworm x86_64 clean install
+            service: fresh-install
+            container: agentic-env-debian
+            compose_args: ""
+          - name: Arch Linux x86_64 clean install (not CachyOS)
+            service: fresh-install-arch
+            container: agentic-env-arch
+            compose_args: --profile arch
     defaults:
       run:
         working-directory: agentic-env
@@ -80,10 +92,10 @@ jobs:
 
       - name: Run fresh-install and checks-only smoke tests
         run: |
-          docker compose run --build -d --name agentic-env-debian fresh-install sleep infinity
-          trap 'docker rm -f agentic-env-debian' EXIT
-          docker exec agentic-env-debian /bin/sh ./clean-acceptance.sh
-          docker exec -e SKIP_INSTALL=1 agentic-env-debian /bin/sh ./clean-acceptance.sh
+          docker compose ${{ matrix.compose_args }} run --build -d --name "${{ matrix.container }}" "${{ matrix.service }}" sleep infinity
+          trap 'docker rm -f "${{ matrix.container }}"' EXIT
+          docker exec "${{ matrix.container }}" /bin/sh ./clean-acceptance.sh
+          docker exec -e SKIP_INSTALL=1 "${{ matrix.container }}" /bin/sh ./clean-acceptance.sh
 
   agentic-smoke-test-macos:
     needs: unit
@@ -131,27 +143,3 @@ jobs:
           export AGENTIC_SMOKE_HOME="$RUNNER_TEMP/agentic-env-acceptance"
           sh ./clean-acceptance.sh
           SKIP_INSTALL=1 sh ./clean-acceptance.sh
-
-  agentic-smoke-test-arch:
-    needs: unit
-    name: Arch Linux x86_64 clean install (not CachyOS)
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    defaults:
-      run:
-        working-directory: agentic-env
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Verify docker compose available
-        run: docker compose version
-
-      - name: Run Arch fresh-install and checks-only smoke tests
-        run: |
-          docker compose --profile arch run --build -d --name agentic-env-arch fresh-install-arch sleep infinity
-          trap 'docker rm -f agentic-env-arch' EXIT
-          docker exec agentic-env-arch /bin/sh ./clean-acceptance.sh
-          docker exec -e SKIP_INSTALL=1 agentic-env-arch /bin/sh ./clean-acceptance.sh

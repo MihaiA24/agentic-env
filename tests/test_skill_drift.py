@@ -366,6 +366,36 @@ class CommandTests(unittest.TestCase):
                     self.assertEqual(selection, {pack: [f"{pack}-skill"]})
                     self.assertEqual(manifest.source(pack), str((root / pack).resolve()))
 
+    def test_profile_scope_skips_opt_in_packs_but_not_missing_profile_skills(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for pack in ("core", "extra"):
+                _write_skill(root / pack, f"{pack}-skill", f"{pack} source\n")
+            config = root / "packs.json"
+            config.write_text(json.dumps({
+                "packs": [
+                    {"name": pack, "source": f"./{pack}", "label": pack, "skills": [f"{pack}-skill"]}
+                    for pack in ("core", "extra")
+                ],
+                "profiles": {"default": ["core"]},
+            }), encoding="utf-8")
+            store = root / "store"
+            base = ["--skill-config", str(config), "--offline", "--no-upstream"]
+
+            def run(*extra: str) -> int:
+                with (
+                    patch.object(skill_drift, "CANONICAL_SKILL_ROOT", store),
+                    patch.object(skill_drift, "BASELINE_PATH", root / "absent.json"),
+                    patch.object(skill_drift.common, "console", Console(file=io.StringIO())),
+                ):
+                    return skill_drift.main([*base, *extra])
+
+            self.assertEqual(run("--skill-profile", "default"), 1)  # profile skill missing
+            _write_skill(store, "core-skill", "core source\n")
+            self.assertEqual(run("--skill-profile", "default"), 0)  # opt-in extra not required
+            self.assertEqual(run(), 1)  # full roster still reports extra-skill missing
+            self.assertEqual(run("--skill-profile", "nope"), 1)
+
 
 class RemoteComparisonTests(unittest.TestCase):
     """Exercise the CLI against real package trees; replace only remote lookup/download."""
@@ -486,26 +516,103 @@ class RemoteComparisonTests(unittest.TestCase):
 
 class BaselineTests(unittest.TestCase):
 
-    def test_update_keeps_fingerprints_for_unresolved_sources(self) -> None:
+    def test_unresolved_pack_keeps_whole_reviewed_entry(self) -> None:
+        """A pin change whose new source cannot be read must not relabel the old review."""
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             manifest = _manifest(root / "packs.json", "Owner/repo#v1.2.3")
             path = root / "skill-fingerprints.json"
-            path.write_text(
-                json.dumps(
-                    {"version": 1, "packs": {"pack": {"skills": {"alpha": "recorded", "beta": "kept"}}}}
-                ),
-                encoding="utf-8",
-            )
+            reviewed = {
+                "source": "Owner/repo#v1.0.0",
+                "upstream": "Owner/repo@v1.0.0",
+                "skills": {"alpha": "recorded", "beta": "kept"},
+            }
+            original = json.dumps({"version": 1, "packs": {"pack": reviewed}})
+            path.write_text(original, encoding="utf-8")
             rows = [
-                skill_drift.SkillStatus("pack", "alpha", "new", "missing", "unknown", digest="fresh"),
+                skill_drift.SkillStatus("pack", "alpha", "changed", "missing", "unknown", digest="fresh"),
                 skill_drift.SkillStatus("pack", "beta", "unknown", "missing", "unknown", digest=None),
             ]
 
             self.assertTrue(skill_drift.write_baseline(manifest, rows, path))
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
 
-            recorded = skill_drift.load_baseline(path)
-            self.assertEqual(recorded["pack"], {"alpha": "fresh", "beta": "kept"})
+            absent = root / "absent.json"
+            self.assertTrue(skill_drift.write_baseline(manifest, rows, absent))
+            self.assertFalse(absent.exists())
+
+    def test_mixed_update_records_only_fully_resolved_packs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = root / "packs.json"
+            config.write_text(
+                json.dumps(
+                    {
+                        "packs": [
+                            {"name": "pack", "source": "Owner/repo#v1.2.3", "label": "pack", "skills": ["alpha"]},
+                            {"name": "other", "source": "Other/repo#v2.0.0", "label": "other", "skills": ["gamma"]},
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manifest = load_skill_manifest(config)
+            other = {"source": "Other/repo#v1.0.0", "upstream": "Other/repo@v1.0.0", "skills": {"gamma": "reviewed"}}
+            path = root / "skill-fingerprints.json"
+            path.write_text(
+                json.dumps({"version": 1, "packs": {"pack": {"skills": {"alpha": "old"}}, "other": other}}),
+                encoding="utf-8",
+            )
+            rows = [
+                skill_drift.SkillStatus("pack", "alpha", "changed", "ok", "unknown", digest="fresh"),
+                skill_drift.SkillStatus("other", "gamma", "unknown", "ok", "unknown", digest=None),
+            ]
+
+            self.assertTrue(skill_drift.write_baseline(manifest, rows, path))
+
+            recorded = json.loads(path.read_text(encoding="utf-8"))["packs"]
+            self.assertEqual(recorded["other"], other)
+            self.assertEqual(
+                recorded["pack"],
+                {"source": "Owner/repo#v1.2.3", "upstream": "Owner/repo@v1.2.3", "skills": {"alpha": "fresh"}},
+            )
+
+    def test_cli_update_exits_incomplete_until_source_resolves(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = root / "packs.json"
+            _manifest(config, "Owner/repo#v1.2.3")
+            path = root / "skill-fingerprints.json"
+            original = json.dumps({"version": 1, "packs": {"pack": {"source": "Owner/repo#v1.0.0", "skills": {}}}})
+            path.write_text(original, encoding="utf-8")
+            argv = [
+                "--skill-config", str(config), "--offline", "--no-upstream",
+                "--no-installed", "--update-baseline",
+            ]
+
+            def update() -> int:
+                with (
+                    patch.object(skill_drift, "BASELINE_PATH", path),
+                    patch.object(skill_drift, "CACHE_ROOT", root / "cache"),
+                    contextlib.redirect_stdout(io.StringIO()),
+                ):
+                    return skill_drift.main(argv)
+
+            self.assertEqual(update(), 2)
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+            cached = root / "cache" / "Owner+repo@v1.2.3"
+            _write_skill(cached, "alpha", "alpha\n")
+            _write_skill(cached, "beta", "beta\n")
+            (cached / ".agentic-complete").write_text("Owner/repo@v1.2.3\n", encoding="utf-8")
+
+            self.assertEqual(update(), 0)
+            entry = json.loads(path.read_text(encoding="utf-8"))["packs"]["pack"]
+            self.assertEqual(entry["source"], "Owner/repo#v1.2.3")
+            self.assertEqual(
+                entry["skills"],
+                {"alpha": skill_drift.digest_tree(cached / "alpha"), "beta": skill_drift.digest_tree(cached / "beta")},
+            )
 
     def test_scoped_update_keeps_other_packs_verbatim(self) -> None:
         """`--pack X --update-baseline` passes only X's rows; other packs stay reviewed."""

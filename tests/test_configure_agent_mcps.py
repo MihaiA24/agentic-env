@@ -24,6 +24,44 @@ class ConfigureAgentMcpsTests(unittest.TestCase):
             backup = path.with_suffix(path.suffix + ".agentic-env.bak")
             assert backup.read_text(encoding="utf-8") == '{"old": true}\n'
 
+    def test_write_atomic_text_writes_through_symlink_chain(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            real = Path(temp_dir) / "real"
+            links = Path(temp_dir) / "links"
+            real.mkdir()
+            links.mkdir()
+            target = real / "mcp.json"
+            target.write_text('{"old": true}\n', encoding="utf-8")
+            inner = links / "inner.json"
+            inner.symlink_to(Path("..") / "real" / "mcp.json")
+            outer = links / "mcp.json"
+            outer.symlink_to(links.resolve() / inner.name)
+
+            assert configure_agent_mcps._write_atomic_text(outer, '{"new": true}\n', dry_run=False)
+
+            self.assertTrue(outer.is_symlink())
+            self.assertTrue(inner.is_symlink())
+            self.assertEqual(target.read_text(encoding="utf-8"), '{"new": true}\n')
+            backup = target.with_suffix(target.suffix + ".agentic-env.bak")
+            self.assertEqual(backup.read_text(encoding="utf-8"), '{"old": true}\n')
+            self.assertEqual(sorted(p.name for p in links.iterdir()), ["inner.json", "mcp.json"])
+            self.assertEqual(sorted(p.name for p in real.iterdir()), sorted([backup.name, target.name]))
+
+    def test_write_atomic_text_refuses_dangling_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            link = Path(temp_dir) / "config.yml"
+            missing = Path(temp_dir) / "gone" / "config.yml"
+            link.symlink_to(missing)
+
+            with patch("agentic_env.configure_agent_mcps.warn"):
+                self.assertFalse(
+                    configure_agent_mcps._write_atomic_text(link, "x: 1\n", dry_run=False)
+                )
+
+            self.assertTrue(link.is_symlink())
+            self.assertFalse(missing.parent.exists())
+            self.assertEqual([p.name for p in Path(temp_dir).iterdir()], ["config.yml"])
+
     def test_install_skill_atomic_write(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "hermes"
@@ -411,7 +449,7 @@ known_plugin_toolsets:
 
     def test_converge_omp_agent_config_seeds_missing_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            checkout = Path(temp_dir) / "agentic-env"
+            checkout = Path(temp_dir) / "agentic: env #[x], {y}"
             hooks = checkout / "omp" / "hooks"
             hooks.mkdir(parents=True)
             for name in configure_agent_mcps.OMP_HOOK_FILES:
@@ -428,8 +466,12 @@ known_plugin_toolsets:
             ):
                 assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
             text = config_path.read_text(encoding="utf-8")
-            self.assertEqual(configure_agent_mcps.omp_config_drift(yaml.safe_load(text)), [])
-            self.assertIn(str(hooks / "retention-canary.ts"), text)
+            seeded = yaml.safe_load(text)
+            self.assertEqual(configure_agent_mcps.omp_config_drift(seeded), [])
+            self.assertEqual(
+                seeded["extensions"],
+                [str(hooks / name) for name in configure_agent_mcps.OMP_HOOK_FILES],
+            )
 
     def test_converge_omp_agent_config_finds_hooks_from_checkout_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -461,22 +503,25 @@ known_plugin_toolsets:
                 self.assertFalse(configure_agent_mcps.converge_omp_agent_config(dry_run=False))
             self.assertFalse(config_path.exists())
 
-    def test_converge_omp_agent_config_warns_on_drift_without_rewriting(self) -> None:
+    def test_omp_agent_config_drift_fails_cli_without_rewriting(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yml"
-            original = "memory:\n  backend: mnemopi\n"
-            config_path.write_text(original, encoding="utf-8")
+            mcp_path = Path(temp_dir) / "mcp.json"
+            original = b"# user owned\nmemory:\n  backend: mnemopi\n"
+            config_path.write_bytes(original)
             with (
-                patch(
-                    "agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH",
-                    config_path,
-                ),
-                patch("agentic_env.configure_agent_mcps.warn") as mock_warn,
+                patch("agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH", config_path),
+                patch("agentic_env.configure_agent_mcps.OMP_MCP_PATHS", (mcp_path,)),
+                patch("agentic_env.configure_agent_mcps.warn") as warn,
             ):
-                assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
-            mock_warn.assert_called_once()
-            self.assertIn("compaction.thresholdTokens", mock_warn.call_args[0][0])
-            self.assertEqual(config_path.read_text(encoding="utf-8"), original)
+                self.assertEqual(configure_agent_mcps.main([
+                    "--agent", "omp", "--server", "codebase-memory-mcp", "--no-skills", "--yes"
+                ]), 1)
+            diagnostic = " ".join(call.args[0] for call in warn.call_args_list)
+            self.assertIn("compaction.thresholdTokens", diagnostic)
+            self.assertEqual(config_path.read_bytes(), original)
+            self.assertFalse(config_path.with_suffix(".yml.agentic-env.bak").exists())
+            self.assertIn("codebase-memory-mcp", json.loads(mcp_path.read_text(encoding="utf-8"))["mcpServers"])
 
     def test_install_skills_omits_agentmemory_on_omp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
+import sys
 import tempfile
 import threading
 import unittest
@@ -31,6 +33,31 @@ class InstallHermesTests(unittest.TestCase):
         self.assertFalse(install_agents._install_hermes(True))
         remote_script.assert_called_once()
         self.assertIn("--commit", remote_script.call_args.kwargs["interpreter_args"])
+
+
+@patch("agentic_env.install_agents._validate_remote_contract", return_value=True)
+@patch("agentic_env.install_agents._install_hermes", return_value=True)
+@patch("agentic_env.install_agents._install_omp", return_value=True)
+@patch("agentic_env.install_agents._install_claude", return_value=True)
+class InstallCodexFailureTests(unittest.TestCase):
+    def test_failed_npm_install_fails_codex_and_later_steps_still_run(
+        self, claude, omp, hermes, contract
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            npm = Path(temp) / "npm"
+            npm.write_text(f"#!{sys.executable}\nimport sys\nsys.exit(1)\n", encoding="utf-8")
+            npm.chmod(0o755)
+            for failure in (None, FileNotFoundError(2, "No such file", "npm")):
+                with (
+                    self.subTest(failure=failure),
+                    patch.dict(os.environ, {"PATH": temp}),
+                    patch("agentic_env.install_agents.run", side_effect=failure)
+                    if failure
+                    else contextlib.nullcontext(),
+                ):
+                    claude.reset_mock()
+                    self.assertEqual(install_agents.main(["--all"]), 1)
+                    claude.assert_called_once()
 
 
 class _ReleaseHost(BaseHTTPRequestHandler):
@@ -172,20 +199,32 @@ class InstallOmpReleaseTests(unittest.TestCase):
     def test_shadowed_or_missing_path_omp_fails_without_touching_it(
         self, warn, ok, info
     ) -> None:
-        shadow_dir = self.bin.parent / "shadow"
-        shadow_dir.mkdir()
-        shadow = shadow_dir / "omp"
-        stale = b"#!/bin/sh\necho omp/1.0.0\n"
-        shadow.write_bytes(stale)
-        shadow.chmod(0o755)
+        # A different omp first on PATH fails even when it meets the floor.
         empty_dir = self.bin.parent / "empty"
         empty_dir.mkdir()
         binary = self.publish()
-        for path in (f"{shadow_dir}{os.pathsep}{self.bin}", str(empty_dir)):
-            with self.subTest(path=path), patch.dict(os.environ, {"PATH": path}):
-                self.assertFalse(install_agents._install_omp(True, force=True))
-                self.assertEqual((self.bin / "omp").read_bytes(), binary)
-                self.assertEqual(shadow.read_bytes(), stale)
+        for version in ("1.0.0", "99.0.0"):
+            shadow_dir = self.bin.parent / f"shadow-{version}"
+            shadow_dir.mkdir()
+            shadow = shadow_dir / "omp"
+            stale = f"#!/bin/sh\necho omp/{version}\n".encode()
+            shadow.write_bytes(stale)
+            shadow.chmod(0o755)
+            for path in (f"{shadow_dir}{os.pathsep}{self.bin}", str(empty_dir)):
+                with self.subTest(version=version, path=path), patch.dict(os.environ, {"PATH": path}):
+                    self.assertFalse(install_agents._install_omp(True, force=True))
+                    self.assertEqual((self.bin / "omp").read_bytes(), binary)
+                    self.assertEqual(shadow.read_bytes(), stale)
+
+    def test_path_alias_resolving_to_installed_omp_succeeds(self, warn, ok, info) -> None:
+        alias_dir = self.bin.parent / "alias"
+        alias_dir.mkdir()
+        (alias_dir / "omp").symlink_to(self.bin / "omp")
+        binary = self.publish()
+        with patch.dict(os.environ, {"PATH": f"{alias_dir}{os.pathsep}{self.bin}"}):
+            self.assertTrue(install_agents._install_omp(True, force=True))
+        self.assertEqual((self.bin / "omp").read_bytes(), binary)
+        self.assertTrue((alias_dir / "omp").is_symlink())
 
     def test_unverifiable_binary_is_never_installed(self, warn, ok, info) -> None:
         asset_path = f"/releases/download/{self.TAG}/{self.asset}"

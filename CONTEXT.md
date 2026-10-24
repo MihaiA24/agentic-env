@@ -151,7 +151,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - An executable check with a declared operation and OS/architecture scope. Passing in one scope does not establish another. Full-stack acceptance follows the smoke contract; skill-copy acceptance checks only package copying.
 
 - **Smoke contract**
-  - The process succeeds when tools are installed, binaries are callable, `agentic-stack-doctor` exits successfully (the OMP mandatory checks), and Hermes has its project memory stack servers and matching global skills.
+  - The acceptance bar for a callable installed stack with valid primary-harness wiring, Hermes project-memory wiring, and curated installed skill packages matching their reviewed sources. It is distinct from a check for newly published upstream changes.
 
 - **Provisioning verification**
   - Evidence that deterministic command and configuration contracts pass focused tests, and that the complete agent stack passes the fresh-install smoke contract.

@@ -405,6 +405,17 @@ def _build_install_plan(
     else:
         selected_skill_packs = []
 
+    # Names are checkable only when every selected pack ships a roster; a pack
+    # without one takes whatever `--skill` names it is given.
+    rosters = [manifest.packs[name].skills for name in selected_skill_packs]
+    if skill_names and rosters and all(rosters):
+        known = [skill for roster in rosters for skill in roster]
+        unknown_skills = [name for name in skill_names if name not in known]
+        if unknown_skills:
+            warn(f"Unknown skill(s) for the selected packs: {', '.join(unknown_skills)}")
+            warn(f"Available: {', '.join(dict.fromkeys(known))}")
+            return None
+
     requested_mcps = [name.lower() for name in split_csv(args.mcp)]
     unknown_mcps = [name for name in requested_mcps if name not in _MCP_LABELS]
     if unknown_mcps:
@@ -740,7 +751,7 @@ def _install_skill_directory(
             packages = sorted((staging / ".agents" / "skills").iterdir())
             copy_skill_packages(packages, destination)
             ok(f"Installed skill packages: {len(packages)} in {destination}")
-    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError) as exc:
         warn(f"Directory skill installation failed: {exc}")
         return False
     return True
@@ -768,22 +779,24 @@ def _install_skill_package(
         info(f"Installing skill pack: {source}...")
 
     if cmd_version_at_least("skills", STACK_VERSION_FLOORS["skills"]):
-        run(["skills", *command], cwd=str(directory) if directory is not None else None)
-        return True
-    if not cmd_exists("npm"):
+        runner = ["skills"]
+    elif not cmd_exists("npm"):
         warn("The curated skills CLI requires npm")
         return False
-    if not cmd_version_at_least(
+    elif not cmd_version_at_least(
         "npx",
         STACK_VERSION_FLOORS["skills"],
         args=("--yes", SKILLS_CLI_PACKAGE, "--version"),
     ):
         warn("skills CLI: could not verify a version at or above the reviewed floor")
         return False
-    run(
-        ["npx", "--yes", SKILLS_CLI_PACKAGE, *command],
-        cwd=str(directory) if directory is not None else None,
-    )
+    else:
+        runner = ["npx", "--yes", SKILLS_CLI_PACKAGE]
+    try:
+        run([*runner, *command], cwd=str(directory) if directory is not None else None)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        warn(f"skills CLI failed for {source}: {exc}")
+        return False
     return True
 
 

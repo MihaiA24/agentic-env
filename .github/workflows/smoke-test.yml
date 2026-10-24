@@ -1,8 +1,8 @@
 name: Agentic env smoke test
 
+# Manual only since 2026-10-25: ./local-ci.sh runs these checks locally and commits
+# local-ci.attestation. Dispatch for the Windows copier job or a hosted rerun.
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 jobs:

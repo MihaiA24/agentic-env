@@ -373,9 +373,23 @@ SKIP_INSTALL=1 sh ./clean-acceptance.sh
 
 Keep that HOME for inspection/rechecks; use a new empty directory for another fresh run. Intel macOS is out of scope. Arch is proxy evidence, not direct CachyOS verification.
 
+### Local gate
+
+GitHub runs this repository's workflow only on manual dispatch (since 2026-10-25). Before a pull request is merged, run the gate on an Apple Silicon Mac with Docker running and the [Native Apple Silicon](#native-apple-silicon) prerequisites installed, then commit its record:
+
+```bash
+./local-ci.sh
+git add local-ci.attestation && git commit -m "chore: attest local checks"
+./local-ci.sh --verify            # or --verify <ref>, e.g. a fetched PR head
+```
+
+The gate exports the committed HEAD with `git archive`, so uncommitted and untracked files are never tested. It runs the Python suite and both Bun hook suites first, then Debian, Arch and native macOS acceptance in parallel, each through fresh installation, an explicit isolated update and checks-only. Logs stay in the printed temporary directory when a leg fails. On Apple Silicon the amd64 containers run under emulation.
+
+`local-ci.attestation` records the tree hash: `git ls-tree -r` of the tested commit without the attestation line, hashed by `git hash-object`. Committing the attestation leaves it valid; any other change, including a rebase onto a newer `main`, makes `--verify` fail until the gate runs again. Rebase onto `main` before running it, so the squash-merged tree is the attested one. The record is self-attested evidence that the checks passed on this tree, not tamper-proof proof.
+
 ### CI and recorded evidence
 
-[CI](.github/workflows/smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and both mandatory Bun hook suites pass. Each acceptance job runs fresh installation, an explicit isolated update, then non-updating checks-only. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/agentic-env/actions/workflows/smoke-test.yml) when needed.
+The [workflow](.github/workflows/smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and both mandatory Bun hook suites pass. Each acceptance job runs fresh installation, an explicit isolated update, then non-updating checks-only. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run it manually](https://github.com/MihaiA24/agentic-env/actions/workflows/smoke-test.yml) for the Windows copier job, which the local gate cannot cover, or for a hosted rerun.
 
 Linux acceptance uses a non-fail-fast Debian/Arch matrix; each leg retains the same container for all three passes. The Compose services share common settings, with separate Dockerfiles and an opt-in Arch profile.
 

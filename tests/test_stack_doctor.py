@@ -189,7 +189,7 @@ class StackDoctorTests(unittest.TestCase):
             ("  methodOrder: [handoff, remote, soft] # ordered fallback\n", True),
             ("  'methodOrder': ['handoff', \"remote\", soft]\n", True),
             ("  methodOrder: # fallback order\n    - 'handoff' # primary\n    - \"remote\"\n    - soft # final\n", True),
-            ("  methodOrder:\n  - handoff\n  - remote\n  - soft\n", True),
+            ("  methodOrder:\n    - handoff\n    - remote\n    - soft\n", True),
         )
         with tempfile.TemporaryDirectory() as temp_dir:
             host = _Host(Path(temp_dir))

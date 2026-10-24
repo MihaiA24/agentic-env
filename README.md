@@ -10,7 +10,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 
 ## Quick usage
 
-The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and this repository's checkout. For Windows or an offline copy, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
+The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and this repository's checkout. Use a supported Node LTS; acceptance uses Node 24 on Debian and macOS (Node 20 is end-of-life). For Windows or an offline copy, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
 
 ```bash
 git clone https://github.com/MihaiA24/agentic-env.git
@@ -59,7 +59,7 @@ agentic-install-skills-mcps --skill-profile default --yes
 
 [The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
-In flag-driven runs, explicit `--skill` or `--skills-dir` selections that resolve to no packages fail without installing anything. An intentionally empty interactive selection remains a successful no-op.
+In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
@@ -228,7 +228,6 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
 ```bash
 agentic-skill-drift                 # every pack and canonical installation
 agentic-skill-drift --pack ponytail --offline --no-upstream
-agentic-skill-drift --update-baseline
 ```
 
 This is a deterministic, on-demand CLI: no agent is needed to fetch or compare skills. It checks complete packages (including scripts and references), limited to the manifest's curated roster—not newly published, unselected skills. It does not execute upstream skills, merge updates, change pins, or overwrite installed skills.
@@ -259,19 +258,27 @@ This command has no `--skills-dir` override; the Installed column always checks 
 
 Pinned revisions come from the pack `source` for remote packs and the `upstream` block for vendored ones. Commit-pinned packs use `git ls-remote` to resolve default-branch HEAD, avoiding GitHub's anonymous REST API rate limit; Git must be on `PATH`. Tag-pinned packs use GitHub's latest release/tag API. Archives are cached under `${XDG_CACHE_HOME:-~/.cache}/agentic-env/skill-sources`. `--offline` uses cached trees but cannot establish today's upstream revision; use `--offline --no-upstream` for source/install checks only.
 
-**Accepting an update remains a human/agent review step.** Review the upstream diff against each pack's `UPSTREAM.md`, preserve required local adaptations, update vendored packages and their pin/provenance, then record the reviewed state with `--update-baseline`. Do not use that flag just to clear a finding. The CLI runs when invoked; no scheduler is installed.
+**Accepting an update remains a human/agent review step.** Review the upstream diff against each pack's `UPSTREAM.md`, preserve required local adaptations, and update vendored packages and their pin/provenance. Then record the reviewed state **from the repository root**, for example:
 
-`--pack NAME --update-baseline` updates only that pack and preserves every unselected pack's fingerprints and metadata, including entries outside a custom manifest. An unreadable or malformed existing baseline is refused rather than overwritten.
+```bash
+uv run --frozen agentic-skill-drift \
+  --pack pstack --no-installed --no-upstream --update-baseline
+```
+
+Do not use the installed `agentic-skill-drift --update-baseline` for repository maintenance: it writes the installed tool's package data, not this checkout, and reinstalling the tool discards that change. Do not record a baseline just to clear a finding. The CLI runs when invoked; no scheduler is installed.
+
+`--pack NAME --update-baseline` preserves every unselected pack, including entries outside a custom manifest. A pack with any unresolved source fingerprint keeps its entire previous entry, including source and revision; fully resolved selected packs can still update. Exit status is **0** when all selected packs were recorded, **2** when any fingerprint is unresolved, and **1** when the baseline cannot be parsed or written. If no pack can be recorded, the file is not rewritten.
 
 ## Configuration and updates
 
-- The configurator validates existing managed MCP definitions and OMP settings but does not repair them. Correct reported fields manually; it adds missing entries only to valid configuration.
-- Hermes YAML writes keep a `.agentic-env.bak` backup but may drop comments and formatting. The configurator fails on Hermes drift; doctor only warns.
+- The configurator validates existing managed MCP definitions and OMP settings but does not repair them; drift returns exit 1. Correct reported fields manually. Existing OMP settings YAML stays untouched; fresh settings are generated from the same contract the doctor checks.
+- Configuration writes preserve symlinks and atomically update their resolved target, keeping a `.agentic-env.bak` beside that target. Dangling or looping links are refused. Hermes YAML writes may drop comments and formatting. The configurator fails on Hermes drift; doctor only warns.
 - OMP gates `codebase-memory-mcp` and `node_repl`; `agentmemory` and `lean-ctx` stay excluded. The configurator seeds missing OMP settings only when the required checkout hooks exist. See [the contract](DECISIONS_AI_TOOLING.md).
 - Reviewed versions in [stack metadata](agentic_env/stack_metadata.py) are floors. Install/update fetch the latest floating components and reject versions below the floor. Claude uses its `latest` channel.
-- OMP downloads are streamed and checksum-verified before replacement. If installation reports an obsolete or missing `omp` on `PATH`, put `${PI_INSTALL_DIR:-$HOME/.local/bin}` first on `PATH` and rerun. The verified download remains installed; any older executable elsewhere is left untouched.
+- OMP downloads are streamed, checksum-verified and version-checked before replacement. Installation fails if `omp` on `PATH` does not identify the installed file, even when another executable meets the version floor; a symlink to the installed file is accepted. Put `${PI_INSTALL_DIR:-$HOME/.local/bin}` first on `PATH` and rerun. The verified download remains installed; any shadowing executable is left untouched.
 - Hermes (its release and its installer script) and the `codebase-memory-mcp` archives stay at reviewed identities; remote scripts stay checksum-pinned.
 - Do not substitute `agentmemory upgrade`: it can invoke the `iii-engine` installer and modify the current workspace.
+- Expected Codex/skills subprocess failures return nonzero without aborting unrelated selected steps: Claude still runs after a failed Codex install, and MCP installation still runs after a failed skill-pack phase.
 
 Check Hermes wiring with `hermes mcp list` and `hermes mcp test <server>`. Expected definitions are in [the configurator](agentic_env/configure_agent_mcps.py). To select Hermes' memory provider and add missing entries:
 
@@ -301,7 +308,7 @@ Use `python3 -S -m unittest discover -s tests -p test_copy_skills.py -v` on macO
 
 ## Clean-platform acceptance
 
-Full-stack acceptance uses [the smoke script](docker-smoke-test.sh). [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Doctor only warns on Hermes, but smoke still checks Hermes wiring. Windows gets only the copier check under [Development](#development), not this provisioning contract.
+Full-stack acceptance uses [the smoke script](docker-smoke-test.sh). [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Smoke verifies doctor and Hermes wiring plus curated package content with `agentic-skill-drift --no-upstream`; it does not require today's upstream revision to match. Windows gets only the copier check under [Development](#development), not this provisioning contract.
 
 ### Containers
 
@@ -317,13 +324,14 @@ docker compose --profile arch up --build --force-recreate --exit-code-from fresh
 `--force-recreate` stops Compose from reusing a previous installation. To inspect and recheck one retained installation:
 
 ```bash
-docker compose run --rm --entrypoint sh fresh-install
+docker compose run --rm fresh-install sh
 # Inside that container:
 sh ./clean-acceptance.sh
+sh ./clean-acceptance.sh --update  # Explicitly update only this acceptance HOME.
 SKIP_INSTALL=1 sh ./clean-acceptance.sh
 ```
 
-Checks-only requires the same provisioned HOME; a newly recreated container is not valid checks-only evidence. Exiting the `--rm` container discards it. On an already-provisioned host, use `SKIP_INSTALL=1 sh ./docker-smoke-test.sh`.
+Checks-only requires the same provisioned HOME; a newly recreated container is not valid checks-only evidence. Exiting the `--rm` container discards it. `SKIP_INSTALL=1` does not install or update stack components, but verification can populate uv/npm/source-download caches. `clean-acceptance.sh --update` explicitly runs the updater under the same isolation and requires an existing acceptance HOME. On your daily host, prefer the read-only `agentic-stack-doctor`.
 
 `VERBOSE=1` streams each command's output instead of capturing it. Without it, `run_cmd` prints output only when a command fails, so use it to watch the skills phase.
 
@@ -355,10 +363,11 @@ With Homebrew and working Command Line Tools:
 
 ```bash
 test "$(uname -m)" = arm64
-brew install uv python@3.12 node@20 xz ca-certificates
-export AGENTIC_PREREQ_PATH="$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@20)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+brew install uv python@3.12 node@24 xz ca-certificates
+export AGENTIC_PREREQ_PATH="$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@24)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 export AGENTIC_SMOKE_HOME="$(mktemp -d "${TMPDIR:-/tmp}/agentic-env-acceptance.XXXXXX")"
 sh ./clean-acceptance.sh
+sh ./clean-acceptance.sh --update
 SKIP_INSTALL=1 sh ./clean-acceptance.sh
 ```
 
@@ -366,9 +375,9 @@ Keep that HOME for inspection/rechecks; use a new empty directory for another fr
 
 ### CI and recorded evidence
 
-[CI](.github/workflows/smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and Bun retention-canary regressions pass. Each acceptance job runs fresh installation, then checks-only with forced updates on all three hosts. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/agentic-env/actions/workflows/smoke-test.yml) when needed.
+[CI](.github/workflows/smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and both mandatory Bun hook suites pass. Each acceptance job runs fresh installation, an explicit isolated update, then non-updating checks-only. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/agentic-env/actions/workflows/smoke-test.yml) when needed.
 
-Linux acceptance uses a non-fail-fast Debian/Arch matrix; each leg retains the same container for both passes. The Compose services share common settings, with separate Dockerfiles and an opt-in Arch profile.
+Linux acceptance uses a non-fail-fast Debian/Arch matrix; each leg retains the same container for all three passes. The Compose services share common settings, with separate Dockerfiles and an opt-in Arch profile.
 
 The independent **Windows Python-only skill copy** job uses `windows-latest` and Python 3.12 to run the dependency-free checks above. It covers complete vendored copies, reported remote exclusions, selection errors, collision preflight and refusal to copy into a source package. It does not install agents or MCPs or validate skill workflows.
 

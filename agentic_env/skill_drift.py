@@ -436,26 +436,30 @@ def write_baseline(
     manifest: SkillManifest, rows: list[SkillStatus], path: Path = BASELINE_PATH
 ) -> bool:
     """Record current source digests for the packs in `rows`, preserving every
-    unselected entry and unresolved skill's previous fingerprint."""
+    unselected entry. A pack with any unresolved skill keeps its whole previous
+    entry: without its source, a new reviewed identity cannot be asserted."""
     previous = _baseline_packs(path)
     if previous is None:
         warn(f"{path}: unreadable baseline; fix or remove it before recording")
         return False
 
-    selected = dict.fromkeys(row.pack for row in rows)
     packs: dict[str, object] = dict(previous)
-    for pack in selected:
-        digests = {row.skill: row.digest for row in rows if row.pack == pack and row.digest}
-        unresolved = [row.skill for row in rows if row.pack == pack and row.digest is None]
+    recorded = 0
+    for pack in dict.fromkeys(row.pack for row in rows):
+        pack_rows = [row for row in rows if row.pack == pack]
+        unresolved = [row.skill for row in pack_rows if row.digest is None]
         if unresolved:
-            warn(f"{pack}: keeping recorded fingerprints, unresolved: {', '.join(unresolved)}")
-            digests = {**(_skill_digests(previous.get(pack)) or {}), **digests}
+            warn(f"{pack}: not recorded, unresolved: {', '.join(unresolved)}")
+            continue
         upstream = manifest.packs[pack].upstream
         packs[pack] = {
             "source": manifest.packs[pack].source,
             "upstream": f"{upstream.repo}@{upstream.ref}" if upstream else None,
-            "skills": dict(sorted(digests.items())),
+            "skills": dict(sorted((row.skill, row.digest) for row in pack_rows)),
         }
+        recorded += 1
+    if not recorded:
+        return True
 
     payload = {"version": _BASELINE_VERSION, "packs": packs}
     try:
@@ -463,7 +467,7 @@ def write_baseline(
     except OSError as exc:
         warn(f"{path}: could not write baseline ({exc})")
         return False
-    ok(f"{path}: fingerprints recorded for {len(selected)} packs")
+    ok(f"{path}: fingerprints recorded for {recorded} packs")
     return True
 
 
@@ -587,7 +591,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             packs = list(manifest.packs)
 
-        baseline = load_baseline()
+        baseline = load_baseline(BASELINE_PATH)
         lock = {} if args.no_installed else load_lock()
         rows: list[SkillStatus] = []
         for pack in packs:
@@ -605,7 +609,9 @@ def main(argv: list[str] | None = None) -> int:
             )
 
         if args.update_baseline:
-            return 0 if write_baseline(manifest, rows) else 1
+            if not write_baseline(manifest, rows, BASELINE_PATH):
+                return 1
+            return 2 if any(row.digest is None for row in rows) else 0
 
         extra = [] if args.no_installed else unmanaged_skills(manifest)
         if args.json:

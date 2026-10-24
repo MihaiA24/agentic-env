@@ -161,6 +161,15 @@ def load_yaml_object(path: Path) -> dict[str, object] | None:
 
 
 def _write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
+    # A symlinked config (e.g. dotfiles-managed) keeps its link: write the resolved
+    # target, with temp file and backup beside the target.
+    if path.is_symlink():
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            warn(f"{path}: refusing to write through dangling or looping symlink ({exc})")
+            return False
+
     if dry_run:
         skip(f"dry-run: would write {path}")
         return True
@@ -518,6 +527,7 @@ def _omp_agent_config_text(hooks_dir: Path) -> str:
     return yaml.safe_dump(
         {**sections, "extensions": [str(hooks_dir / name) for name in OMP_HOOK_FILES]},
         sort_keys=False,
+        allow_unicode=True,
     )
 
 
@@ -594,7 +604,7 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
         f"{path}: missing stack contract settings: {', '.join(missing)} "
         "(see DECISIONS_AI_TOOLING.md 'Live wiring'; merge manually)"
     )
-    return True
+    return False
 
 
 def _install_skill(root: Path, skill: Skill, *, dry_run: bool) -> bool:

@@ -146,12 +146,8 @@ for command in hermes omp codex claude codebase-memory-mcp agentmemory; do
 done
 
 echo "[5/5] Verifying stack wiring (agentic-stack-doctor) and Hermes artifacts"
-if [ "$SKIP_INSTALL" = "1" ]; then
-  # Exercise forced updates on every host, including an already-compliant OMP.
-  # OMP resolves release assets without the rate-limited GitHub REST API.
-  run_cmd "agentic-update-stack"
-fi
 run_cmd "agentic-stack-doctor"
+run_cmd "agentic-skill-drift --no-upstream"
 run_cmd "uv run --frozen --python \"$_python\" python \"$_python_script\""
 
 if [ "$failures" -ne 0 ]; then

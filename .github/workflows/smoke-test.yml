@@ -27,8 +27,8 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Run retention canary regressions
-        run: bun test omp/hooks/retention-canary.test.ts
+      - name: Run mandatory hook regressions
+        run: bun test omp/hooks/
 
   windows-skills-copy:
     name: Windows Python-only skill copy
@@ -72,11 +72,12 @@ jobs:
       - name: Verify docker compose available
         run: docker compose version
 
-      - name: Run fresh-install and checks-only smoke tests
+      - name: Run fresh-install, explicit update, and checks-only smoke tests
         run: |
           docker compose ${{ matrix.compose_args }} run --build -d --name "${{ matrix.container }}" "${{ matrix.service }}" sleep infinity
           trap 'docker rm -f "${{ matrix.container }}"' EXIT
           docker exec "${{ matrix.container }}" /bin/sh ./clean-acceptance.sh
+          docker exec "${{ matrix.container }}" /bin/sh ./clean-acceptance.sh --update
           docker exec -e SKIP_INSTALL=1 "${{ matrix.container }}" /bin/sh ./clean-acceptance.sh
 
   agentic-smoke-test-macos:
@@ -105,10 +106,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Prepare Node.js 20 and npm
+      - name: Prepare Node.js 24 LTS and npm
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Prepare uv without a restored cache
         uses: astral-sh/setup-uv@v6
@@ -118,9 +119,10 @@ jobs:
       - name: Prepare archive utilities and CA certificates
         run: HOMEBREW_NO_AUTO_UPDATE=1 brew install xz ca-certificates
 
-      - name: Run native fresh-install and checks-only smoke tests
+      - name: Run native fresh-install, explicit update, and checks-only smoke tests
         run: |
           export AGENTIC_PREREQ_PATH="$(dirname "$(command -v uv)"):$(dirname "$(command -v python3)"):$(dirname "$(command -v node)"):$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
           export AGENTIC_SMOKE_HOME="$RUNNER_TEMP/agentic-env-acceptance"
           sh ./clean-acceptance.sh
+          sh ./clean-acceptance.sh --update
           SKIP_INSTALL=1 sh ./clean-acceptance.sh

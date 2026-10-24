@@ -205,14 +205,14 @@ def _install_omp_release() -> bool:
         if temporary is not None:
             with contextlib.suppress(OSError):
                 os.remove(temporary)
-    info(f"OMP / Oh My Pi: installed {tag} to {install_dir / 'omp'}")
-    # A different omp earlier on PATH wins; report it rather than touch it.
-    if not cmd_version_at_least("omp", floor):
-        warn(
-            f"OMP / Oh My Pi: `omp` on PATH ({shutil.which('omp') or 'not found'}) "
-            f"is missing or below {floor}"
-        )
-        warn(f"OMP / Oh My Pi: put {install_dir} first on PATH or remove the older omp")
+    installed = install_dir / "omp"
+    info(f"OMP / Oh My Pi: installed {tag} to {installed}")
+    # A different omp earlier on PATH wins, whatever its version; report it
+    # rather than touch it. Aliases resolving to the installed file are fine.
+    on_path = shutil.which("omp")
+    if on_path is None or not os.path.samefile(on_path, installed):
+        warn(f"OMP / Oh My Pi: `omp` on PATH ({on_path or 'not found'}) is not {installed}")
+        warn(f"OMP / Oh My Pi: put {install_dir} first on PATH or remove the other omp")
         return False
     return True
 
@@ -228,11 +228,15 @@ def _install_codex(non_interactive: bool, *, force: bool = False) -> bool:
         ):
             skip("OpenAI Codex CLI: at or above the reviewed version")
             return True
-    elif cmd_exists("codex"):
+    elif not force and cmd_exists("codex"):
         warn("OpenAI Codex CLI: below the reviewed version; installing the latest release")
 
     info("Installing OpenAI Codex CLI...")
-    run(["npm", "install", "-g", "--force", OPENAI_CODEX_PACKAGE])
+    try:
+        run(["npm", "install", "-g", "--force", OPENAI_CODEX_PACKAGE])
+    except (OSError, subprocess.CalledProcessError) as exc:
+        warn(f"OpenAI Codex CLI: npm install failed: {exc}")
+        return False
     if not cmd_version_at_least("codex", STACK_VERSION_FLOORS["codex"]):
         warn("OpenAI Codex CLI: installed version is below the reviewed version")
         return False
@@ -247,7 +251,7 @@ def _install_claude(non_interactive: bool, *, force: bool = False) -> bool:
         ):
             skip("Claude Code: at or above the reviewed version")
             return True
-    elif cmd_exists("claude"):
+    elif not force and cmd_exists("claude"):
         warn("Claude Code: below the reviewed version; installing the latest release")
 
     info("Installing Claude Code...")

@@ -247,6 +247,69 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         )
         mock_install_skills.assert_called_once()
 
+    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_skills", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_codebase_memory", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_agentmemory", return_value=True)
+    def test_partially_unknown_skill_names_abort_before_any_install(
+        self, mock_agentmemory, mock_codebase, mock_install_skills, _contract
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            for target in (["--all-mcps"], ["--skills-dir", temp]):
+                with self.subTest(target=target):
+                    argv = ["--skill-pack", "caveman,mattpocock", "--skill", "tdd,tddd", *target]
+                    self.assertEqual(install_skills_mcps.main([*argv, "--yes"]), 1)
+                    mock_install_skills.assert_not_called()
+                    mock_codebase.assert_not_called()
+                    mock_agentmemory.assert_not_called()
+
+            # A pack without a roster cannot vouch for names, so they are forwarded.
+            config = Path(temp) / "skill-packs.json"
+            config.write_text(
+                json.dumps({"packs": [
+                    {"name": "rostered", "source": "o/r#v1", "aliases": ["rostered"], "skills": ["tdd"]},
+                    {"name": "open", "source": "o/open#v1", "aliases": ["open"]},
+                ]}),
+                encoding="utf-8",
+            )
+            argv = ["--skill-config", str(config), "--skill-pack", "rostered,open", "--skill", "tdd,custom"]
+            self.assertEqual(install_skills_mcps.main([*argv, "--yes"]), 0)
+            self.assertEqual(
+                mock_install_skills.call_args.args[1], {"rostered": ["tdd"], "open": ["tdd", "custom"]}
+            )
+
+    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_codebase_memory", return_value=True)
+    @patch("agentic_env.install_skills_mcps._install_agentmemory", return_value=True)
+    def test_failing_skills_cli_fails_the_run_but_mcps_still_install(
+        self, mock_agentmemory, mock_codebase, _contract
+    ) -> None:
+        floor = install_skills_mcps.STACK_VERSION_FLOORS["skills"]
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            skills = root / "bin" / "skills"
+            skills.parent.mkdir()
+            skills.write_text(
+                f"#!{sys.executable}\n"
+                "import sys\n"
+                "if '--version' in sys.argv:\n"
+                f"    print('{floor}')\n"
+                "    sys.exit(0)\n"
+                "sys.exit('add failed')\n",
+                encoding="utf-8",
+            )
+            skills.chmod(0o755)
+            destination = root / "skills"
+            with patch.dict(os.environ, {"PATH": str(skills.parent)}):
+                argv = ["--skill-pack", "caveman", "--all-mcps", "--yes"]
+                self.assertEqual(install_skills_mcps.main(argv), 1)
+                mock_codebase.assert_called_once()
+                mock_agentmemory.assert_called_once()
+
+                argv = ["--skill-pack", "caveman", "--skills-dir", str(destination), "--yes"]
+                self.assertEqual(install_skills_mcps.main(argv), 1)
+            self.assertFalse(destination.exists())
+
     @patch("agentic_env.install_skills_mcps._configure_hermes_agentmemory", return_value=True)
     @patch("agentic_env.install_skills_mcps.cmd_version_at_least")
     @patch("agentic_env.install_skills_mcps._install_npm_global", return_value=True)

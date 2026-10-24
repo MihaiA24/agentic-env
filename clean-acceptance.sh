@@ -9,6 +9,15 @@ case "$_skip_install" in
   0|1) ;;
   *) echo "SKIP_INSTALL must be 0 or 1" >&2; exit 1 ;;
 esac
+if [ "$#" -eq 0 ]; then
+  set -- /bin/sh ./docker-smoke-test.sh
+elif [ "$#" -eq 1 ] && [ "$1" = --update ]; then
+  _skip_install=1
+  set -- agentic-update-stack
+else
+  echo "Usage: $0 [--update]" >&2
+  exit 1
+fi
 if [ "$(id -u)" -eq 0 ]; then
   echo "Run clean acceptance as an ordinary user, not root" >&2
   exit 1
@@ -57,4 +66,4 @@ exec env -i \
   AGENTIC_SMOKE_RUN_ID="${GITHUB_RUN_ID:-local}/${GITHUB_RUN_ATTEMPT:-1}" \
   AGENTIC_SMOKE_REVISION="${GITHUB_SHA:-$(git -c safe.directory="$_SCRIPT_DIR" -C "$_SCRIPT_DIR" rev-parse HEAD)}" \
   SKIP_INSTALL="$_skip_install" VERBOSE="${VERBOSE:-0}" \
-  /bin/sh ./docker-smoke-test.sh "$@" </dev/null
+  "$@" </dev/null

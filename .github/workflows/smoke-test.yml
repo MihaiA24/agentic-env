@@ -2,15 +2,7 @@ name: Agentic env smoke test
 
 on:
   push:
-    paths:
-      - 'agentic-env/**'
-      - 'omp/hooks/**'
-      - '.github/workflows/agentic-env-smoke-test.yml'
   pull_request:
-    paths:
-      - 'agentic-env/**'
-      - 'omp/hooks/**'
-      - '.github/workflows/agentic-env-smoke-test.yml'
   workflow_dispatch:
 
 jobs:
@@ -18,9 +10,6 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: agentic-env
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,16 +28,12 @@ jobs:
           bun-version: latest
 
       - name: Run retention canary regressions
-        working-directory: .
         run: bun test omp/hooks/retention-canary.test.ts
 
   windows-skills-copy:
     name: Windows Python-only skill copy
     runs-on: windows-latest
     timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: agentic-env
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,9 +63,6 @@ jobs:
             service: fresh-install-arch
             container: agentic-env-arch
             compose_args: --profile arch
-    defaults:
-      run:
-        working-directory: agentic-env
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -104,7 +86,6 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
-        working-directory: agentic-env
         shell: bash
     steps:
       - name: Checkout

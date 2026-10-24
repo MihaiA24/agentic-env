@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.agentic
-    working_dir: /dotfiles/agentic-env
+    working_dir: /agentic-env
     command: ["/bin/sh", "./clean-acceptance.sh"]
     environment:
       AGENTIC_SMOKE_HOME: /home/node/acceptance
@@ -14,7 +14,7 @@ services:
       GITHUB_RUN_ATTEMPT: ${GITHUB_RUN_ATTEMPT:-1}
       GITHUB_SHA: ${GITHUB_SHA:-}
     volumes:
-      - ..:/dotfiles:ro
+      - .:/agentic-env:ro
 
   fresh-install-arch:
     <<: *fresh-install

@@ -106,7 +106,7 @@ Do not store rationale here. The graph derives from code and can be rebuilt.
 
 ## Install and configure
 
-The [machine-provisioning runbook](../README.md#quick-usage) owns installation and per-agent configuration on supported macOS/Linux hosts; this document owns memory roles. The runbook's checkout installation step starts in the `agentic-env` directory, not the dotfiles root.
+The [machine-provisioning runbook](../README.md#quick-usage) owns installation and per-agent configuration on supported macOS/Linux hosts; this document owns memory roles.
 
 The [custom-directory and Windows copy routes](../README.md#choose-an-installation-path) only copy skill packages. They do not install or configure this memory stack, MCPs, hooks or agent discovery.
 

@@ -411,8 +411,8 @@ known_plugin_toolsets:
 
     def test_converge_omp_agent_config_seeds_missing_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            dotfiles = Path(temp_dir) / "dotfiles"
-            hooks = dotfiles / "omp" / "hooks"
+            checkout = Path(temp_dir) / "agentic-env"
+            hooks = checkout / "omp" / "hooks"
             hooks.mkdir(parents=True)
             for name in configure_agent_mcps.OMP_HOOK_FILES:
                 (hooks / name).write_text("// hook\n", encoding="utf-8")
@@ -423,7 +423,7 @@ known_plugin_toolsets:
                     config_path,
                 ),
                 patch.dict(
-                    "os.environ", {"AGENTIC_DOTFILES_ROOT": str(dotfiles)}
+                    "os.environ", {"AGENTIC_ENV_ROOT": str(checkout)}
                 ),
             ):
                 assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
@@ -431,19 +431,18 @@ known_plugin_toolsets:
             self.assertEqual(configure_agent_mcps.omp_config_drift(yaml.safe_load(text)), [])
             self.assertIn(str(hooks / "retention-canary.ts"), text)
 
-    def test_converge_omp_agent_config_finds_hooks_in_home_dotfiles(self) -> None:
+    def test_converge_omp_agent_config_finds_hooks_from_checkout_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            home = Path(temp_dir) / "home"
-            hooks = home / ".dotfiles" / "omp" / "hooks"
+            checkout = Path(temp_dir) / "agentic-env"
+            hooks = checkout / "omp" / "hooks"
             hooks.mkdir(parents=True)
             for name in configure_agent_mcps.OMP_HOOK_FILES:
                 (hooks / name).write_text("// hook\n", encoding="utf-8")
             config_path = Path(temp_dir) / "config.yml"
             with (
                 patch("agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH", config_path),
-                patch("agentic_env.configure_agent_mcps.Path.home", lambda: home),
-                patch("agentic_env.configure_agent_mcps.Path.cwd", lambda: Path(temp_dir)),
-                patch.dict("os.environ", {"AGENTIC_DOTFILES_ROOT": ""}),
+                patch("agentic_env.configure_agent_mcps.Path.cwd", lambda: checkout / "guides"),
+                patch.dict("os.environ", {"AGENTIC_ENV_ROOT": ""}),
             ):
                 assert configure_agent_mcps.converge_omp_agent_config(dry_run=False)
             text = config_path.read_text(encoding="utf-8")
@@ -452,15 +451,12 @@ known_plugin_toolsets:
 
     def test_converge_omp_agent_config_refuses_to_seed_without_hooks(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            home = Path(temp_dir) / "home"
-            home.mkdir()
             config_path = Path(temp_dir) / "config.yml"
             with (
                 patch("agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH", config_path),
-                patch("agentic_env.configure_agent_mcps.Path.home", lambda: home),
                 patch("agentic_env.configure_agent_mcps.Path.cwd", lambda: Path(temp_dir)),
                 patch("agentic_env.configure_agent_mcps.__file__", str(Path(temp_dir) / "pkg" / "x.py")),
-                patch.dict("os.environ", {"AGENTIC_DOTFILES_ROOT": ""}),
+                patch.dict("os.environ", {"AGENTIC_ENV_ROOT": ""}),
             ):
                 self.assertFalse(configure_agent_mcps.converge_omp_agent_config(dry_run=False))
             self.assertFalse(config_path.exists())

@@ -144,7 +144,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Stack update, self-replacing updater
 
 - **Setup runner**
-  - The shared `run_cmd` wrapper in `agentic-env/setup_helpers.sh` that keeps setup scripts quiet by default, prints command progress, and dumps captured output only on failure.
+  - The shared `run_cmd` wrapper in `setup_helpers.sh` that keeps shell scripts quiet by default, prints command progress, and dumps captured output only on failure.
   - _Avoid_: Per-script command wrapper copies
 
 - **Smoke test**
@@ -169,12 +169,12 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - The prerequisites needed before machine provisioning: Python 3.12+, Node.js 20+ with npm, uv, curl, git, trusted CA certificates, and writable user-level installation paths. The Python-only copy route has a separate, smaller prerequisite set. Platform-specific requirements and acceptance evidence belong in the runbook.
 
 - **Documentation scope**
-  - `agentic-env/README.md`: runbook and operating instructions.
-  - `agentic-env/DECISIONS_AI_TOOLING.md`: operative agent-stack decisions, one section per layer (harness, context I/O, compaction, memory, code graph, skills, hooks), each Decided → Why → Rejected → Revisit → Wiring.
-  - `agentic-env/docs/CONTEXT.md`: canonical vocabulary and invariants.
-  - `agentic-env/docs/adr/*.md`: irreversible design decisions.
-  - `agentic-env/guides/*.md`: task-level workflow guides that apply DECISIONS §6 to host setup, project verification, and skill choice. They never override DECISIONS.
-  - `agentic-env/agentic_env/vendored/*/UPSTREAM.md`: provenance for each vendored pack, covering the source revision, licence, local adaptations, and update procedure.
+  - `README.md`: runbook and operating instructions.
+  - `DECISIONS_AI_TOOLING.md`: operative agent-stack decisions, one section per layer (harness, context I/O, compaction, memory, code graph, skills, hooks), each Decided → Why → Rejected → Revisit → Wiring.
+  - `CONTEXT.md`: canonical vocabulary and invariants.
+  - `docs/adr/*.md`: irreversible design decisions.
+  - `guides/*.md`: task-level workflow guides that apply DECISIONS §6 to host setup, project verification, and skill choice. They never override DECISIONS.
+  - `agentic_env/vendored/*/UPSTREAM.md`: provenance for each vendored pack, covering the source revision, licence, local adaptations, and update procedure.
 
 ## Skill lifecycle
 

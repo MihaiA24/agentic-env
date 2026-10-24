@@ -44,7 +44,7 @@ if [ "$SKIP_INSTALL" != "1" ]; then
   echo "Clean-host preconditions passed: no agent binaries or configuration"
 fi
 
-_python_script="$(mktemp "${TMPDIR:-/tmp}/dotfiles-smoke-check.XXXXXX")"
+_python_script="$(mktemp "${TMPDIR:-/tmp}/agentic-env-smoke-check.XXXXXX")"
 cleanup() {
   cleanup_run_log
   rm -f "$_python_script"

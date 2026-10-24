@@ -12,7 +12,7 @@ Use `node:20-bullseye-slim` as the base image in `Dockerfile.agentic` and add on
 - `curl`
 - `git`
 
-Install `uv` with `https://astral.sh/uv/install.sh`. Add `agentic-env/.dockerignore` to keep the compose build context small for local and CI image rebuilds.
+Install `uv` with `https://astral.sh/uv/install.sh`. Add `.dockerignore` to keep the compose build context small for local and CI image rebuilds.
 ## Alternatives considered
 
 1. **`node:22-bullseye-slim`**
@@ -33,5 +33,5 @@ Install `uv` with `https://astral.sh/uv/install.sh`. Add `agentic-env/.dockerign
 - The image is only as small as the tested compatibility floor above allows. It is larger than the Alpine images.
 
 - Fresh installs pass end-to-end smoke checks in non-interactive mode.
-- `agentic-env/.dockerignore` keeps the compose build context small, so rebuilds are faster.
+- `.dockerignore` keeps the compose build context small, so rebuilds are faster.
 - Before changing base tags, re-run `docker-smoke-test.sh` and compare image size.

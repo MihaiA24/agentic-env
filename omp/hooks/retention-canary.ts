@@ -4,7 +4,7 @@
  * Why this exists: the dotfiles bank took zero retains 07-19→08-10 while 11 sibling banks
  * retained fine on the same days and omp versions (17.1.5→17.3.5). The failure was
  * project-local, produced no errors, and self-healed — post-hoc root-causing eliminated
- * every suspect (forensics: agentic-env/docs/memory-backend-research.md). Nothing inside
+ * every suspect (forensics: docs/memory-backend-research.md). Nothing inside
  * the pipeline reports retention death, so the only defense is external detection: compare
  * the bank's newest memory row against session activity and warn in-context at the next
  * session start in the affected project.

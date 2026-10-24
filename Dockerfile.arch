@@ -11,5 +11,5 @@ RUN pacman-key --init \
 
 USER node
 ENV HOME=/home/node
-WORKDIR /dotfiles/agentic-env
+WORKDIR /agentic-env
 CMD ["/bin/sh"]

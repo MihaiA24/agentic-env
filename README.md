@@ -10,10 +10,11 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 
 ## Quick usage
 
-The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and the dotfiles checkout. For Windows or an offline copy, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
+The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and this repository's checkout. For Windows or an offline copy, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
 
 ```bash
-cd /path/to/your/dotfiles/agentic-env
+git clone https://github.com/MihaiA24/agentic-env.git
+cd agentic-env
 uv tool install --force .
 agentic-bootstrap
 agentic-stack-doctor
@@ -105,7 +106,7 @@ For the guided flow, run `uv run agentic-install-skills-mcps` from this checkout
 From this checkout, without replacing the host's installed management CLI:
 
 ```bash
-cd /path/to/your/dotfiles/agentic-env
+cd /path/to/agentic-env
 
 # Skip the destination prompts; still choose skills interactively.
 uv run agentic-install-skills-mcps --skills-dir "/path/to/project/.devin/skills"
@@ -131,7 +132,7 @@ This fallback needs only Python 3.12+ and the checkout. It downloads nothing, in
 
 Use a complete checkout or an extracted repository ZIP. The copier needs `skill-packs.json` and the vendored directories beside it, so the Python file alone is not enough. Git is not required once you have the files.
 
-From the dotfiles checkout root, confirm the interpreter is 3.12 or newer:
+From the checkout root, confirm the interpreter is 3.12 or newer:
 
 ```powershell
 py -3 --version
@@ -140,17 +141,17 @@ py -3 --version
 Without the `py` launcher, use `python` after checking `python --version`. Choose the exact folder your harness discovers, outside the source skill packages, then run one of these commands:
 
 ```powershell
-# From the dotfiles checkout; choose ONE command.
-py -3 agentic-env\agentic_env\copy_skills.py --skills-dir "C:\work\project\.devin\skills"
+# From the checkout root; choose ONE command.
+py -3 agentic_env\copy_skills.py --skills-dir "C:\work\project\.devin\skills"
 
 # Or copy only these vendored skills.
-py -3 agentic-env\agentic_env\copy_skills.py --skills-dir "C:\work\project\.devin\skills" --skill "tdd,code-review"
+py -3 agentic_env\copy_skills.py --skills-dir "C:\work\project\.devin\skills" --skill "tdd,code-review"
 ```
 
 On macOS/Linux, the equivalent command from the checkout root is:
 
 ```bash
-python3 agentic-env/agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
+python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
 By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
@@ -177,7 +178,7 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
 1. **Refresh the management CLI from the checkout.** This picks up the checkout's manifest, vendored adaptations and guided installer; an older installed CLI may not have the current picker.
 
    ```bash
-   cd /path/to/your/dotfiles/agentic-env
+   cd /path/to/agentic-env
    uv tool install --force .
    ```
 
@@ -237,7 +238,7 @@ Recovery commands preserve a custom `--skill-config` and select missing opt-in s
 To check **Matt Pocock and pstack from this checkout**, run from the repository root:
 
 ```bash
-uv run --frozen --project agentic-env agentic-skill-drift \
+uv run --frozen agentic-skill-drift \
   --pack mattpocock --pack pstack --no-installed
 ```
 
@@ -365,7 +366,7 @@ Keep that HOME for inspection/rechecks; use a new empty directory for another fr
 
 ### CI and recorded evidence
 
-[CI](../.github/workflows/agentic-env-smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and Bun retention-canary regressions pass. Each acceptance job runs fresh installation, then checks-only with forced updates on all three hosts. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/.dotfiles/actions/workflows/agentic-env-smoke-test.yml) when needed.
+[CI](.github/workflows/smoke-test.yml) runs native macOS arm64, Debian x86_64 and Arch x86_64 acceptance only after the Python suite and Bun retention-canary regressions pass. Each acceptance job runs fresh installation, then checks-only with forced updates on all three hosts. OMP resolves the latest stable GitHub release redirect and verifies its release asset against `SHA256SUMS.txt`, without the rate-limited REST release lookup or credentials. [Run manually](https://github.com/MihaiA24/agentic-env/actions/workflows/smoke-test.yml) when needed.
 
 Linux acceptance uses a non-fail-fast Debian/Arch matrix; each leg retains the same container for both passes. The Compose services share common settings, with separate Dockerfiles and an opt-in Arch profile.
 

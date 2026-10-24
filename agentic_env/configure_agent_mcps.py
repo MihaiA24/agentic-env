@@ -548,13 +548,12 @@ def omp_config_drift(data: dict[str, object]) -> list[str]:
 
 
 def _find_omp_hooks_dir() -> Path | None:
-    """Hooks live in the dotfiles checkout, never in the wheel: $AGENTIC_DOTFILES_ROOT,
-    then ~/.dotfiles, then any ancestor of cwd or this file."""
+    """Hooks live in the agentic-env checkout, never in the wheel: $AGENTIC_ENV_ROOT,
+    then any ancestor of cwd or this file."""
     roots: list[Path] = []
-    env_root = os.environ.get("AGENTIC_DOTFILES_ROOT")
+    env_root = os.environ.get("AGENTIC_ENV_ROOT")
     if env_root:
         roots.append(Path(env_root))
-    roots.append(Path.home() / ".dotfiles")
     for base in (Path.cwd().resolve(), Path(__file__).resolve()):
         roots.append(base)
         roots.extend(base.parents)
@@ -571,8 +570,8 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
         hooks_dir = _find_omp_hooks_dir()
         if hooks_dir is None:
             warn(
-                f"{path}: omp/hooks not found in ~/.dotfiles (or set AGENTIC_DOTFILES_ROOT); "
-                "not seeding a config the doctor would fail"
+                f"{path}: omp/hooks not found from the current directory (run from the "
+                "agentic-env checkout or set AGENTIC_ENV_ROOT); not seeding a config the doctor would fail"
             )
             return False
         content = _omp_agent_config_text(hooks_dir)

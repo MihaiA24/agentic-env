@@ -28,5 +28,5 @@ RUN curl -LsSf https://astral.sh/uv/install.sh -o /tmp/install-uv.sh \
 
 USER node
 ENV HOME=/home/node
-WORKDIR /dotfiles/agentic-env
+WORKDIR /agentic-env
 CMD ["/bin/sh"]

@@ -3,7 +3,6 @@
 set -eu
 
 _SCRIPT_DIR="$(CDPATH= cd "$(dirname "$0")" && pwd)"
-_dotfiles_root="$(CDPATH= cd "$_SCRIPT_DIR/.." && pwd)"
 _prereq_path=${AGENTIC_PREREQ_PATH:-/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin}
 _skip_install=${SKIP_INSTALL:-0}
 case "$_skip_install" in
@@ -54,8 +53,8 @@ exec env -i \
   npm_config_userconfig="$_smoke_home/.npmrc" npm_config_globalconfig="$_smoke_home/.npmrc-global" \
   BUN_INSTALL="$_smoke_home/.bun" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 \
   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.version GIT_CONFIG_VALUE_0=HTTP/1.1 \
-  AGENTIC_DOTFILES_ROOT="$_dotfiles_root" \
+  AGENTIC_ENV_ROOT="$_SCRIPT_DIR" \
   AGENTIC_SMOKE_RUN_ID="${GITHUB_RUN_ID:-local}/${GITHUB_RUN_ATTEMPT:-1}" \
-  AGENTIC_SMOKE_REVISION="${GITHUB_SHA:-$(git -c safe.directory="$_dotfiles_root" -C "$_dotfiles_root" rev-parse HEAD)}" \
+  AGENTIC_SMOKE_REVISION="${GITHUB_SHA:-$(git -c safe.directory="$_SCRIPT_DIR" -C "$_SCRIPT_DIR" rev-parse HEAD)}" \
   SKIP_INSTALL="$_skip_install" VERBOSE="${VERBOSE:-0}" \
   /bin/sh ./docker-smoke-test.sh "$@" </dev/null

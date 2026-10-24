@@ -18,10 +18,10 @@ Reuse a working verifier. Use [step 4](#4-keep-the-verifier-useful) when it has 
 
 ### Refresh the installed skills
 
-Run this once when setting up a macOS/Linux host or adopting reviewed updates. Preserve intentional edits to installed skills first. Replace `/path/to/.dotfiles` with your checkout path.
+Run this once when setting up a macOS/Linux host or adopting reviewed updates. Preserve intentional edits to installed skills first. Replace `/path/to/agentic-env` with your checkout path.
 
 ```bash
-cd /path/to/.dotfiles/agentic-env
+cd /path/to/agentic-env
 uv tool install --force .
 agentic-install-skills-mcps --skill-profile default --yes
 agentic-stack-doctor
@@ -49,7 +49,7 @@ Pstack skills are manual-only. OMP hides them from its automatic skill list but 
 
 [Claude Code blocks model invocation of manual-only skills](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill). Invoke dependencies yourself in separate prompts before requesting synthesis. For example, `/teach` needs separate `/how` and `/why` invocations; `/technical-writing` needs a separate `/unslop` pass. Codex recipe composition is untested. Named loading does not prove a composed recipe works.
 
-After host setup, start your coding agent in your project's root, not the `.dotfiles` checkout. Confirm `create-verification-skill`, `code-review`, and `handoff` are discoverable. In Claude Code, check the `/` menu yourself without running the skills; in Codex, check its skill list. In OMP or Hermes, use this loading check:
+After host setup, start your coding agent in your project's root, not the agentic-env checkout. Confirm `create-verification-skill`, `code-review`, and `handoff` are discoverable. In Claude Code, check the `/` menu yourself without running the skills; in Codex, check its skill list. In OMP or Hermes, use this loading check:
 
 ```text
 Load create-verification-skill, code-review, and handoff by name.

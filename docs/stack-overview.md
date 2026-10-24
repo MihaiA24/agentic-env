@@ -1,6 +1,6 @@
 # The stack `agentic-env` defines — landscape map
 
-What the stack is made of, what was surveyed for each part, and where to read the survey. Nothing here is a setting: the operative contract (what was selected, why, with what evidence and revisit trigger) is [`DECISIONS_AI_TOOLING.md`](../DECISIONS_AI_TOOLING.md). Vocabulary is [`CONTEXT.md`](CONTEXT.md). Operations are the [README](../README.md).
+What the stack is made of, what was surveyed for each part, and where to read the survey. Nothing here is a setting: the operative contract (what was selected, why, with what evidence and revisit trigger) is [`DECISIONS_AI_TOOLING.md`](../DECISIONS_AI_TOOLING.md). Vocabulary is [`CONTEXT.md`](../CONTEXT.md). Operations are the [README](../README.md).
 
 ## Layers and what was surveyed
 
@@ -21,7 +21,7 @@ Where a survey and DECISIONS disagree, DECISIONS is operative — the surveys ar
 
 1. [`DECISIONS_AI_TOOLING.md`](../DECISIONS_AI_TOOLING.md) — the contract: one section per layer (Decided → Why → Rejected → Revisit → Wiring), the live wiring for this machine, and the pre-registered upstream triggers.
 2. [`README.md`](../README.md) — the commands, the version policy, the runbooks, and the clean-platform acceptance matrix.
-3. [`docs/CONTEXT.md`](CONTEXT.md) — the domain vocabulary; [`docs/adr/`](adr/) — the decisions that needed their own record.
+3. [`CONTEXT.md`](../CONTEXT.md) — the domain vocabulary; [`docs/adr/`](adr/) — the decisions that needed their own record.
 4. The surveys above — only when reopening a layer, which requires its revisit trigger to fire.
 
 ## Installation runbooks

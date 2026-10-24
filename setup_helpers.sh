@@ -1,4 +1,4 @@
-# Shared helpers for dotfiles setup scripts.
+# Shared helpers for agentic-env shell scripts.
 # Source this file from scripts that call run_cmd.
 
 VERBOSE="${VERBOSE:-0}"
@@ -13,7 +13,7 @@ for arg in "$@"; do
 done
 export VERBOSE
 
-_run_log="$(mktemp "${TMPDIR:-/tmp}/dotfiles-run.XXXXXX")"
+_run_log="$(mktemp "${TMPDIR:-/tmp}/agentic-env-run.XXXXXX")"
 cleanup_run_log() {
   rm -f "$_run_log"
 }

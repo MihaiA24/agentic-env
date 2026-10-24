@@ -196,7 +196,7 @@ def _check_agent_config() -> list[Check]:
             detail = "not registered" if not paths else f"registered {len(paths)}x"
             checks.append(Check(f"hook {hook} once", False, detail, "edit extensions: in ~/.omp/agent/config.yml"))
         elif not paths[0].is_file():
-            checks.append(Check(f"hook {hook} once", False, f"{paths[0]} missing", "restore omp/hooks in the dotfiles checkout"))
+            checks.append(Check(f"hook {hook} once", False, f"{paths[0]} missing", "restore omp/hooks in the agentic-env checkout"))
         else:
             checks.append(Check(f"hook {hook} once", True, str(paths[0])))
     return checks

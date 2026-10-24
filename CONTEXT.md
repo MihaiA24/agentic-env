@@ -106,7 +106,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: MCP server, project-local skill
 
 - **Curated skill default**
-  - The reviewed roster selected per pack in the skill-pack manifest, shared by managed installations and native-CLI standalone copying. The Python-only route copies only its vendored subset. Custom skill-pack configuration extends the native installer's selection without a separate prompt-exposure allowlist.
+  - The reviewed roster selected per pack in the skill-pack manifest, shared by managed installations and native-CLI standalone copying. The Python-only route copies only its vendored subset. Custom skill-pack configuration extends the native installer's selection without a separate prompt-exposure allowlist. Every skill in it is opt-in: the installed set is the selection, and no curated skill is a host requirement.
   - _Avoid_: Comprehensive skill catalog, skill marketplace
 
 - **Checkout module command**

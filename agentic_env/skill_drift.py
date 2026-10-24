@@ -59,17 +59,16 @@ _BASELINE_VERSION = 1
 _COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 UNKNOWN = "unknown"
+# Curated skills are opt-in: an absent one was not selected, unless a profile was required.
+NOT_INSTALLED = "not installed"
 
 
 def _fix(manifest: SkillManifest, row: SkillStatus) -> str:
-    """Restore missing skills from the manifest that was checked."""
+    """Reinstall just this skill from the manifest that was checked."""
     command = ["agentic-install-skills-mcps"]
     if manifest.config_path != SKILL_PACK_CONFIG_PATH:
         command.extend(["--skill-config", str(manifest.config_path.resolve())])
-    if row.pack in manifest.profiles.get("default", ()):
-        command.extend(["--skill-profile", "default"])
-    else:
-        command.extend(["--skill-pack", row.pack, "--skill", row.skill])
+    command.extend(["--skill-pack", row.pack, "--skill", row.skill])
     return shlex.join([*command, "--yes"])
 
 
@@ -91,7 +90,7 @@ class SkillStatus:
 
     def drifted(self) -> bool:
         return any(
-            value not in ("ok", UNKNOWN, "new", "skipped")
+            value not in ("ok", UNKNOWN, "new", "skipped", NOT_INSTALLED)
             for value in (self.source, self.install, self.upstream)
         )
 
@@ -321,6 +320,7 @@ def inspect_pack(
     offline: bool,
     check_upstream: bool,
     check_installed: bool = True,
+    require_installed: bool = True,
     show_diff: bool = False,
 ) -> list[SkillStatus]:
     upstream = manifest.packs[pack].upstream
@@ -357,7 +357,7 @@ def inspect_pack(
         if check_installed:
             installed_digest = digest_tree(CANONICAL_SKILL_ROOT / skill)
             if installed_digest is None:
-                install_status = "missing"
+                install_status = "missing" if require_installed else NOT_INSTALLED
             elif source_digest is None:
                 install_status = UNKNOWN
             elif installed_digest != source_digest:
@@ -476,6 +476,7 @@ _STYLES = {
     "new": "cyan",
     UNKNOWN: "yellow",
     "skipped": "dim",
+    NOT_INSTALLED: "dim",
     "different": "cyan",
     "changed": "red",
     "modified": "red",
@@ -507,7 +508,9 @@ def report(manifest: SkillManifest, rows: list[SkillStatus], extra: list[str]) -
             if row.install in ("missing", "modified") or row.install.startswith("foreign:"):
                 warn(f"{row.skill}: install {row.install} — fix with `{_fix(manifest, row)}`")
     elif not any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
-        ok(f"{len(rows)} curated skills: no drift (local adaptations excluded)")
+        absent = sum(row.install == NOT_INSTALLED for row in rows)
+        note = f"; {absent} not installed" if absent else ""
+        ok(f"{len(rows)} curated skills: no drift (local adaptations excluded{note})")
 
     if any(UNKNOWN in (row.source, row.install, row.upstream) for row in rows):
         warn("Check incomplete: unknown is not a pass")
@@ -536,7 +539,10 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     scope.add_argument(
         "--skill-profile",
         metavar="NAME",
-        help="Restrict to the packs of this manifest profile, e.g. what bootstrap installed.",
+        help=(
+            "Restrict to the packs of this manifest profile and require all their skills "
+            "installed, e.g. what bootstrap installed. Otherwise an absent skill is not drift."
+        ),
     )
     parser.add_argument(
         "--skill-config",
@@ -615,6 +621,7 @@ def main(argv: list[str] | None = None) -> int:
                     offline=args.offline,
                     check_upstream=not args.no_upstream,
                     check_installed=not args.no_installed,
+                    require_installed=args.skill_profile is not None,
                     show_diff=args.diff,
                 )
             )

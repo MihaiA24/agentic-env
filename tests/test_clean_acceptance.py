@@ -108,7 +108,7 @@ class ChecksOnlyTests(unittest.TestCase):
                 'case "${0##*/}:$*" in\n'
                 '  agentic-update-stack:--help) exit 0 ;;\n'
                 '  agentic-update-stack:*) printf updated > "$HOME/update-marker" ;;\n'
-                '  agentic-skill-drift:--no-upstream) exit "$DRIFT_EXIT" ;;\n'
+                '  agentic-skill-drift:"--no-upstream --skill-profile default") exit "$DRIFT_EXIT" ;;\n'
                 'esac\n'
                 'exit 0\n'
             )

@@ -366,6 +366,36 @@ class CommandTests(unittest.TestCase):
                     self.assertEqual(selection, {pack: [f"{pack}-skill"]})
                     self.assertEqual(manifest.source(pack), str((root / pack).resolve()))
 
+    def test_profile_scope_skips_opt_in_packs_but_not_missing_profile_skills(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for pack in ("core", "extra"):
+                _write_skill(root / pack, f"{pack}-skill", f"{pack} source\n")
+            config = root / "packs.json"
+            config.write_text(json.dumps({
+                "packs": [
+                    {"name": pack, "source": f"./{pack}", "label": pack, "skills": [f"{pack}-skill"]}
+                    for pack in ("core", "extra")
+                ],
+                "profiles": {"default": ["core"]},
+            }), encoding="utf-8")
+            store = root / "store"
+            base = ["--skill-config", str(config), "--offline", "--no-upstream"]
+
+            def run(*extra: str) -> int:
+                with (
+                    patch.object(skill_drift, "CANONICAL_SKILL_ROOT", store),
+                    patch.object(skill_drift, "BASELINE_PATH", root / "absent.json"),
+                    patch.object(skill_drift.common, "console", Console(file=io.StringIO())),
+                ):
+                    return skill_drift.main([*base, *extra])
+
+            self.assertEqual(run("--skill-profile", "default"), 1)  # profile skill missing
+            _write_skill(store, "core-skill", "core source\n")
+            self.assertEqual(run("--skill-profile", "default"), 0)  # opt-in extra not required
+            self.assertEqual(run(), 1)  # full roster still reports extra-skill missing
+            self.assertEqual(run("--skill-profile", "nope"), 1)
+
 
 class RemoteComparisonTests(unittest.TestCase):
     """Exercise the CLI against real package trees; replace only remote lookup/download."""

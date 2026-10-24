@@ -217,7 +217,7 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
    agentic-skill-drift
    ```
 
-   Doctor checks stack wiring. Drift checks the manifest's full roster, not just your selection, so skills you left out can report `missing`. For remote packs, `foreign:<source>` concerns recorded provenance, not necessarily different file contents. Vendored packs are judged by their reviewed source bytes; stale native-CLI lock origins do not override matching content. An upstream `unknown` is unverified, not a pass. If the upstream lookup is unavailable, use `--no-upstream` for a separate source/install check. Do not use `--update-baseline` just to clear warnings.
+   Doctor checks stack wiring. Drift checks the manifest's full roster, not just your selection, so skills you left out can report `missing`; add `--skill-profile <name>` to check only the packs of the profile you installed. For remote packs, `foreign:<source>` concerns recorded provenance, not necessarily different file contents. Vendored packs are judged by their reviewed source bytes; stale native-CLI lock origins do not override matching content. An upstream `unknown` is unverified, not a pass. If the upstream lookup is unavailable, use `--no-upstream` for a separate source/install check. Do not use `--update-baseline` just to clear warnings.
 
 5. **Start a new OMP session and check discovery.** Ask OMP to read `skill://<selected-name>` and report its name without executing the recipe. Check one selected skill from each installed pack; for Matt/pstack, `writing-for-agents` and `how` are examples if selected. OMP hides manual-only skills from automatic discovery but still loads them by name.
 
@@ -308,7 +308,7 @@ Use `python3 -S -m unittest discover -s tests -p test_copy_skills.py -v` on macO
 
 ## Clean-platform acceptance
 
-Full-stack acceptance uses [the smoke script](docker-smoke-test.sh). [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Smoke verifies doctor and Hermes wiring plus curated package content with `agentic-skill-drift --no-upstream`; it does not require today's upstream revision to match. Windows gets only the copier check under [Development](#development), not this provisioning contract.
+Full-stack acceptance uses [the smoke script](docker-smoke-test.sh). [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Smoke verifies doctor and Hermes wiring plus the bootstrap-installed `default` profile's package content with `agentic-skill-drift --no-upstream --skill-profile default`; opt-in packs are not installed there, and today's upstream revision need not match. Windows gets only the copier check under [Development](#development), not this provisioning contract.
 
 ### Containers
 
@@ -347,7 +347,7 @@ export UV_PROJECT_ENVIRONMENT=$HOME/.venv
 export PATH="$HOME/.local/bin:$PATH"
 uv tool install --force --python "$(uv python find 3.12)" .
 agentic-install-skills-mcps --skill-profile default --yes
-agentic-skill-drift --no-upstream
+agentic-skill-drift --no-upstream --skill-profile default
 docker rm -f agentic-manual   # from the host, when finished
 ```
 

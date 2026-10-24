@@ -526,11 +526,17 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Compare installed skills against their pack sources and upstreams",
     )
-    parser.add_argument(
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument(
         "--pack",
         action="append",
         metavar="NAME",
         help="Restrict to this pack (repeatable). Default: every pack in the manifest.",
+    )
+    scope.add_argument(
+        "--skill-profile",
+        metavar="NAME",
+        help="Restrict to the packs of this manifest profile, e.g. what bootstrap installed.",
     )
     parser.add_argument(
         "--skill-config",
@@ -582,7 +588,12 @@ def main(argv: list[str] | None = None) -> int:
         if manifest is None:
             return 1
 
-        if args.pack:
+        if args.skill_profile is not None:
+            packs = manifest.profiles.get(args.skill_profile.strip())
+            if packs is None:
+                warn(f"Unknown skill profile: {args.skill_profile}")
+                return 1
+        elif args.pack:
             packs = [name.strip().lower() for name in args.pack]
             unknown = [name for name in packs if name not in manifest.packs]
             if unknown:

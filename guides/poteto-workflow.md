@@ -25,7 +25,7 @@ cd /path/to/agentic-env
 uv tool install --force .
 agentic-install-skills-mcps --skill-profile default --yes
 agentic-stack-doctor
-agentic-skill-drift --no-upstream
+agentic-skill-drift --no-upstream --skill-profile default
 ```
 
 This installs the curated skills for Hermes, Claude Code, and Codex. OMP reads Claude's skill links. It installs no MCPs. For OMP, also check the `skills` mapping in `~/.omp/agent/config.yml` using the [refresh runbook](../README.md#refresh-skills-on-an-existing-omp-host). Native Windows and standalone copies use the [copying route](../README.md#python-only-copy-on-windows).

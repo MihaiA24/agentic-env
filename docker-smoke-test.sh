@@ -147,7 +147,7 @@ done
 
 echo "[5/5] Verifying stack wiring (agentic-stack-doctor) and Hermes artifacts"
 run_cmd "agentic-stack-doctor"
-run_cmd "agentic-skill-drift --no-upstream"
+run_cmd "agentic-skill-drift --no-upstream --skill-profile default"
 run_cmd "uv run --frozen --python \"$_python\" python \"$_python_script\""
 
 if [ "$failures" -ne 0 ]; then

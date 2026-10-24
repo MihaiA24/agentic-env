@@ -58,10 +58,14 @@ linux_leg() {  # service [compose flags]: one container through all three passes
   container=$COMPOSE_PROJECT_NAME-$service
   docker rm -f "$container" >/dev/null 2>&1 || true
   docker compose "$@" run --build -d --name "$container" "$service" sleep infinity
-  trap 'docker rm -f "$container" >/dev/null' EXIT
-  docker exec "$container" /bin/sh ./clean-acceptance.sh
-  docker exec "$container" /bin/sh ./clean-acceptance.sh --update
-  docker exec -e SKIP_INSTALL=1 "$container" /bin/sh ./clean-acceptance.sh
+  # Explicit cleanup: an EXIT trap in this backgrounded function does not fire under macOS /bin/sh.
+  rc=0
+  docker exec "$container" /bin/sh ./clean-acceptance.sh \
+    && docker exec "$container" /bin/sh ./clean-acceptance.sh --update \
+    && docker exec -e SKIP_INSTALL=1 "$container" /bin/sh ./clean-acceptance.sh \
+    || rc=$?
+  docker rm -f "$container" >/dev/null
+  return "$rc"
 }
 
 macos_leg() {  # native, in a fresh acceptance HOME inside $work

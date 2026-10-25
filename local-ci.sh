@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 # Local stand-in for the GitHub workflow, which runs only on manual dispatch since
 # 2026-10-25. Like the workflow it tests the committed HEAD, never uncommitted edits:
-# unit suites first, then Debian, Arch and native macOS acceptance in parallel.
+# unit suites first, then Debian and Arch acceptance in containers, plus native macOS
+# acceptance on an Apple Silicon Mac, in parallel. Runs on Linux or macOS with Docker.
 # On success it writes local-ci.attestation; commit that file with the change.
 #   ./local-ci.sh                 run every check, write the attestation
 #   ./local-ci.sh --verify [REF]  pass only if REF (default HEAD) carries a matching attestation
@@ -29,16 +30,23 @@ if [ "${1:-}" = --verify ]; then
   exit 1
 fi
 [ "$#" -eq 0 ] || { echo "Usage: $0 [--verify [REF]]" >&2; exit 2; }
-[ "$(uname -s)/$(uname -m)" = Darwin/arm64 ] || { echo "The native acceptance leg needs an Apple Silicon Mac" >&2; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Start Docker first" >&2; exit 1; }
-if [ -z "${AGENTIC_PREREQ_PATH:-}" ]; then
-  brew list --versions uv python@3.12 node@24 xz >/dev/null 2>&1 || {
-    echo "Native acceptance needs: brew install uv python@3.12 node@24 xz ca-certificates (or set AGENTIC_PREREQ_PATH)" >&2
-    exit 1
-  }
-  AGENTIC_PREREQ_PATH="$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@24)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+legs="debian arch"
+if [ "$(uname -s)/$(uname -m)" = Darwin/arm64 ]; then
+  legs="$legs macos"
+  host="macOS $(sw_vers -productVersion) arm64"
+  if [ -z "${AGENTIC_PREREQ_PATH:-}" ]; then
+    brew list --versions uv python@3.12 node@24 xz >/dev/null 2>&1 || {
+      echo "Native acceptance needs: brew install uv python@3.12 node@24 xz ca-certificates (or set AGENTIC_PREREQ_PATH)" >&2
+      exit 1
+    }
+    AGENTIC_PREREQ_PATH="$(brew --prefix uv)/bin:$(brew --prefix python@3.12)/libexec/bin:$(brew --prefix node@24)/bin:$(brew --prefix xz)/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  fi
+  export AGENTIC_PREREQ_PATH
+else
+  host="$(uname -s) $(uname -r) $(uname -m)"
+  echo "Not an Apple Silicon Mac: skipping native macOS acceptance (dispatch the workflow to cover it)"
 fi
-export AGENTIC_PREREQ_PATH
 
 sha=$(git rev-parse HEAD)
 work=$(mktemp -d "${TMPDIR:-/tmp}/agentic-env-local-ci.XXXXXX")
@@ -79,9 +87,9 @@ linux_leg fresh-install >"$work/debian.log" 2>&1 &
 debian=$!
 linux_leg fresh-install-arch --profile arch >"$work/arch.log" 2>&1 &
 arch=$!
-macos_leg >"$work/macos.log" 2>&1 &
-macos=$!
-echo "Acceptance legs running; logs: $work/{debian,arch,macos}.log"
+macos=
+case $legs in *macos) macos_leg >"$work/macos.log" 2>&1 & macos=$! ;; esac
+echo "Acceptance legs running ($legs); logs in $work"
 
 failed=
 collect() {  # leg pid
@@ -95,11 +103,11 @@ collect() {  # leg pid
 }
 collect debian "$debian"
 collect arch "$arch"
-collect macos "$macos"
+[ -z "$macos" ] || collect macos "$macos"
 [ -z "$failed" ] || { echo "Failed:$failed. Logs kept in $work" >&2; exit 1; }
 
 cd "$ROOT"
-printf 'tree %s\ncommit %s\ndate %s\nhost macOS %s arm64\npassed pytest bun-hooks debian arch macos\n' \
-  "$(tree_hash "$sha")" "$sha" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(sw_vers -productVersion)" >"$ATTESTATION"
+printf 'tree %s\ncommit %s\ndate %s\nhost %s\npassed pytest bun-hooks %s\n' \
+  "$(tree_hash "$sha")" "$sha" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$host" "$legs" >"$ATTESTATION"
 chmod -R u+w "$work" && rm -rf "$work"
 echo "All checks passed. Commit it: git add $ATTESTATION && git commit -m 'chore: attest local checks'"

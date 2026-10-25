@@ -1,22 +1,23 @@
 # Choose a skill for the job
 
-Use this guide to choose a skill for a task, if one is needed. It follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills). For host setup and a project verifier, use [Start a new repo with the selected pstack skills](poteto-workflow.md). The implementation, prototype, and maintenance routes below use that verifier.
+Use this guide to choose a skill for a task, if one is needed. It follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills). For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md). The implementation, prototype, and maintenance routes below use that verifier.
 
 Choose the route your task needs. Skip the rest.
 
-Invoke the skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Pstack skills and Matt's `retro`, `to-spec` and `to-tickets` are manual-only, so invoke them by name. Invoking a recipe authorizes its named dependencies. Reading a skill to check discovery does not invoke it.
+Invoke the skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoke manual-only skills, listed in [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills), by name. Invoking a recipe authorizes its named dependencies. Reading a skill to check discovery does not invoke it.
 
 ## Find the route
 
 | Situation | Route |
 |---|---|
 | A small change you already understand | Implement it directly and exercise the affected path |
-| A report you cannot restate yet | A plain-English restatement before any fix |
+| A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
 | How the current code works | `/how` |
 | Why the code has its current shape | `/why`, scoped to one target and question |
 | You want the agent to explain its work and reasoning | `/teach` |
 | You are resuming earlier work in this workspace | `/recall` |
 | Goals, constraints, or choices only a person can make | `/grilling` |
+| A plan to stress-test, with resolved terms and decisions written down | `/grill-with-docs`, after `/how` and a scoped `/why` |
 | An unknown that an experiment can measure | `/prototype`, with the verifier |
 | Spark code needs review without execution evidence; input volume may be unknown | `/apache-spark-static` (opt-in): code/plan facts, conditional risks, minimal changes and validation plan |
 | An existing Spark job has live metrics or completed-run artifacts | `/apache-spark-runtime` (opt-in): evidence-backed diagnosis, targeted experiments, output-equivalence and before/after proof |
@@ -33,15 +34,6 @@ Invoke the skill in your prompt with your harness's syntax, listed in [Invoke sk
 ## Make small, understood changes directly
 
 For a small change you already understand, implement it and exercise the affected user path with the project verifier. Show the evidence. Skip the planning document, interview, and critique.
-
-## Restate an ambiguous report before fixing it
-
-Ask the agent to explain an unclear report before proposing a fix:
-
-```text
-Read this report and restate the underlying problem in plain English.
-Separate observations from assumptions. Do not prescribe a fix yet.
-```
 
 ## Use explanation skills only for their own questions
 
@@ -86,7 +78,7 @@ Both first-party skills are outside the default profiles; use the [Apache Spark 
 
 ## Settle human goals with grilling
 
-Use `/grilling` to settle goals, constraints, or tradeoffs that require your choice before design begins. Use experiments for measurable questions rather than repeating interviews about an abstract plan.
+Use `/grilling` to settle goals, constraints, or tradeoffs that require your choice before design begins. Use `/grill-with-docs` when the answers should stay in the repository: it also records resolved terms in `CONTEXT.md` and offers an ADR for a decision that is hard to reverse. Run `/how` and a scoped `/why` first, so you answer with the code's mechanism and history in view. Use experiments for measurable questions rather than repeating interviews about an abstract plan.
 
 ## Measure unknowns with a prototype
 
@@ -94,7 +86,7 @@ Use a prototype to answer a measurable question about an interaction, state mode
 
 ```text
 /prototype the unresolved [interaction or state-model question].
-Use /[verifier] where applicable to exercise the result and capture evidence.
+Use /verify-<app> where applicable to exercise the result and capture evidence.
 Compare the alternatives against the question. Stop before production
 implementation so I can choose.
 ```
@@ -118,7 +110,7 @@ interface and its tradeoffs. Stop before implementation.
 Use `/to-spec` or `/to-tickets` after the design settles, when work needs coordination across sessions or people. Each slice must name a live verification action and its expected result. Both skills end with publication. Require a separate approval before the agent publishes.
 
 ```text
-/to-tickets for the settled [design]. In each ticket, name the /[verifier]
+/to-tickets for the settled [design]. In each ticket, name the /verify-<app>
 action and the observable result that proves it. Show me the tickets and
 do not publish them until I approve.
 ```
@@ -127,7 +119,7 @@ do not publish them until I approve.
 
 For an ordinary change, verify the affected paths. Do not run full maintenance for every change.
 
-Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier useful](poteto-workflow.md#4-keep-the-verifier-useful) for the prompt.
+Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier sharp](poteto-workflow.md#6-keep-the-verifier-sharp) for the prompt.
 
 ## Vet performance numbers before you use them
 

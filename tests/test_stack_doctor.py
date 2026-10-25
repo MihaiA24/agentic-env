@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 from agentic_env import configure_agent_mcps, stack_doctor
 from agentic_env.common import console
-from agentic_env.install_skills_mcps import profile_skills
 
 
 def _skill(root: Path, name: str) -> None:
@@ -41,8 +40,7 @@ class _Host:
             encoding="utf-8",
         )
         self.claude_json.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
-        for name in profile_skills("default"):
-            _skill(self.claude_skills, name)
+        # No curated skills: they are opt-in, so a compliant host may have none.
         for skills_root in self.skill_roots:
             for name in ("codebase-memory-mcp", "ponytail"):
                 _skill(skills_root, name)

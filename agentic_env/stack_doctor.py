@@ -19,19 +19,17 @@ from rich.table import Table
 
 from . import configure_agent_mcps as cfg
 from .common import cmd_exists, cmd_version_at_least, console
-from .install_skills_mcps import profile_skills
 from .stack_metadata import STACK_VERSION_FLOORS
 
 CLAUDE_USER_CONFIG_PATH = Path.home() / ".claude.json"
 # OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
 # skill store and stays unmounted as a root (skills.enableAgentsUser: false).
 CLAUDE_SKILL_ROOT = Path.home() / ".claude" / "skills"
-SKILL_PROFILE = "default"
 SECONDARY_AGENTS = ("hermes", "claude", "codex", "agentmemory")
 
 FIX_CONFIGURE = "agentic-configure-agent-mcps --yes"
 FIX_UPDATE = "agentic-update-stack"
-FIX_SKILLS = f"agentic-install-skills-mcps --all-mcps --yes --skill-profile {SKILL_PROFILE}"
+FIX_CODEBASE_MEMORY = "agentic-install-skills-mcps --mcp codebase-memory-mcp --yes"
 
 # Prose that re-routes native reads through an MCP; forbidden anywhere OMP
 # loads MCP definitions from (ADR-0007, ADR-0009).
@@ -203,16 +201,9 @@ def _check_agent_config() -> list[Check]:
 
 
 def _check_skills() -> list[Check]:
-    roster = profile_skills(SKILL_PROFILE)
-    missing = [name for name in roster if not (CLAUDE_SKILL_ROOT / name / "SKILL.md").is_file()]
-    checks = [
-        Check(
-            f"curated roster ({SKILL_PROFILE}) under ~/.claude/skills",
-            bool(roster) and not missing,
-            ", ".join(missing) if missing else f"{len(roster)} skills" if roster else "manifest unreadable",
-            FIX_SKILLS,
-        )
-    ]
+    # Curated skills are opt-in per skill: the installed set is the selection, so none
+    # is required here. agentic-skill-drift checks the installed ones.
+    checks: list[Check] = []
     for root in cfg.OMP_SKILL_ROOTS:
         absent = [
             name for name in cfg.SKILLS
@@ -309,7 +300,7 @@ def _check_hermes() -> list[Check]:
 def run_checks() -> list[Check]:
     checks = [
         _check_binary("omp", fix=FIX_UPDATE, mandatory=True),
-        _check_binary("codebase-memory-mcp", fix=FIX_SKILLS, mandatory=True),
+        _check_binary("codebase-memory-mcp", fix=FIX_CODEBASE_MEMORY, mandatory=True),
     ]
     for path in cfg.OMP_MCP_PATHS:
         checks.extend(_check_omp_mcp(path))

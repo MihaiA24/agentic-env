@@ -57,7 +57,7 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
@@ -217,7 +217,7 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
    agentic-skill-drift
    ```
 
-   Doctor checks stack wiring. Drift checks the manifest's full roster, not just your selection, so skills you left out can report `missing`; add `--skill-profile <name>` to check only the packs of the profile you installed. For remote packs, `foreign:<source>` concerns recorded provenance, not necessarily different file contents. Vendored packs are judged by their reviewed source bytes; stale native-CLI lock origins do not override matching content. An upstream `unknown` is unverified, not a pass. If the upstream lookup is unavailable, use `--no-upstream` for a separate source/install check. Do not use `--update-baseline` just to clear warnings.
+   Doctor checks stack wiring and requires no curated skill. Drift checks the curated skills you installed; one you left out shows `not installed` and is not drift. Add `--skill-profile <name>` to require every skill of that profile, so a skipped one reports `missing`. For remote packs, `foreign:<source>` concerns recorded provenance, not necessarily different file contents. Vendored packs are judged by their reviewed source bytes; stale native-CLI lock origins do not override matching content. An upstream `unknown` is unverified, not a pass. If the upstream lookup is unavailable, use `--no-upstream` for a separate source/install check. Do not use `--update-baseline` just to clear warnings.
 
 5. **Start a new OMP session and check discovery.** Ask OMP to read `skill://<selected-name>` and report its name without executing the recipe. Check one selected skill from each installed pack; for Matt/pstack, `writing-for-agents` and `how` are examples if selected. OMP hides manual-only skills from automatic discovery but still loads them by name.
 
@@ -232,7 +232,7 @@ agentic-skill-drift --pack ponytail --offline --no-upstream
 
 This is a deterministic, on-demand CLI: no agent is needed to fetch or compare skills. It checks complete packages (including scripts and references), limited to the manifest's curated roster—not newly published, unselected skills. It does not execute upstream skills, merge updates, change pins, or overwrite installed skills.
 
-Recovery commands preserve a custom `--skill-config` and select missing opt-in skills instead of reinstalling an unrelated profile. Pack names are valid selectors without repeating them in `aliases`.
+Recovery commands preserve a custom `--skill-config` and reinstall only the affected skill (`--skill-pack <pack> --skill <name>`), never a whole profile. Pack names are valid selectors without repeating them in `aliases`.
 
 To check **Matt Pocock and pstack from this checkout**, run from the repository root:
 

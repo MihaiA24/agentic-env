@@ -318,10 +318,10 @@ class CommandTests(unittest.TestCase):
                     skill_drift.main(["--skill-config", str(config), "--offline", "--no-upstream"])
 
             payload = json.loads(document.getvalue())
-            self.assertEqual(exit_code, 1)  # nothing installed
+            self.assertEqual(exit_code, 1)  # beta has no source package
             self.assertEqual(
                 [(row["skill"], row["install"]) for row in payload["skills"]],
-                [("alpha", "missing"), ("beta", "missing")],
+                [("alpha", "not installed"), ("beta", "not installed")],
             )
             self.assertIn("agentic-skill-drift", normal.getvalue())
 
@@ -336,7 +336,7 @@ class CommandTests(unittest.TestCase):
                     {"name": pack, "source": f"./{pack}", "label": pack, "skills": [f"{pack}-skill"]}
                     for pack in ("core", "extra")
                 ],
-                "profiles": {"default": ["core"]},
+                "profiles": {"default": ["core"], "all": ["core", "extra"]},
             }), encoding="utf-8")
             output = io.StringIO()
 
@@ -344,7 +344,9 @@ class CommandTests(unittest.TestCase):
                 patch.object(skill_drift, "CANONICAL_SKILL_ROOT", root / "store"),
                 patch.object(skill_drift.common, "console", Console(file=output, width=4096)),
             ):
-                code = skill_drift.main(["--skill-config", str(config), "--offline", "--no-upstream"])
+                code = skill_drift.main([
+                    "--skill-config", str(config), "--skill-profile", "all", "--offline", "--no-upstream",
+                ])
 
             self.assertEqual(code, 1)
             commands = dict(re.findall(
@@ -366,7 +368,7 @@ class CommandTests(unittest.TestCase):
                     self.assertEqual(selection, {pack: [f"{pack}-skill"]})
                     self.assertEqual(manifest.source(pack), str((root / pack).resolve()))
 
-    def test_profile_scope_skips_opt_in_packs_but_not_missing_profile_skills(self) -> None:
+    def test_absent_skills_fail_only_when_a_profile_requires_them(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             for pack in ("core", "extra"):
@@ -390,10 +392,13 @@ class CommandTests(unittest.TestCase):
                 ):
                     return skill_drift.main([*base, *extra])
 
+            self.assertEqual(run(), 0)  # nothing selected is a valid selection
+            self.assertEqual(run("--pack", "core"), 0)
             self.assertEqual(run("--skill-profile", "default"), 1)  # profile skill missing
             _write_skill(store, "core-skill", "core source\n")
             self.assertEqual(run("--skill-profile", "default"), 0)  # opt-in extra not required
-            self.assertEqual(run(), 1)  # full roster still reports extra-skill missing
+            _write_skill(store, "extra-skill", "extra edited\n")
+            self.assertEqual(run(), 1)  # an installed skill is still checked
             self.assertEqual(run("--skill-profile", "nope"), 1)
 
 

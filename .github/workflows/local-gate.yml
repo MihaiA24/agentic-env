@@ -1,0 +1,26 @@
+name: Local gate attestation
+
+# Warns, never blocks: ./local-ci.sh is expensive, so run it once when the
+# branch's work is done and commit local-ci.attestation (README "Local gate").
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  attestation:
+    name: Local gate attestation
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Warn when the PR head is not attested
+        run: |
+          sh ./local-ci.sh --verify HEAD ||
+            echo "::warning title=Local gate not run::Run ./local-ci.sh once this branch is done, then commit local-ci.attestation."

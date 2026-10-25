@@ -37,6 +37,7 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles:
 |---|---|
 | `/poteto-mode` and its playbooks | Name the skill in your prompt; [skill routing](skill-routing.md) helps you pick it |
 | `/control-app` | The `/verify-<app>` skill you generate in step 2 |
+| A CLI of drive commands | The same CLI, plus checks with expected results you approve (steps 2–3) |
 | `.cursor/skills/verify-<app>/references/features/` | `.agents/skills/verify-<app>/features/` |
 | Cursor cloud agents and `/swarm` | Local agents, each with its own checkout, ports, profile and data; no cloud fan-out |
 | `/architect` with a cross-model judge | `/codebase-design` (Design It Twice) plus prototypes |
@@ -79,32 +80,40 @@ API, and document the launch command and prerequisites.
 
 ### 2. Create the verifier and its CLI
 
-`/create-verification-skill` reads the repository and writes `.agents/skills/verify-<app>/SKILL.md` with launch, doctor, drive, evidence, cleanup and helper sections. It seeds a feature map of three to five features and proves one of them end to end. It does not require a CLI, so ask for the lever explicitly:
+`/create-verification-skill` reads the repository and writes `.agents/skills/verify-<app>/SKILL.md` with launch, doctor, drive, evidence, cleanup and helper sections. It seeds a feature map of three to five features and proves one of them end to end. It does not require a CLI, so ask for one.
+
+The goal is deterministic commands, kept in the repository, that agents run instead of working out the steps each time. That saves time, context and tokens. The CLI has two layers. Drive commands (doctor, launch, the actions the app needs, logs, cleanup) let an agent explore. Checks cover the scenarios you approved: a concrete behavior, an end-to-end use case, a performance measurement. An agent trusts a check's answer instead of re-verifying it in a loop.
 
 ```text
-/create-verification-skill for this repository. Wrap the existing driver
-in a small CLI inside the verifier directory, so agents run commands
-instead of writing scripts. Cover doctor, launch, navigation,
-interaction, snapshots or screenshots, logs and cleanup; add tracing if
-the runtime supports it. Use subcommands, rich --help, JSON output,
-errors that say what to do instead, and --dry-run on destructive
-commands. Prove one feature through the CLI and show me the evidence.
+/create-verification-skill for this repository. Also build a small CLI
+in the verifier directory, so agents run commands instead of writing
+scripts: doctor, launch, the drive commands this app needs, logs,
+cleanup, and one check per scenario below. A check uses fixed input,
+seeds and clock, compares the result with an expected result, exits
+non-zero on a mismatch, and prints JSON with the difference and the
+evidence path. A performance check takes a baseline ref, alternates at
+least five runs of each side, confirms the work ran, and reports median
+and spread. Reuse the repository's own runner and tests. Use
+subcommands, rich --help, errors that say what to do instead, and
+--dry-run on destructive commands. Show me the evidence for each check.
+Scenarios: [behaviors, end-to-end use cases, performance measurements]
 ```
 
-Open the evidence yourself before you continue. If the app has no usable control at all, ask for a dev-only sidecar or a debugger bridge first. Spend time here: a reliable CLI is what every later step depends on.
+Without a scenario list, ask it to propose scenarios from the feature map and pick the ones you will maintain. For a batch job such as Spark, a check runs the job on fixture input and compares its output, ignoring row order unless order is part of the contract. If the app has no usable control at all, ask for a dev-only sidecar or a debugger bridge first. Spend time here: every later step depends on these checks.
 
-### 3. Replay with a fresh agent
+### 3. Approve the checks with a fresh agent
 
-The creator already knows the app, so its proof does not show that the next agent can follow the skill cold. Stop the creator's app instances, open a new session in the same checkout, and run:
+Trust a check once you have seen it pass on the right result and fail on a wrong one, run by an agent that knows only the skill. Stop the creator's app instances, open a new session in the same checkout, and run:
 
 ```text
-Use /verify-<app> to repeat [the feature it proved]. Start your own
-instance from the documented starting state, follow the skill as
-written, and show me the evidence. Report each missing command,
-prerequisite or step instead of working around it.
+Use /verify-<app> to run every check from a clean start, following the
+skill as written. Then, for each behavior and end-to-end check, break
+the behavior once in a scratch change, show me the check failing, and
+revert. Report each missing command, prerequisite or step instead of
+working around it.
 ```
 
-The replay passes when the fresh agent gets the same result and the evidence survives cleanup. Otherwise, send the report back to the creator session, fix the verifier, and replay again.
+Read the evidence and every expected result yourself. When they are right, commit them: they are now the approved behavior. Otherwise, send the report back to the creator session, fix the verifier, and run this step again.
 
 ### 4. Point every agent at the verifier
 
@@ -113,12 +122,13 @@ Add this to the repository's `AGENTS.md`, which OMP, Codex and Hermes read. For 
 ```markdown
 ## Verification
 
-- `/verify-<app>` (`.agents/skills/verify-<app>/`) launches, drives and debugs this app. Use it to prove each user-visible change on the real user path, and show the evidence.
+- `/verify-<app>` (`.agents/skills/verify-<app>/`) launches, drives and checks this app. Run the checks that cover your change and trust their result. Prove new behavior on the real user path, and show the evidence.
+- Never change an approved check's expected result yourself. When behavior changes on purpose, show me the old and new result and wait for my approval.
 - When you change a feature on purpose, update its file in `.agents/skills/verify-<app>/features/` in the same change.
 - Ask before committing, pushing, opening a PR, or touching production, credentials or infrastructure.
 ```
 
-Keep it this short. Launch, isolation, evidence and cleanup rules live in the verifier, where agents read them when they drive the app.
+Keep it this short. The second rule is what makes a check worth trusting: an agent that can rewrite the expected result can make any check pass. Launch, isolation, evidence and cleanup rules live in the verifier, where agents read them when they drive the app.
 
 ### 5. Build with the verifier
 
@@ -126,14 +136,16 @@ Each prompt states the outcome and asks for proof. The verifier and `AGENTS.md` 
 
 | Job | Prompt |
 |---|---|
-| Feature | `Build [outcome]. Use /verify-<app> to verify your changes and show me screenshots or a recording as proof.` |
-| Reported bug | `Reproduce [report] with /verify-<app>. If it reproduces, fix the cause and show the same path passing.` If the cause is unclear, use `/diagnosing-bugs`. |
-| Performance | `Use /verify-<app> to trace [start event] to [end event] now. Make one targeted fix, then compare repeated runs before and after.` Run `/benchmark-checklist` before you report the number. |
+| Feature | `Build [outcome]. Run the /verify-<app> checks that cover it, propose a check for the new behavior, and show me the evidence.` |
+| Reported bug | `Reproduce [report] with /verify-<app> and propose a check that fails on it. Then fix the cause and show the check passing.` If the cause is unclear, use `/diagnosing-bugs`. |
+| Performance | `Run the /verify-<app> performance check for [scenario] against [baseline ref]. Make one targeted fix and run it again.` If no check covers the path, ask the agent to trace it and propose one first. Run `/benchmark-checklist` before you report the number. |
 | Check the agent's reasoning | `/teach me why you implemented it this way and not [alternative].` |
 | Review | `/code-review [paths] in WIP mode against [baseline commit]. Use [ticket or brief] as the spec.` |
 | Hand off | `/handoff for the next agent to [task].` It writes to `$TMPDIR`, not the repository. |
 
 Proof shows the action and its result: screenshots or a recording for a UI; the command, output and exit status for a CLI; requests, responses and stored state for a service.
+
+A proposed check is trusted only after you approve it as in step 3.
 
 `/code-review` freezes a snapshot that includes uncommitted and untracked files, so you do not need to commit first. A repository with no commits has no baseline; ask for a direct read-only review of the files instead.
 
@@ -145,7 +157,7 @@ Only one agent drives an app instance at a time. To work in parallel, give each 
 /maintain-verification-skill for .agents/skills/verify-<app>.
 ```
 
-The skill checks every mapped feature against the source, drives each one live, fixes drift inside the verifier, and reports product regressions separately. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
+The skill checks every mapped feature against the source, drives each one live, fixes drift inside the verifier, and reports product regressions separately. The `AGENTS.md` rule keeps it from rewriting an approved expected result, so a failing check reaches you as a regression or a change to approve. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
 
 Treat the verifier as product code. When the CLI breaks or slows agents down, fix it before other work.
 

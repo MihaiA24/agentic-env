@@ -8,6 +8,7 @@ import os
 import shutil
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -237,23 +238,10 @@ def _check_existing_mcp_entries(
     return entries
 
 
-@dataclass(frozen=True)
-class _ConfigMergeOutcome:
-    config: dict[str, object]
-    changed: bool
-    required_provider: str | None
+def add_hermes_servers(data: dict[str, object], servers: list[McpServer]) -> bool:
+    """Add missing servers and the required memory provider in place; True when changed.
 
-
-def _write_hermes_config(
-    path: Path, data: dict[str, object], *, dry_run: bool
-) -> bool:
-    content = yaml.safe_dump(data, sort_keys=False, allow_unicode=True) if data else ""
-    return _write_atomic_text(path, content, dry_run=dry_run)
-
-
-def add_hermes_servers(
-    data: dict[str, object], servers: list[McpServer]
-) -> _ConfigMergeOutcome:
+    Raises ``ValueError`` for drifted entries or a conflicting provider, which are never rewritten."""
     mcp_servers = _check_existing_mcp_entries(data, "mcp_servers", servers)
     for server in servers:
         if not server.hermes_memory_provider:
@@ -269,7 +257,6 @@ def add_hermes_servers(
             )
 
     changed = False
-    required_provider: str | None = None
 
     if mcp_servers is None:
         mcp_servers = {}
@@ -288,7 +275,6 @@ def add_hermes_servers(
             skip(f"Hermes config: {server.name} MCP already configured")
 
         if server.hermes_memory_provider:
-            required_provider = server.hermes_memory_provider
             memory = data.get("memory")
             if not isinstance(memory, dict):
                 data["memory"] = {"provider": server.hermes_memory_provider}
@@ -300,11 +286,7 @@ def add_hermes_servers(
                 memory["provider"] = server.hermes_memory_provider
                 changed = True
 
-    return _ConfigMergeOutcome(
-        config=data,
-        changed=changed,
-        required_provider=required_provider,
-    )
+    return changed
 
 
 def validate_hermes_config(
@@ -389,6 +371,42 @@ def _json_entry(server: McpServer) -> dict[str, object]:
     return entry
 
 
+def _converge_config(
+    path: Path,
+    *,
+    load: Callable[[Path], dict[str, object] | None],
+    merge: Callable[[dict[str, object]], bool],
+    validate: Callable[[dict[str, object]], bool],
+    render: Callable[[dict[str, object]], str],
+    dry_run: bool,
+) -> bool:
+    """Read, merge in place, validate, write only when changed, then re-read and validate.
+
+    ``merge`` raises ``ValueError`` on drift or malformed blocks; the file is then left untouched."""
+    data = load(path)
+    if data is None:
+        return False
+    try:
+        changed = merge(data)
+    except ValueError as exc:
+        warn(f"{path}: {exc}")
+        return False
+    if not validate(data):
+        warn(f"{path}: merged config failed validation")
+        return False
+    if not changed:
+        return True
+    if not _write_atomic_text(path, render(data), dry_run=dry_run):
+        return False
+    if dry_run:
+        return True
+    verified = load(path)
+    if verified is None or not validate(verified):
+        warn(f"{path}: write verification failed")
+        return False
+    return True
+
+
 def _configure_omp_mcp(
     path: Path,
     servers: list[McpServer],
@@ -397,73 +415,29 @@ def _configure_omp_mcp(
     gate: tuple[str, ...],
     dry_run: bool,
 ) -> bool:
-    data = load_json_object(path)
-    if data is None:
-        return False
-
-    try:
-        changed = _merge_omp_mcp(path, data, servers, remove=remove, gate=gate)
-    except ValueError as exc:
-        warn(f"{path}: {exc}")
-        return False
-
-    if not _validate_omp_mcp(data, servers):
-        warn(f"{path}: generated config failed validation")
-        return False
-
-    if not changed:
-        return True
-
-    if not _write_atomic_text(path, json.dumps(data, indent=2) + "\n", dry_run=dry_run):
-        return False
-    if dry_run:
-        return True
-
-    verified = load_json_object(path)
-    if verified is None or not _validate_omp_mcp(verified, servers):
-        warn(f"{path}: write verification failed")
-        return False
-    return True
+    return _converge_config(
+        path,
+        load=load_json_object,
+        merge=lambda data: _merge_omp_mcp(path, data, servers, remove=remove, gate=gate),
+        validate=lambda data: _validate_omp_mcp(data, servers),
+        render=lambda data: json.dumps(data, indent=2) + "\n",
+        dry_run=dry_run,
+    )
 
 
 def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
-    path = HERMES_CONFIG_PATH
-    data = load_yaml_object(path)
-    if data is None:
-        return False
-
-    try:
-        outcome = add_hermes_servers(data, servers)
-    except ValueError as exc:
-        warn(f"{path}: {exc}")
-        return False
-
-    required_provider = outcome.required_provider
-    if not validate_hermes_config(
-        outcome.config,
-        servers,
-        required_provider=required_provider,
-    ):
-        warn(f"{path}: post-merge validation failed")
-        return False
-
-    if not outcome.changed:
-        return True
-
-    if not _write_hermes_config(path, outcome.config, dry_run=dry_run):
-        return False
-    if dry_run:
-        return True
-
-    verified = load_yaml_object(path)
-    if verified is None or not validate_hermes_config(
-        verified,
-        servers,
-        required_provider=required_provider,
-    ):
-        warn(f"{path}: write verification failed")
-        return False
-    return True
+    providers = [server.hermes_memory_provider for server in servers if server.hermes_memory_provider]
+    required_provider = providers[-1] if providers else None
+    return _converge_config(
+        HERMES_CONFIG_PATH,
+        load=load_yaml_object,
+        merge=lambda data: add_hermes_servers(data, servers),
+        validate=lambda data: validate_hermes_config(
+            data, servers, required_provider=required_provider
+        ),
+        render=lambda data: yaml.safe_dump(data, sort_keys=False, allow_unicode=True) if data else "",
+        dry_run=dry_run,
+    )
 
 
 # MCP servers deliberately absent from OMP; stale pre-existing entries are removed on converge

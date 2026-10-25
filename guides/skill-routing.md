@@ -1,6 +1,6 @@
 # Choose a skill for the job
 
-Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill: 19 from Matt Pocock and 14 from pstack, grouped by when you use them, plus ponytail (4), caveman (2) and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 14 from pstack, four from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
 Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies. Reading a skill to check discovery does not invoke it.
 
@@ -21,12 +21,13 @@ The **Starts** column says who starts a skill:
 
 | Skill | From | Starts | When | Why |
 |---|---|---|---|---|
-| ponytail | ponytail pack | Always on, injected | Every change | Smallest change, reuse what exists, fix the root cause. A small diff is cheap to verify. |
+| `ponytail` | ponytail | Always on, injected | Every change | Smallest change, reuse what exists, fix the root cause. A small diff is cheap to verify. |
 | `/verify-<app>` checks | Generated per repository | Always on, through `AGENTS.md` | Every user-visible change | Proof on the real path. Approved checks stop the agent re-verifying in loops. |
 | `diagnosing-bugs` | Matt | Agent | Something fails, throws or is slow | Builds a reproducible feedback loop before guessing a fix. |
 | `tdd` | Matt | Agent | You ask for test-first | One behavior test at a time through the public interface, so tests survive refactors. |
 | `blast-radius` | pstack | You | Risky change: lifecycle, shared state, downstream consumers | Finds what breaks outside the diff and proves, by running real code, the one fact that makes it safe. |
 | `benchmark-checklist` | pstack | You | A measured number you'll report or act on | Checks what limits the number and that the work actually ran before you trust it. |
+| `caveman` | caveman | Agent | You ask for terse replies ("be brief", "less tokens") | Shorter replies with the technical content kept exact. |
 | `apache-spark-static` / `apache-spark-runtime` | This repository (opt-in) | Agent, if installed | Spark code, without or with execution evidence | Spark-specific correctness and performance risks. |
 
 While it works, the agent can also pick `codebase-design`, `prototype`, `research` and `domain-modeling` on its own. For nontrivial changes, add `/how [subsystem]` to the prompt.
@@ -58,6 +59,8 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 | `code-review` | Matt | Agent | Review against the coding standards and against the spec, on a frozen snapshot of the changes |
 | `interrogate` | pstack | You | Review by several models when a costly-to-undo doubt remains after the evidence |
 | `pr` | Matt | Agent | Drafts the PR body; pushing it needs your approval |
+| `caveman-commit` | caveman | Agent | A Conventional Commits message: why over what; writes the message, doesn't commit |
+| `ponytail-review` | ponytail | Agent | Review a diff only for over-engineering: what to delete and what replaces it; complements `code-review` |
 | `technical-writing` | pstack | You | Substantial human-facing documentation |
 | `unslop` | pstack | You | Remove AI-style tells from finished prose |
 | `show-me-your-work` | pstack | You | Decision log for long or unattended runs |
@@ -74,6 +77,8 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 | `retro` | Matt | You | After a costly session: report problems in the environment; changes nothing |
 | `reflect` | pstack | You | After a costly detour: turn it into reviewed skill edits |
 | `correct` | pstack | You | A mistake made twice becomes a guard: architecture, type, lint or test |
+| `ponytail-audit` | ponytail | Agent | Whole-repo report of what to delete, simplify or replace with the standard library; changes nothing |
+| `ponytail-debt` | ponytail | Agent | Collect `ponytail:` comments into a ledger of deliberate shortcuts; changes nothing |
 | `wait-what` | Matt | You | An explanation didn't land: re-explain it |
 
 ## Not for the implementation loop

@@ -136,7 +136,7 @@ Each prompt states the outcome and asks for proof. The verifier and `AGENTS.md` 
 
 | Job | Prompt |
 |---|---|
-| Feature | `Build [outcome]. Run the /verify-<app> checks that cover it, propose a check for the new behavior, and show me the evidence.` |
+| Feature | `Build [outcome]. Run the /verify-<app> checks that cover it, propose a check for the new behavior, and show me the evidence.` For a nontrivial change, run `/how [subsystem]` first. |
 | Reported bug | `Reproduce [report] with /verify-<app> and propose a check that fails on it. Then fix the cause and show the check passing.` If the cause is unclear, use `/diagnosing-bugs`. |
 | Performance | `Run the /verify-<app> performance check for [scenario] against [baseline ref]. Make one targeted fix and run it again.` If no check covers the path, ask the agent to trace it and propose one first. Run `/benchmark-checklist` before you report the number. |
 | Check the agent's reasoning | `/teach me why you implemented it this way and not [alternative].` |
@@ -176,9 +176,10 @@ Use only the parts the task needs. A small change you already understand goes st
    ```
 
 2. **Build the model.** Use `/how` for what runs and in what order, `/why` for the history and constraints behind it, and `/recall` for what earlier sessions tried. These explain code and history. Use the verifier to check claims about runtime behavior.
-3. **Write the caller's tutorial** for shared code: `/technical-writing`, then `/unslop`. Keep it as documentation if the module ships.
-4. **Prototype the open questions.** `/prototype` builds throwaway UI variants behind a switcher, or a standalone page for a state model. Drive each variant with `/verify-<app>` and choose from the captured evidence. For a consequential interface, compare at least three sketches with `/codebase-design` (Design It Twice). Remove the prototype code once the decision is folded into the real code.
-5. **Plan only when the work spans sessions or people.** After the design settles, use `/to-spec` or `/to-tickets`. Each ticket names the `/verify-<app>` action and the result that proves it. Delete temporary plans when the work lands.
+3. **Settle the choices only you can make.** With the model built, run `/grill-with-docs` on the plan. It asks the open decisions in rounds, each with a recommended answer, records resolved terms in `CONTEXT.md` and offers an ADR only for a decision that is hard to reverse. Use `/grilling` when nothing should be written down. Send measurable questions to a prototype instead.
+4. **Write the caller's tutorial** for shared code: `/technical-writing`, then `/unslop`. Keep it as documentation if the module ships.
+5. **Prototype the open questions.** `/prototype` builds throwaway UI variants behind a switcher, or a standalone page for a state model. Drive each variant with `/verify-<app>` and choose from the captured evidence. For a consequential interface, compare at least three sketches with `/codebase-design` (Design It Twice). Remove the prototype code once the decision is folded into the real code.
+6. **Plan only when the work spans sessions or people.** After the design settles, use `/to-spec` or `/to-tickets`. Each ticket names the `/verify-<app>` action and the result that proves it. Delete temporary plans when the work lands.
 
 Part 2's combined prompt, adapted to this stack:
 

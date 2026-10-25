@@ -1,12 +1,18 @@
 ---
 name: research
-description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.
+description: Research topics and verify docs or API facts against high-trust primary sources. Use for outside facts or delegated reading; return a cited answer or save a reusable note as needed.
 ---
 
-Dispatch a **background agent** with your runtime's own delegation tool (OMP: `task`; Hermes: `delegate_task`) to do the research, so you keep working while it reads.
+Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it and cite it.
 
-Its job:
+## Execution
 
-1. Investigate the question against **primary sources** (official docs, source code, specs, first-party APIs), not a secondary write-up of them. Follow every claim back to the source that owns it.
-2. Write the findings to a single Markdown file, citing each claim's source.
-3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+- Handle a focused docs or API lookup inline.
+- Delegate substantial, independent reading slices only when you can continue other useful work while they run. Use your runtime's delegation tool (OMP: `task`; Hermes: `delegate_task`); otherwise research inline.
+- Cover the requested scope in either mode. Delegation changes who reads, not what must be investigated.
+
+## Findings
+
+- Default to a cited answer in the reply.
+- Save a single Markdown note only when the user requests a file or later work needs a reusable research record for a spec, decision or handoff. A chat-only or read-only request stays in the reply.
+- When saving, update an existing relevant note or use the repo's established location and format. If there is no convention, choose a sensible location. Keep the citations and say where the note is saved.

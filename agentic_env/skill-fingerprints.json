@@ -15,7 +15,7 @@
         "improve-codebase-architecture": "a98dd5823f22507c5270516fd93078a66bfae03a6e17920463dd2114580feeb7",
         "pr": "1cb140ca4e50bef7fdd47bda7f47f7fc0891dab67a19bb4ebc43766e7c99c2e3",
         "prototype": "59c35a917f6285fb10a91b49600edccd64e0d5656b6deaad3ade853263e5fad7",
-        "research": "3a4d83ff8ed2bb92af737f32ac24c8f83b0c978b3d3d3e9a9bbbe3d0932c2f22",
+        "research": "658985148034e2704824524363bae1c2871fb7caae8c3708168c96665fa8a9be",
         "retro": "6e485cb802258afbfdef5940b77a203c109125749fc8031aec9b8982544e884f",
         "tdd": "f20b2e1cd5c1173924a766520ad7f76928bb89857d237eb77d28193332ff7d3b",
         "to-spec": "d0fc2e91f98fc86a70fe4d5ceba79a85268d877cae7b3853a838fb1055e32dc6",
@@ -61,8 +61,6 @@
         "ponytail": "388ec42c9551f47d12555b1723b1af67b8fe18a8afbea0a8db96cfb870eb3803",
         "ponytail-audit": "e3d9eddf58dd7b4dae504266d8a5eb7b306db1e69114710800d554ef386ccfd0",
         "ponytail-debt": "368db847eb919b0d841d253da745e8215e234cb217609b55b27528e8cb754c84",
-        "ponytail-gain": "c6d2cc7d7af635acadb96571fd71d9922acb8d8d856d37dc678aafe76a06a7fb",
-        "ponytail-help": "92f909eddf3b371e4737a85f60a8024cec6ae5cfb523561b8c56f86fcf3f52b0",
         "ponytail-review": "cd3715f0513d93e4caab8cc30ad09080ae62f763ed8b95304fd84efda5fbf0be"
       }
     },

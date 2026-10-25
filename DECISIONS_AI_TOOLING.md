@@ -110,7 +110,7 @@ Every rejection below names the pre-registered threshold it missed: lean-ctx 1 s
 
 ### 6. Skills
 
-**41 curated skills:** 19 Matt, 14 pstack, six ponytail, two caveman. [The manifest](agentic_env/skill-packs.json) owns the roster and sources; [Matt](agentic_env/vendored/mattpocock/UPSTREAM.md) and [pstack](agentic_env/vendored/pstack/UPSTREAM.md) record provenance and adaptations. [Verification and research history](docs/skills-workflow-recheck-2026-09-21.md). Update of 2026-10-13: Matt `49dd158`, pstack `1dcc2ba` (0.15.21); added `retro`, `pr`, `benchmark-checklist`, `correct`; dropped `resolving-merge-conflicts` after upstream removed it.
+**39 curated skills:** 19 Matt, 14 pstack, four ponytail, two caveman. [The manifest](agentic_env/skill-packs.json) owns the roster and sources; [Matt](agentic_env/vendored/mattpocock/UPSTREAM.md) and [pstack](agentic_env/vendored/pstack/UPSTREAM.md) record provenance and adaptations. [Verification and research history](docs/skills-workflow-recheck-2026-09-21.md). Update of 2026-10-13: Matt `49dd158`, pstack `1dcc2ba` (0.15.21); added `retro`, `pr`, `benchmark-checklist`, `correct`; dropped `resolving-merge-conflicts` after upstream removed it. Update of 2026-10-26: dropped `ponytail-gain` and `ponytail-help`; they only report on or explain ponytail itself, serve no workflow job, and were listed to the agent in every session.
 
 **Selection (2026-10-25):** every curated skill is opt-in, as with `npx skills add`. The `default` profile is what a non-interactive install selects, not a host requirement. The installed set is the selection: `agentic-stack-doctor` requires no curated skill (the built-in ponytail and codebase-memory-mcp descriptors stay mandatory), and `agentic-skill-drift` checks only installed curated skills unless `--skill-profile <name>` requires a whole profile. Tradeoff: a skill deleted by hand reads as deselected. A persisted selection file was rejected: `skills remove` or `rm` would leave it stale, and the skills CLI lock records only remote global installs, not the vendored Matt/pstack packs.
 
@@ -184,6 +184,7 @@ These are pre-registered triggers. Nothing here is acted on until its trigger fi
 - lean-ctx need fires (semantic search visibly missing on a real task) → reinstall ≥ 3.10.0 per ADR-0009.
 - Cross-project memory becomes a live need → Hindsight vs mem0 bake-off.
 - Trendshift screening: **Retired** as a routine (0 adoptions across two sweeps); on-demand reruns only.
+- Unused manual skills (2026-10-26): OMP transcripts from 2026-06-03 to 2026-10-25 (1,299 sessions) show no `skill://` load and no user invocation of `blast-radius`, `interrogate`, `show-me-your-work`, `reflect`, `benchmark-checklist` or `correct`. Recount on **2027-01-26**. Usage stays diagnostic (see [The stack](#the-stack)): re-judge each skill still at zero against its job, and drop it when another selected skill or the project verifier covers that job.
 - Version review → set every entry in `STACK_VERSION_FLOORS` to the latest stable release at the time of review, then re-run the acceptance matrix. Floors move on review, never on a single host's install.
 
 ## Parked

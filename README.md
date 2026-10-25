@@ -6,8 +6,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [Stack overview](docs/stack-overview.md): architecture and research index.
 - [Project memory](docs/project-memory-stack.md): per-repo setup.
 - [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
-- [Skill routing](guides/skill-routing.md): choose a skill for the task.
-- [Skill cheatsheet](guides/skill-cheatsheet.md): every installed skill, when it runs, and who starts it.
+- [Skill routing](guides/skill-routing.md): choose a skill for the task; every curated skill, when it runs, and who starts it.
 
 ## Quick usage
 
@@ -58,7 +57,7 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 41 skills: the 39-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
@@ -112,7 +111,7 @@ cd /path/to/agentic-env
 # Skip the destination prompts; still choose skills interactively.
 uv run agentic-install-skills-mcps --skills-dir "/path/to/project/.devin/skills"
 
-# Default profile: 41 skills, without prompts.
+# Default profile: 39 skills, without prompts.
 uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/project/.devin/skills" --skill-profile default --yes
 

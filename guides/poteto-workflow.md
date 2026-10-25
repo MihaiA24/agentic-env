@@ -5,7 +5,7 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles:
 - [Part 1: Verification is all you need](https://x.com/poteto/status/2094457600259842065) ([local copy](../poteto/pstack-part-1.md))
 - [Part 2: The art of supervising someone smarter than you](https://x.com/poteto/article/2097732320606507506) ([local copy](../poteto/pstack-part-2.md))
 
-[What the articles say](#what-the-articles-say) summarises each idea and links the step that applies it. [Apply it to a repository](#apply-it-to-a-repository) sets up one repository with this stack's skills. Her example verifier for a fictional app is [poteto/verification-skill-example](https://github.com/poteto/verification-skill-example).
+[What the articles say](#what-the-articles-say) summarises each idea and links the step that applies it. [Apply it to a repository](#apply-it-to-a-repository) sets up one repository with this stack's skills. Her example verifier for a fictional app is [poteto/verification-skill-example](https://github.com/poteto/verification-skill-example). Steps 2, 5 and 6 adopt its checkout isolation, proof rules, cross-feature journeys and map layout. It has no licence and omits its driver script, so this repository links to it instead of copying it.
 
 ## What the articles say
 
@@ -36,10 +36,10 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles:
 | In the articles | In this stack |
 |---|---|
 | `/poteto-mode` and its playbooks | Name the skill in your prompt; [skill routing](skill-routing.md) helps you pick it |
-| `/control-app` | The `/verify-<app>` skill you generate in step 2 |
+| `/control-app` | The `/verify-<app>` skill you generate in step 2. Keep it model-invocable so agents load it through the step 4 `AGENTS.md` rule; her example verifier is manual-only. |
 | A CLI of drive commands | The same CLI, plus checks with expected results you approve (steps 2–3) |
 | `.cursor/skills/verify-<app>/references/features/` | `.agents/skills/verify-<app>/features/` |
-| Cursor cloud agents and `/swarm` | Local agents, each with its own checkout, ports, profile and data; no cloud fan-out |
+| Cursor cloud agents and `/swarm` | Local agents, each with its own checkout, ports, profile and data, kept apart by the verifier CLI; no cloud fan-out |
 | `/architect` with a cross-model judge | `/codebase-design` (Design It Twice) plus prototypes |
 | Multi-phase plan playbook | `/to-spec` or `/to-tickets` |
 | Dr Eggbot, routines and automations | Not included; schedule runs yourself (step 6) |
@@ -82,28 +82,45 @@ API, and document the launch command and prerequisites.
 
 `/create-verification-skill` reads the repository and writes `.agents/skills/verify-<app>/SKILL.md` with launch, doctor, drive, evidence, cleanup and helper sections. It seeds a feature map of three to five features and proves one of them end to end. It does not require a CLI, so ask for one.
 
-The goal is deterministic commands, kept in the repository, that agents run instead of working out the steps each time. That saves time, context and tokens. The CLI has two layers. Drive commands (doctor, launch, the actions the app needs, logs, cleanup) let an agent explore. Checks cover the scenarios you approved: a concrete behavior, an end-to-end use case, a performance measurement. An agent trusts a check's answer instead of re-verifying it in a loop.
+The goal is deterministic commands, kept in the repository, that agents run instead of working out the steps each time. That saves time, context and tokens. Start with the drive commands (doctor, launch, the actions the app needs, logs, cleanup). With them and the feature map, agents can already explore the app and prove their changes. Checks come in step 3.
 
 ```text
 /create-verification-skill for this repository. Also build a small CLI
 in the verifier directory, so agents run commands instead of writing
-scripts: doctor, launch, the drive commands this app needs, logs,
-cleanup, and one check per scenario below. A check uses fixed input,
-seeds and clock, compares the result with an expected result, exits
-non-zero on a mismatch, and prints JSON with the difference and the
-evidence path. A performance check takes a baseline ref, alternates at
-least five runs of each side, confirms the work ran, and reports median
-and spread. Reuse the repository's own runner and tests. Use
-subcommands, rich --help, errors that say what to do instead, and
---dry-run on destructive commands. Show me the evidence for each check.
+scripts: doctor, launch, the drive commands this app needs, logs and
+cleanup. Derive ports, profile and data directory from the checkout,
+refuse to attach to an instance another checkout started, and make
+doctor report who owns the port and whether the build is current. In
+the skill's evidence rules, require proof of every entry point, mode
+and enabled flag variant a change can affect, through its success,
+cancel, error, empty and persistence paths. A build that doctor
+reports stale is not evidence. Wait for observable end states, not
+fixed sleeps, and use eval only to read state after the user path ran.
+Reuse the repository's own runner and tests. Use subcommands, rich
+--help, errors that say what to do instead, and --dry-run on
+destructive commands. Show me the evidence for the feature you prove.
+```
+
+If the app has no usable control at all, ask for a dev-only sidecar or a debugger bridge first. Spend time here: every later step depends on this CLI.
+
+### 3. Add checks and approve them with a fresh agent
+
+A check pins a scenario you will maintain: a concrete behavior, an end-to-end use case or a performance measurement. An agent trusts a check's answer instead of re-verifying it in a loop. Add checks only for the scenarios you want locked down; the drive commands and the feature map cover the rest.
+
+```text
+Add a check to the /verify-<app> CLI for each scenario below. A check
+uses fixed input, seeds and clock, compares the result with an
+expected result, exits non-zero on a mismatch, and prints JSON with
+the difference and the evidence path. A performance check takes a
+baseline ref, alternates at least five runs of each side, confirms the
+work ran, and reports median and spread. Reuse the repository's own
+runner and tests. Show me the evidence for each check.
 Scenarios: [behaviors, end-to-end use cases, performance measurements]
 ```
 
-Without a scenario list, ask it to propose scenarios from the feature map and pick the ones you will maintain. For a batch job such as Spark, a check runs the job on fixture input and compares its output, ignoring row order unless order is part of the contract. If the app has no usable control at all, ask for a dev-only sidecar or a debugger bridge first. Spend time here: every later step depends on these checks.
+Without a scenario list, ask it to propose scenarios from the feature map and pick the ones you will maintain. For a batch job such as Spark, a check runs the job on fixture input and compares its output, ignoring row order unless order is part of the contract.
 
-### 3. Approve the checks with a fresh agent
-
-Trust a check once you have seen it pass on the right result and fail on a wrong one, run by an agent that knows only the skill. Stop the creator's app instances, open a new session in the same checkout, and run:
+Trust a check once you have seen it pass on the right result and fail on a wrong one, run by an agent that knows only the skill. Stop the app instances the check author started, open a new session in the same checkout, and run:
 
 ```text
 Use /verify-<app> to run every check from a clean start, following the
@@ -113,7 +130,7 @@ revert. Report each missing command, prerequisite or step instead of
 working around it.
 ```
 
-Read the evidence and every expected result yourself. When they are right, commit them: they are now the approved behavior. Otherwise, send the report back to the creator session, fix the verifier, and run this step again.
+Read the evidence and every expected result yourself. When they are right, commit them: they are now the approved behavior. Otherwise, send the report back to the session that wrote the checks, fix the verifier, and run this step again.
 
 ### 4. Point every agent at the verifier
 
@@ -149,7 +166,7 @@ A proposed check is trusted only after you approve it as in step 3.
 
 `/code-review` freezes a snapshot that includes uncommitted and untracked files, so you do not need to commit first. A repository with no commits has no baseline; ask for a direct read-only review of the files instead.
 
-Only one agent drives an app instance at a time. To work in parallel, give each agent its own checkout (a worktree), ports, profile and data.
+Only one agent drives an app instance at a time. To work in parallel, give each agent its own checkout (a worktree). The verifier CLI derives that checkout's ports, profile and data, and refuses an instance another checkout started.
 
 ### 6. Keep the verifier sharp
 
@@ -158,6 +175,8 @@ Only one agent drives an app instance at a time. To work in parallel, give each 
 ```
 
 The skill checks every mapped feature against the source, drives each one live, fixes drift inside the verifier, and reports product regressions separately. The `AGENTS.md` rule keeps it from rewriting an approved expected result, so a failing check reaches you as a regression or a change to approve. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
+
+As the map grows, keep it sweepable. Group the README index by area and order it as a top-to-bottom regression pass. Describe flows that cross features, such as two sessions at once, a global shortcut or state shared between views, in `features/journeys.md` and list it last, so a full sweep ends with them. Maintenance drives it like any other feature file. Split a feature file once one of its sections needs its own preconditions, and keep every entry runnable without reading source.
 
 Treat the verifier as product code. When the CLI breaks or slows agents down, fix it before other work.
 

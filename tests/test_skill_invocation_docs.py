@@ -26,10 +26,10 @@ LOCAL = manual_flags(ROOT / "agentic_env" / "skills")
 
 
 class SkillInvocationDocsTests(unittest.TestCase):
-    def test_cheatsheet_lists_every_vendored_skill_with_its_invocation(self) -> None:
+    def test_routing_guide_lists_every_vendored_skill_with_its_invocation(self) -> None:
         flags = {**MATT, **PSTACK, **LOCAL}
         listed: dict[str, bool] = {}
-        for row in (ROOT / "guides" / "skill-cheatsheet.md").read_text(encoding="utf-8").splitlines():
+        for row in (ROOT / "guides" / "skill-routing.md").read_text(encoding="utf-8").splitlines():
             cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
             if len(cells) < 3 or not cells[2].startswith(("Agent", "You")):
                 continue

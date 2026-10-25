@@ -33,8 +33,7 @@ ROSTER = {
 
 class SkillInvocationDocsTests(unittest.TestCase):
     def test_routing_guide_lists_every_curated_skill_with_its_invocation(self) -> None:
-        flags = {name: manual for pack in VENDORED.glob("*/skills") for name, manual in manual_flags(pack).items()}
-        flags |= LOCAL
+        flags = {**MATT, **PSTACK, **LOCAL}
         starts: dict[str, str] = {}
         for row in (ROOT / "guides" / "skill-routing.md").read_text(encoding="utf-8").splitlines():
             cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
@@ -44,9 +43,10 @@ class SkillInvocationDocsTests(unittest.TestCase):
                 starts[name] = cells[2]
         # Every manifest skill is listed and nothing else is.
         self.assertEqual(sorted(starts.keys() ^ ROSTER), [])
-        # Starts says "You" exactly when the skill is manual-only.
+        # Starts says "You" exactly when the skill is manual-only. Remote packs ship no local
+        # frontmatter to compare, so only vendored and first-party skills are checked.
         self.assertEqual(
-            sorted(name for name, value in starts.items() if value.startswith("You") != flags[name]),
+            sorted(name for name, value in starts.items() if name in flags and value.startswith("You") != flags[name]),
             [],
         )
 

@@ -98,7 +98,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Managed installation, harness provisioning
 
 - **Python-only skill copy**
-  - The offline standalone-copy route for packages vendored in the checkout; packages fetched from upstream are outside its scope. Windows copy acceptance applies to this operation, not to the agent stack.
+  - The offline standalone-copy route for packages vendored in the checkout; remote-only packages are outside its scope. Windows copy acceptance applies to this operation, not to the agent stack.
   - _Avoid_: Full-stack Windows support, remote pack installation
 
 - **Agent global skill**
@@ -106,7 +106,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: MCP server, project-local skill
 
 - **Curated skill default**
-  - The reviewed roster selected per pack in the skill-pack manifest, shared by managed installations and native-CLI standalone copying. The Python-only route copies every vendored package in it. Custom skill-pack configuration extends the native installer's selection without a separate prompt-exposure allowlist. Every skill in it is opt-in: the installed set is the selection, and no curated skill is a host requirement.
+  - The reviewed roster selected per pack in the skill-pack manifest, shared by managed installations and native-CLI standalone copying. The Python-only route copies only its vendored subset. Custom skill-pack configuration extends the native installer's selection without a separate prompt-exposure allowlist. Every skill in it is opt-in: the installed set is the selection, and no curated skill is a host requirement.
   - _Avoid_: Comprehensive skill catalog, skill marketplace
 
 - **Checkout module command**

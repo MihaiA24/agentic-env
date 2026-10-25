@@ -75,7 +75,7 @@ class CopySkillTests(unittest.TestCase):
     def test_unavailable_and_empty_selections_never_create_destination(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             destination = Path(temporary) / "skills"
-            for selection in ("tdd,ponytail-gain", " , "):
+            for selection in ("tdd,ponytail", " , "):
                 with self.subTest(selection=selection):
                     result = self.copy(destination, "--skill", selection)
                     self.assertNotEqual(result.returncode, 0)

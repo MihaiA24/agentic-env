@@ -117,7 +117,7 @@ Read the evidence and every expected result yourself. When they are right, commi
 
 ### 4. Point every agent at the verifier
 
-Add this to the repository's `AGENTS.md`, which OMP, Codex and Hermes read. For Claude Code, add a `CLAUDE.md` that contains `@AGENTS.md`.
+Add this to the repository's `AGENTS.md`, which OMP, Codex, Hermes and Claude Code read. Claude Code (v2.1.277 or later) reads it only when there is no `CLAUDE.md`; if the repository has one, add `@AGENTS.md` to it.
 
 ```markdown
 ## Verification

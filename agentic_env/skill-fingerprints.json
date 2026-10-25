@@ -27,7 +27,7 @@
       }
     },
     "caveman": {
-      "source": "JuliusBrussee/caveman#v2.3.1",
+      "source": "./vendored/caveman/skills",
       "upstream": "JuliusBrussee/caveman@v2.3.1",
       "skills": {
         "caveman": "2a53959c5238aec65da1fa506ab715da83216ea2365f74dfe7401d0d5fb5c317",
@@ -55,7 +55,7 @@
       }
     },
     "ponytail": {
-      "source": "DietrichGebert/ponytail#v4.9.0",
+      "source": "./vendored/ponytail/skills",
       "upstream": "DietrichGebert/ponytail@v4.9.0",
       "skills": {
         "ponytail": "388ec42c9551f47d12555b1723b1af67b8fe18a8afbea0a8db96cfb870eb3803",

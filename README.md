@@ -63,7 +63,7 @@ In flag-driven runs, every explicit `--skill` name must match the selected packs
 
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
 
-[Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
+[Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt, pstack, caveman and ponytail packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
 
 #### Apache Spark: optimize existing jobs
 
@@ -154,7 +154,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **8 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies all **41 locally packaged skills** (39 vendored Matt/pstack/caveman/ponytail skills plus the two first-party Spark skills), including scripts and references. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 
@@ -164,7 +164,7 @@ The copier only copies files. It does not convert Bash assets or OMP/Hermes-spec
 
 This procedure covers both custom-directory routes, not the managed-agent refresh below.
 
-1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. A default Python-only copy leaves out the eight remote-only skills by design; an explicitly requested unavailable skill fails before copying.
+1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. An explicitly requested unavailable skill fails before copying.
 2. **Check harness discovery separately.** Confirm the destination is the harness's documented skills folder, then load one selected skill by name without executing its recipe. Copying files proves neither discovery nor workflow compatibility. Doctor and `agentic-skill-drift` inspect the managed stack, not an arbitrary destination.
 3. **Refresh into a new directory.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Rerun the same route with a new destination. Compare whole package directories, and preserve local edits and back up the existing selected packages before you replace them. `uv tool upgrade agentic-env` and `agentic-update-stack` do not refresh standalone copies.
 4. **Handle errors without overwriting.** Both routes refuse existing skill names, including dangling symlinks, before copying any package, and leave unrelated files alone. Choose a fresh destination instead of deleting local work. A filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry into a new one.
@@ -393,7 +393,7 @@ The [workflow](.github/workflows/smoke-test.yml) runs native macOS arm64, Debian
 
 Linux acceptance uses a non-fail-fast Debian/Arch matrix; each leg retains the same container for all three passes. The Compose services share common settings, with separate Dockerfiles and an opt-in Arch profile.
 
-The independent **Windows Python-only skill copy** job uses `windows-latest` and Python 3.12 to run the dependency-free checks above. It covers complete vendored copies, reported remote exclusions, selection errors, collision preflight and refusal to copy into a source package. It does not install agents or MCPs or validate skill workflows.
+The independent **Windows Python-only skill copy** job uses `windows-latest` and Python 3.12 to run the dependency-free checks above. It covers complete vendored copies, selection errors, collision preflight and refusal to copy into a source package. It does not install agents or MCPs or validate skill workflows.
 
 On 2026-09-22, that [Windows job passed](https://github.com/MihaiA24/.dotfiles/actions/runs/35761661410/job/106860923046) at [`d9bff13`](https://github.com/MihaiA24/.dotfiles/commit/d9bff133715b6b3e063b705381c682bc52934d8e). This is copier acceptance, separate from the historical full-stack evidence below.
 

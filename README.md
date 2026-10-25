@@ -5,7 +5,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [Decisions](DECISIONS_AI_TOOLING.md): operative policy and wiring.
 - [Stack overview](docs/stack-overview.md): architecture and research index.
 - [Project memory](docs/project-memory-stack.md): per-repo setup.
-- [pstack workflow](guides/poteto-workflow.md): prepare a repository's verifier and use it on changes.
+- [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
 - [Skill routing](guides/skill-routing.md): choose a skill for the task.
 
 ## Quick usage

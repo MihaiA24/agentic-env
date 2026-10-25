@@ -1,6 +1,6 @@
 # Choose a skill for the job
 
-Use this guide to choose a skill for a task, if one is needed. It follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills). For host setup and a project verifier, use [Start a new repo with the selected pstack skills](poteto-workflow.md). The implementation, prototype, and maintenance routes below use that verifier.
+Use this guide to choose a skill for a task, if one is needed. It follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills). For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md). The implementation, prototype, and maintenance routes below use that verifier.
 
 Choose the route your task needs. Skip the rest.
 
@@ -127,7 +127,7 @@ do not publish them until I approve.
 
 For an ordinary change, verify the affected paths. Do not run full maintenance for every change.
 
-Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier useful](poteto-workflow.md#4-keep-the-verifier-useful) for the prompt.
+Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier sharp](poteto-workflow.md#6-keep-the-verifier-sharp) for the prompt.
 
 ## Vet performance numbers before you use them
 

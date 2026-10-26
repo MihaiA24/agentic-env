@@ -2,12 +2,12 @@
 
 Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 14 from pstack, four from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
-Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies. Reading a skill to check discovery does not invoke it.
+Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies; Claude Code still loads a manual dependency only when your message names it. Reading a skill to check discovery does not invoke it.
 
 The **Starts** column says who starts a skill:
 
 - **Agent**: model-invocable; the agent picks it on its trigger.
-- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it. Unlike pstack's `/poteto-mode`, nothing here lets the agent escalate to a manual skill mid-task.
+- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). Unlike pstack's `/poteto-mode`, nothing here lets the agent escalate to a manual skill mid-task.
 
 ## Start without a skill
 
@@ -50,7 +50,7 @@ While it works, the agent can also pick `codebase-design`, `prototype`, `researc
 | `wayfinder` | Matt | You | Work too big for one session: a map of decision tickets |
 | `to-spec` / `to-tickets` | Matt | You | A settled design that needs coordination across sessions or people; publishing needs your approval |
 
-To ground a grilling session in facts, run `/how` and a scoped `/why` first, then `/grill-with-docs` on the plan. In Claude Code, send them as three separate prompts.
+To ground a grilling session in facts, run `/how` and a scoped `/why` first, then `/grill-with-docs` on the plan.
 
 ## Review and ship
 
@@ -150,7 +150,7 @@ For a new module or API, describe how callers will use it before writing the imp
 
 ```text
 Use /technical-writing to draft a short tutorial showing how a caller
-would use [module]. Apply /unslop. Use /codebase-design to assess the
+would use [module]. Apply /unslop to it. Use /codebase-design to assess the
 interface and its tradeoffs. Stop before implementation.
 ```
 

@@ -62,9 +62,9 @@ The prompts below write `/name`. Use your harness's form:
 | OMP | `/skill:<name>` | `.agents/skills/` |
 | Claude Code | `/<name>` | `.claude/skills/`; link `.claude/skills/verify-<app>` to `../../.agents/skills/verify-<app>` |
 | Codex | `$<name>` | `.agents/skills/` |
-| Hermes | `/<name>` | `.agents/skills/`, after you run `hermes skills trust` for the repository yourself |
+| Hermes | `/<name>`; `/skill <name>` when a Hermes command has the same name, such as `/skill handoff` | `.agents/skills/`, after you run `hermes skills trust` for the repository yourself |
 
-pstack skills are manual-only. [Claude Code stops a manual skill from loading another one](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), so in Claude Code invoke `/how` and `/why` yourself before `/teach`, and run `/unslop` as its own prompt after `/technical-writing`.
+pstack skills are manual-only, and some load others by name: `/teach` loads `/how`, `/why` and `/unslop`; `/recall` loads `/why` and `/unslop`; `/blast-radius` loads `/how`, `/why` and `/unslop`; `/technical-writing` loads `/unslop`. OMP, Codex and Hermes let the skill you invoked load them. [Claude Code loads a manual skill only when your message names it](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), even when another skill asks for it. In Claude Code, name every skill the recipe loads in the same message, each as a separate word with no punctuation attached: `/teach me how sessions expire. Run /how /why and /unslop as needed`.
 
 ### 1. Get one user path running
 
@@ -134,7 +134,7 @@ Read the evidence and every expected result yourself. When they are right, commi
 
 ### 4. Point every agent at the verifier
 
-Add this to the repository's `AGENTS.md`, which OMP, Codex, Hermes and Claude Code read. Claude Code (v2.1.277 or later) reads it only when there is no `CLAUDE.md`; if the repository has one, add `@AGENTS.md` to it.
+Add this to the repository's `AGENTS.md`, which OMP, Codex, Hermes and Claude Code read. Claude Code reads it from v2.1.277 (the stack's floor is newer), but only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or above it. If one does, import `AGENTS.md` from it: `@AGENTS.md` in a root file, `@../AGENTS.md` in `.claude/CLAUDE.md`.
 
 ```markdown
 ## Verification
@@ -171,10 +171,12 @@ Only one agent drives an app instance at a time. To work in parallel, give each 
 ### 6. Keep the verifier sharp
 
 ```text
-/maintain-verification-skill for .agents/skills/verify-<app>.
+/maintain-verification-skill for .agents/skills/verify-<app>. Also run
+every approved check from a clean start. Report each failure with its
+old and new result, and do not edit any expected result.
 ```
 
-The skill checks every mapped feature against the source, drives each one live, fixes drift inside the verifier, and reports product regressions separately. The `AGENTS.md` rule keeps it from rewriting an approved expected result, so a failing check reaches you as a regression or a change to approve. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
+The skill checks every mapped feature against the source, drives each one live, fixes drift inside the verifier, and reports product regressions separately. It knows nothing about checks, yet it may edit the verifier scripts that hold them; the last two sentences of the prompt cover that. Neither they nor the `AGENTS.md` rule enforce anything, so read the diff: a changed expected result is a change for you to approve, not drift. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
 
 As the map grows, keep it sweepable. Group the README index by area and order it as a top-to-bottom regression pass. Describe flows that cross features, such as two sessions at once, a global shortcut or state shared between views, in `features/journeys.md` and list it last, so a full sweep ends with them. Maintenance drives it like any other feature file. Split a feature file once one of its sections needs its own preconditions, and keep every entry runnable without reading source.
 
@@ -210,4 +212,4 @@ caller's side. /prototype the open questions, drive each variant with
 /verify-<app>, and /teach me why the chosen design beats the current one.
 ```
 
-In Claude Code, send each named skill as its own prompt, in that order.
+In Claude Code, send it as one message and add `/unslop` to it as a separate word: `/recall`, `/technical-writing` and `/teach` load it.

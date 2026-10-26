@@ -59,7 +59,7 @@ Every rejection below names the pre-registered threshold it missed: lean-ctx 1 s
 
 - **Primary harness — OMP.** Installer-enforced, smoke-verified, doctor failure.
 - **Supported agent — Hermes.** Its CLI, skills, MCP config, and health checks are managed; the doctor only warns (`TODO secondary`). It keeps its `codebase-memory-mcp` and `agentmemory` entries (behaviour unmeasured).
-- **Installed agent — Claude Code, Codex.** Latest CLI at or above the reviewed floor, plus curated skills from the skill store. No MCP config is written or diagnosed; the doctor warns only when the binary is missing.
+- **Installed agent — Claude Code, Codex.** Latest CLI at or above the reviewed floor, plus curated skills from the skill store. No MCP config is written or diagnosed; the doctor warns only when the binary is missing. Claude floor `2.1.308` (2026-10-26, latest stable): Claude Code reads a project's `AGENTS.md` from 2.1.277 and in every session type from 2.1.281, which the [pstack workflow](guides/poteto-workflow.md#4-point-every-agent-at-the-verifier) relies on.
 
 #### Secondary agents TODO (closed 2026-09-02)
 
@@ -132,7 +132,7 @@ Every rejection below names the pre-registered threshold it missed: lean-ctx 1 s
 
 Other escalations: `to-spec`/`to-tickets` for durable plans; `pr` for a PR body (drafting only); `handoff` for explicit transfer; `improve-codebase-architecture` for report-only surveys; `show-me-your-work` for run audits. Retrospectives split three ways: `retro` reports environment candidates (navigation, checks, standards, tool economy); `reflect` routes a costly detour into skill or instruction edits; `correct` turns a mistake class seen twice into an enforced guard. `recall` is for scoped transcripts, not the memory bank. Agent documents use `writing-for-agents`; substantial human-facing material uses `technical-writing`. `wizard` requires approved stages and destinations and human execution, and never inspects secret files.
 
-**Invocation:** all pstack skills are manual-only, as are Matt's `grill-with-docs`, `handoff`, `improve-codebase-architecture`, `retro`, `to-spec`, `to-tickets`, `wait-what`, `wayfinder`, `wizard`. Other Matt methods, including `pr`, keep narrow automatic triggers. Explicitly invoked recipes may load named dependencies; role labels grant no invocation or action authority.
+**Invocation:** all pstack skills are manual-only, as are Matt's `grill-with-docs`, `handoff`, `improve-codebase-architecture`, `retro`, `to-spec`, `to-tickets`, `wait-what`, `wayfinder`, `wizard`. Other Matt methods, including `pr`, keep narrow automatic triggers. Explicitly invoked recipes may load named dependencies; Claude Code loads a manual dependency only when the user's message names it. Role labels grant no invocation or action authority.
 
 **Managed runtime:** `~/.agents/skills` is canonical; Claude and Hermes link to it. OMP loads the Claude root (`enableClaudeUser: true`, `enableAgentsUser: false`). It hides manual skills from its automatic listing but still loads them by name. Installed Hermes ignores the manual flag and warns on those symlink targets, then loads them successfully, so the body guards are behavioral, not enforced hiding. Do not weaken trust to suppress the warnings. Standalone copies create none of these links and do not enroll another harness in managed discovery, health checks, or updates.
 

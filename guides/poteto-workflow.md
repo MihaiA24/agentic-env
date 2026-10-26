@@ -51,7 +51,7 @@ Steps 0–4 run once per repository. Step 5 is the daily loop and step 6 the upk
 
 ### 0. Prepare the host
 
-Install the skills once per host with the [README runbook](../README.md#refresh-skills-on-an-existing-omp-host), or the [copy route](../README.md#python-only-copy-on-windows) on Windows. Start your agent in the project's root.
+Install the skills once per host with the [README runbook](../README.md#refresh-skills-on-an-existing-omp-host), or the [copy route](../README.md#python-only-copy-on-windows) on Windows. The runbook refreshes skills, not agent binaries: if its `agentic-stack-doctor` step flags the agent you use, run `agentic-update-stack`. An older Claude Code can ignore the `AGENTS.md` rules from [step 4](#4-point-every-agent-at-the-verifier). Start your agent in the project's root.
 
 #### Invoke skills in your harness
 
@@ -64,7 +64,7 @@ The prompts below write `/name`. Use your harness's form:
 | Codex | `$<name>` | `.agents/skills/` |
 | Hermes | `/<name>`; `/skill <name>` when a Hermes command has the same name, such as `/skill handoff` | `.agents/skills/`, after you run `hermes skills trust` for the repository yourself |
 
-pstack skills are manual-only, and some load others by name: `/teach` loads `/how`, `/why` and `/unslop`; `/recall` loads `/why` and `/unslop`; `/blast-radius` loads `/how`, `/why` and `/unslop`; `/technical-writing` loads `/unslop`. OMP, Codex and Hermes let the skill you invoked load them. [Claude Code loads a manual skill only when your message names it](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), even when another skill asks for it. In Claude Code, name every skill the recipe loads in the same message, each as a separate word with no punctuation attached: `/teach me how sessions expire. Run /how /why and /unslop as needed`.
+pstack skills are manual-only, and some load others by name: `/teach` loads `/how`, `/why` and `/unslop`; `/recall` loads `/why` and `/unslop`; `/blast-radius` loads `/why` and `/unslop`, plus `/interrogate` for a big change; `/technical-writing` loads `/unslop`. OMP, Codex and Hermes let the skill you invoked load them. [Claude Code loads a manual skill only when your message names it](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), even when another skill asks for it. In Claude Code, name every skill the recipe loads in the same message, each as a separate word with no punctuation attached: `/teach me how sessions expire. Run /how /why and /unslop as needed`.
 
 ### 1. Get one user path running
 
@@ -134,7 +134,7 @@ Read the evidence and every expected result yourself. When they are right, commi
 
 ### 4. Point every agent at the verifier
 
-Add this to the repository's `AGENTS.md`, which OMP, Codex, Hermes and Claude Code read. Claude Code reads it from v2.1.277 (the stack's floor is newer), but only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or above it. If one does, import `AGENTS.md` from it: `@AGENTS.md` in a root file, `@../AGENTS.md` in `.claude/CLAUDE.md`.
+Add this to the repository's `AGENTS.md`, which OMP, Codex, Hermes and Claude Code read. Claude Code reads it in every session from v2.1.281 (the stack's floor is newer), but only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or above it. If one does, import `AGENTS.md` from it: `@AGENTS.md` in a root file, `@../AGENTS.md` in `.claude/CLAUDE.md`.
 
 ```markdown
 ## Verification

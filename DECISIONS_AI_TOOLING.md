@@ -59,7 +59,7 @@ Every rejection below names the pre-registered threshold it missed: lean-ctx 1 s
 
 - **Primary harness — OMP.** Installer-enforced, smoke-verified, doctor failure.
 - **Supported agent — Hermes.** Its CLI, skills, MCP config, and health checks are managed; the doctor only warns (`TODO secondary`). It keeps its `codebase-memory-mcp` and `agentmemory` entries (behaviour unmeasured).
-- **Installed agent — Claude Code, Codex.** Latest CLI at or above the reviewed floor, plus curated skills from the skill store. No MCP config is written or diagnosed; the doctor warns only when the binary is missing. Claude floor `2.1.308` (2026-10-26, latest stable): Claude Code reads a project's `AGENTS.md` from 2.1.277 and in every session type from 2.1.281, which the [pstack workflow](guides/poteto-workflow.md#4-point-every-agent-at-the-verifier) relies on.
+- **Installed agent — Claude Code, Codex.** Latest CLI at or above the reviewed floor, plus curated skills from the skill store. No MCP config is written or diagnosed; the doctor warns when the binary is missing or below its floor. Claude floor `2.1.308` (2026-10-26, latest stable), raised alone so Claude Code reads the project `AGENTS.md` that the [pstack workflow](guides/poteto-workflow.md#4-point-every-agent-at-the-verifier) relies on.
 
 #### Secondary agents TODO (closed 2026-09-02)
 
@@ -185,7 +185,7 @@ These are pre-registered triggers. Nothing here is acted on until its trigger fi
 - Cross-project memory becomes a live need → Hindsight vs mem0 bake-off.
 - Trendshift screening: **Retired** as a routine (0 adoptions across two sweeps); on-demand reruns only.
 - Unused manual skills (2026-10-26): OMP transcripts from 2026-06-03 to 2026-10-25 (1,299 sessions) show no `skill://` load and no user invocation of `blast-radius`, `interrogate`, `show-me-your-work`, `reflect`, `benchmark-checklist` or `correct`. Recount on **2027-01-26**. Usage stays diagnostic (see [The stack](#the-stack)): re-judge each skill still at zero against its job, and drop it when another selected skill or the project verifier covers that job.
-- Version review → set every entry in `STACK_VERSION_FLOORS` to the latest stable release at the time of review, then re-run the acceptance matrix. Floors move on review, never on a single host's install.
+- Version review → set every entry in `STACK_VERSION_FLOORS` to the latest stable release at the time of review, then re-run the acceptance matrix. When a workflow needs a newer release of one component, raise only that floor the same way and record why in this file. Floors move on review, never on a single host's install.
 
 ## Parked
 

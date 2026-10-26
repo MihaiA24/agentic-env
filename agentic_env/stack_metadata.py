@@ -17,8 +17,7 @@ from .remote_install_contract import (
 # fetch the latest release and verify it is at or above the floor. At each
 # review, take the latest stable version and record it here.
 # Reviewed 2026-09-09: OMP v18.1.14 and Codex 0.153.4.
-# Reviewed 2026-10-26: Claude 2.1.308, the latest stable; Claude Code reads a
-# project's AGENTS.md from 2.1.277, in every session type from 2.1.281.
+# Reviewed 2026-10-26: Claude 2.1.308.
 # Other floors last reviewed 2026-09-02: Hermes v2026.8.31 and agentmemory 0.9.29.
 HERMES_COMMIT: Final[str] = "29112bef099274229cadff79cdff7bf7b99c4b77"
 OMP_VERSION: Final[str] = "18.1.14"

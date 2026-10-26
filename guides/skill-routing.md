@@ -1,39 +1,92 @@
 # Choose a skill for the job
 
-Use this guide to choose a skill for a task, if one is needed. It follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills). For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md). The implementation, prototype, and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 14 from pstack, four from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
-Choose the route your task needs. Skip the rest.
+Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies. Reading a skill to check discovery does not invoke it.
 
-Invoke the skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoke manual-only skills, listed in [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills), by name. Invoking a recipe authorizes its named dependencies. Reading a skill to check discovery does not invoke it.
+The **Starts** column says who starts a skill:
 
-## Find the route
+- **Agent**: model-invocable; the agent picks it on its trigger.
+- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it. Unlike pstack's `/poteto-mode`, nothing here lets the agent escalate to a manual skill mid-task.
+
+## Start without a skill
 
 | Situation | Route |
 |---|---|
-| A small change you already understand | Implement it directly and exercise the affected path |
+| A small change you already understand | Implement it and exercise the affected user path with the project verifier. Show the evidence; skip the planning document, interview and critique. |
 | A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
-| How the current code works | `/how` |
-| Why the code has its current shape | `/why`, scoped to one target and question |
-| You want the agent to explain its work and reasoning | `/teach` |
-| You are resuming earlier work in this workspace | `/recall` |
-| Goals, constraints, or choices only a person can make | `/grilling` |
-| A plan to stress-test, with resolved terms and decisions written down | `/grill-with-docs`, after `/how` and a scoped `/why` |
-| An unknown that an experiment can measure | `/prototype`, with the verifier |
-| Spark code needs review without execution evidence; input volume may be unknown | `/apache-spark-static` (opt-in): code/plan facts, conditional risks, minimal changes and validation plan |
-| An existing Spark job has live metrics or completed-run artifacts | `/apache-spark-runtime` (opt-in): evidence-backed diagnosis, targeted experiments, output-equivalence and before/after proof |
-| A new interface that callers will use | `/technical-writing` and `/codebase-design` |
-| A consequential doubt that evidence supports | `/interrogate` |
-| A settled design needs coordination across sessions or people | `/to-spec` or `/to-tickets` |
 | Proof that a change works | The project verifier, on the affected paths |
-| A performance number you measured, before you report or act on it | `/benchmark-checklist` |
-| A PR body to draft | `pr` loads automatically; opening or pushing the PR needs your approval |
-| A finished session that cost more than it should have | `/retro` for environment fixes, `/reflect` for skill edits |
-| Agents keep repeating the same mistake in this repo | `/correct` |
-| The verifier no longer matches the app | `/maintain-verification-skill`, on every mapped feature |
 
-## Make small, understood changes directly
+## During implementation
 
-For a small change you already understand, implement it and exercise the affected user path with the project verifier. Show the evidence. Skip the planning document, interview, and critique.
+| Skill | From | Starts | When | Why |
+|---|---|---|---|---|
+| `ponytail` | ponytail | Always on, injected | Every change | Smallest change, reuse what exists, fix the root cause. A small diff is cheap to verify. |
+| `/verify-<app>` checks | Generated per repository | Always on, through `AGENTS.md` | Every user-visible change | Proof on the real path. Approved checks stop the agent re-verifying in loops. |
+| `diagnosing-bugs` | Matt | Agent | Something fails, throws or is slow | Builds a reproducible feedback loop before guessing a fix. |
+| `tdd` | Matt | Agent | You ask for test-first | One behavior test at a time through the public interface, so tests survive refactors. |
+| `blast-radius` | pstack | You | Risky change: lifecycle, shared state, downstream consumers | Finds what breaks outside the diff and proves, by running real code, the one fact that makes it safe. |
+| `benchmark-checklist` | pstack | You | A measured number you'll report or act on | Checks what limits the number and that the work actually ran before you trust it. |
+| `caveman` | caveman | Agent | You ask for terse replies ("be brief", "less tokens") | Shorter replies with the technical content kept exact. |
+| `apache-spark-static` / `apache-spark-runtime` | This repository (opt-in) | Agent, if installed | Spark code, without or with execution evidence | Spark-specific correctness and performance risks. |
+
+While it works, the agent can also pick `codebase-design`, `prototype`, `research` and `domain-modeling` on its own. For nontrivial changes, add `/how [subsystem]` to the prompt.
+
+## Understand and decide (before code)
+
+| Skill | From | Starts | Use it for |
+|---|---|---|---|
+| `recall` | pstack | You | Resuming earlier work: rebuild the context of earlier sessions |
+| `how` | pstack | You | How the current code works, and where a change should go |
+| `why` | pstack | You | Why the code has its shape, from history and documents; scope it to one target and question |
+| `teach` | pstack | You | `how` and `why` explained to you; also after implementation, to explain the agent's work and reasoning |
+| `research` | Matt | Agent | Outside facts from primary sources; cited reply by default, reusable note when requested or needed |
+| `grilling` | Matt | Agent | Goals, constraints or choices only you can make, asked in rounds |
+| `grill-with-docs` | Matt | You | A plan to stress-test: `grilling` plus `domain-modeling`, writing the glossary and ADRs as you go |
+| `domain-modeling` | Matt | Agent | Keep terms in `CONTEXT.md` consistent; check your claims against the code |
+| `codebase-design` | Matt | Agent | Interface and seam design: simple interfaces that hide a lot of logic |
+| `prototype` | Matt | Agent | An unknown an experiment can measure, answered with throwaway code and the verifier |
+| `improve-codebase-architecture` | Matt | You | Report-only survey for code that can be restructured |
+| `wayfinder` | Matt | You | Work too big for one session: a map of decision tickets |
+| `to-spec` / `to-tickets` | Matt | You | A settled design that needs coordination across sessions or people; publishing needs your approval |
+
+To ground a grilling session in facts, run `/how` and a scoped `/why` first, then `/grill-with-docs` on the plan. In Claude Code, send them as three separate prompts.
+
+## Review and ship
+
+| Skill | From | Starts | Use it for |
+|---|---|---|---|
+| `code-review` | Matt | Agent | Review against the coding standards and against the spec, on a frozen snapshot of the changes |
+| `interrogate` | pstack | You | Review by several models when a costly-to-undo doubt remains after the evidence |
+| `pr` | Matt | Agent | Drafts the PR body; pushing it needs your approval |
+| `caveman-commit` | caveman | Agent | A Conventional Commits message: why over what; writes the message, doesn't commit |
+| `ponytail-review` | ponytail | Agent | Review a diff only for over-engineering: what to delete and what replaces it; complements `code-review` |
+| `technical-writing` | pstack | You | Substantial human-facing documentation |
+| `unslop` | pstack | You | Remove AI-style tells from finished prose |
+| `show-me-your-work` | pstack | You | Decision log for long or unattended runs |
+
+## Setup, upkeep and learning
+
+| Skill | From | Starts | Use it for |
+|---|---|---|---|
+| `create-verification-skill` | pstack | You | Once per repository: verifier, CLI and feature map |
+| `maintain-verification-skill` | pstack | You | The verifier no longer matches the app: re-check every mapped feature |
+| `writing-for-agents` | Matt | Agent | Editing skills, `AGENTS.md` or `CLAUDE.md` |
+| `wizard` | Matt | You | Script a manual step only you can do, such as credentials or infrastructure |
+| `handoff` | Matt | You | Transfer work to another agent (written to `$TMPDIR`) |
+| `retro` | Matt | You | After a costly session: report problems in the environment; changes nothing |
+| `reflect` | pstack | You | After a costly detour: turn it into reviewed skill edits |
+| `correct` | pstack | You | A mistake made twice becomes a guard: architecture, type, lint or test |
+| `ponytail-audit` | ponytail | Agent | Whole-repo report of what to delete, simplify or replace with the standard library; changes nothing |
+| `ponytail-debt` | ponytail | Agent | Collect `ponytail:` comments into a ledger of deliberate shortcuts; changes nothing |
+| `wait-what` | Matt | You | An explanation didn't land: re-explain it |
+
+## Not for the implementation loop
+
+- **`interrogate`:** it runs several models and costs a lot. Keep it for contested designs.
+- **`grilling`, `grill-with-docs`:** they stop to wait for your answers.
+- **`to-spec`, `to-tickets`:** they end by publishing.
+- **`teach`, `how`, `why`:** read-only. They explain; they don't change anything.
 
 ## Use explanation skills only for their own questions
 

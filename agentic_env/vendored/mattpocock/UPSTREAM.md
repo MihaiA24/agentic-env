@@ -9,6 +9,7 @@ The [manifest](../../skill-packs.json) selects nineteen complete packages from `
 ## Local adaptations
 
 - Native loading (`skill://`, `skill_view`) and delegation (`task`, `delegate_task`); independent work may fan out, small work stays inline. Authoring mechanics distinguish manual discovery from named dependency loading.
+- `research` (2026-10-25): replaced mandatory background delegation with inline focused lookups and conditional delegation of substantial independent reading while other useful work continues. Replaced mandatory repository Markdown with a cited reply by default; save or update a note only when requested or needed as a reusable research record. Chat-only/read-only requests create no note. Primary-source evidence and full requested scope are retained; no skills were added or removed.
 - `code-review` uses the local `scripts/review_snapshot.py`: explicit refs/scoped WIP, unchanged user staging, shared frozen context and before/after integrity checks. Intent can come from the user, not only commits. Hashes are not write restrictions; reviewers need restricted grants or tool-less input.
 - `code-review` ships a local `STANDARDS.md`: six shared review lenses condensed from Lauren Tan's pstack `principle-*` skills (`cursor/plugins` @ `c1c0a32`, [MIT, Lauren Tan](../pstack/LICENSE)), not Matt's work. The Standards axis applies it in every repo, below the repo's own standards and above the smell baseline.
 - Tracker consumers use `docs/agents/issue-tracker.md` rather than the excluded setup skill; ask when configuration is missing.

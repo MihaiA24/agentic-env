@@ -1,5 +1,5 @@
-tree 852ba825a4949d97a209d0e0cf28426916359ea6
-commit 7043d3f2473cb25fd26f14472a8ed3af1fcbdcb3
-date 2026-11-01T13:14:17Z
-host Linux 7.3.1-1-cachyos x86_64
-passed pytest bun-hooks debian arch
+tree 68f834f41095c98ab109a42b8ebf86411c72dfdf
+commit 13db7f00bcf50dbf0d3d2c000563d84e14dbeeb2
+date 2026-11-01T18:11:10Z
+host macOS 27.2 arm64
+passed pytest bun-hooks debian arch macos

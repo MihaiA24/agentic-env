@@ -7,7 +7,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [Project memory](docs/project-memory-stack.md): per-repo setup.
 - [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
 - [Skill routing](guides/skill-routing.md): choose a skill for the task; every curated skill, when it runs, and who starts it.
-- [OMP in T3 Code and PyCharm](guides/omp-acp.md): copy or install native ACP JSON with the CLI.
+- [OMP in T3 Code and PyCharm](guides/omp-acp.md): install optional desktop clients, register native ACP, and select OpenAI Fast with `/fast`.
 
 ## Quick usage
 
@@ -24,7 +24,7 @@ agentic-stack-doctor
 | Command | Purpose |
 |---|---|
 | `agentic-bootstrap` | Install agents, skills/MCPs, configure, then run doctor |
-| `agentic-install-agents` | Install Hermes, OMP, Codex and Claude Code |
+| `agentic-install-agents` | Install Hermes, OMP, Codex and Claude Code; opt-in T3 Code/PyCharm on macOS |
 | `agentic-install-skills-mcps` | Install selected skills and MCP tooling |
 | `agentic-configure-agent-mcps` | Add missing managed entries; report existing drift |
 | `agentic-configure-acp` | Copy ACP JSON or add OMP to PyCharm/T3 Code without replacing existing settings |
@@ -37,6 +37,8 @@ Use each command's `--help` for options. Update this package with `uv tool upgra
 Run on a terminal without selection flags, `agentic-install-agents` and `agentic-install-skills-mcps` open checkbox pickers. Space toggles a row, `a` toggles all, `i` inverts, enter confirms. The skills run asks for skills, then a destination: supported harnesses or **Other / custom directory**. Supported harnesses lead to the agent and MCP pickers; a custom directory asks for the exact skills-folder path and skips MCP installation. Both paths print the selection and replay command, then ask for confirmation.
 
 `--yes` uses the flags as given without prompting. Without a terminal no picker can open, so pass flags. `agentic-bootstrap` installs every CLI and the `--skill-profile` packs; `agentic-bootstrap --interactive` lets its two install phases prompt instead.
+
+Optional desktop clients: `agentic-install-agents --client t3code --client pycharm --yes` uses existing Homebrew on macOS. Desktop picker rows start unchecked and `--all` alone excludes them. Then run `agentic-configure-acp --client t3code --client pycharm` separately; see the [ACP guide](guides/omp-acp.md) for other platforms and prerequisites.
 
 For automation, completed `agentic-bootstrap --summary-format json` runs emit one JSON document on stdout and send progress, including child-process output, to stderr. Add `--dry-run` to report the plan without executing it. Each phase records its arguments, requested/executed/skipped state, skip reason, error and duration. Status is `failed` (exit 1) after any returned or raised phase failure, `partial` (exit 0) when some phases were skipped, or `ok` (exit 0); an all-skipped run is `ok`. Argument errors and interactive cancellation may exit without a JSON report; cancellation stops the workflow.
 

@@ -1,4 +1,4 @@
-"""Install local agent CLIs."""
+"""Install agent CLIs and opt-in desktop ACP clients."""
 
 from __future__ import annotations
 
@@ -46,6 +46,11 @@ from .stack_metadata import (
 )
 
 _REMOTE_INSTALL_CONTRACT = AGENTS_INSTALL_REMOTE_CONTRACT
+
+_DESKTOP_CLIENTS = {
+    "t3code": ("T3 Code", "t3-code", ("T3 Code (Beta).app", "T3 Code (Alpha).app", "T3 Code.app")),
+    "pycharm": ("PyCharm", "pycharm", ("PyCharm.app",)),
+}
 
 
 def _validate_remote_contract() -> bool:
@@ -270,12 +275,54 @@ def _install_claude(non_interactive: bool, *, force: bool = False) -> bool:
     return True
 
 
+def _install_desktop_client(client: str) -> bool:
+    label, cask, bundles = _DESKTOP_CLIENTS[client]
+    if platform.system() != "Darwin":
+        warn(f"{label}: automatic desktop installation requires macOS/Homebrew; see guides/omp-acp.md for manual installation")
+        return False
+    if any(
+        (directory / bundle).is_dir()
+        for directory in (Path("/Applications"), Path.home() / "Applications")
+        for bundle in bundles
+    ) or (client == "pycharm" and cmd_exists("pycharm")):
+        skip(f"{label}: already installed; use its app updater or package manager for updates")
+        return True
+    if not cmd_exists("brew"):
+        warn(f"{label}: Homebrew is required; install it or install the app manually (guides/omp-acp.md)")
+        return False
+    try:
+        def installed() -> bool:
+            result = subprocess.run(
+                ["brew", "list", "--cask", "--versions", cask],
+                capture_output=True, text=True, check=False,
+            )
+            return result.returncode == 0 and bool(result.stdout.strip())
+
+        if installed():
+            skip(f"{label}: Homebrew cask already installed")
+            return True
+        info(f"Installing {label} with Homebrew...")
+        run(["brew", "install", "--cask", cask])
+        if not installed():
+            warn(f"{label}: Homebrew did not register the installed cask")
+            return False
+    except (OSError, subprocess.CalledProcessError) as exc:
+        warn(f"{label}: Homebrew installation failed: {exc}")
+        return False
+    ok(f"{label}: installed; register OMP with agentic-configure-acp --client {client}")
+    return True
+
+
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Install Hermes/OMP/Codex/Claude. Returns non-zero on any selected-step failure."
+        description="Install Hermes/OMP/Codex/Claude and optional desktop ACP clients."
     )
     parser.add_argument(
-        "--all", action="store_true", help="Install all tools without prompting"
+        "--all", action="store_true", help="Install all agent CLIs without prompting (desktop clients remain opt-in)"
+    )
+    parser.add_argument(
+        "--client", action="append", choices=tuple(_DESKTOP_CLIENTS),
+        help="Install a desktop client on macOS via Homebrew; repeat for both. Does not configure ACP",
     )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument(
@@ -306,14 +353,19 @@ def main(argv: list[str] | None = None) -> int:
         (Option("omp", "OMP / Oh My Pi", True), _install_omp),
         (Option("codex", "OpenAI Codex CLI", True), _install_codex),
         (Option("claude", "Claude Code", True), _install_claude),
+        (Option("t3code", "T3 Code desktop (macOS/Homebrew)"), lambda _: _install_desktop_client("t3code")),
+        (Option("pycharm", "PyCharm desktop (macOS/Homebrew)"), lambda _: _install_desktop_client("pycharm")),
     ]
     rows = [option for option, _ in installers]
     if args.all:
-        picked = [option.value for option in rows]
+        picked = [option.value for option in rows if option.value not in _DESKTOP_CLIENTS]
+    elif args.client:
+        picked = []
     elif non_interactive:
         picked = []
     else:
-        picked = choose("Select agent CLIs to install", rows)
+        picked = choose("Select agents and desktop clients to install", rows)
+    picked.extend(args.client or [])
 
     ok_all = True
     for option, installer in installers:

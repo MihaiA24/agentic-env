@@ -301,5 +301,81 @@ class InstallAgentsTests(unittest.TestCase):
                 self.assertEqual(attempted, list(agents))
 
 
+class DesktopClientTests(unittest.TestCase):
+    """Public CLI against an isolated stand-in for the Homebrew boundary."""
+
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.apps = self.root / "Applications"
+        self.state = self.root / "casks"
+        self.bin = self.root / "bin"
+        self.bin.mkdir()
+        brew = self.bin / "brew"
+        brew.write_text(
+            f"#!{sys.executable}\n"
+            "import os, pathlib, sys\n"
+            "state = pathlib.Path(os.environ['TEST_CASKS'])\n"
+            "args = sys.argv[1:]\n"
+            "cask = args[-1]\n"
+            "installed = state.read_text().splitlines() if state.exists() else []\n"
+            "if args[:3] == ['list', '--cask', '--versions']:\n"
+            "    if cask not in installed: sys.exit(1)\n"
+            "    print(cask + ' 1.0')\n"
+            "elif args[:2] == ['install', '--cask']:\n"
+            "    if cask == os.environ.get('TEST_FAIL_CASK'): sys.exit(1)\n"
+            "    if cask != os.environ.get('TEST_MISSING_CASK'):\n"
+            "        state.write_text('\\n'.join(installed + [cask]))\n"
+            "else: sys.exit(2)\n",
+            encoding="utf-8",
+        )
+        brew.chmod(0o755)
+        # Redirect the macOS application root as well as HOME; never inspect
+        # or modify host apps from a regression test.
+        for patcher in (
+            patch.object(install_agents.platform, "system", return_value="Darwin"),
+            patch.object(install_agents, "Path", side_effect=lambda p: self.apps if p == "/Applications" else Path(p)),
+            patch.dict(os.environ, {"PATH": str(self.bin), "TEST_CASKS": str(self.state)}),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        install_agents.Path.home.return_value = self.root / "home"
+
+    def test_explicit_clients_install_once_without_other_agents_or_acp_configuration(self) -> None:
+        self.state.write_text("unrelated", encoding="utf-8")
+        args = ["--client", "t3code", "--client", "pycharm", "--client", "t3code", "--yes"]
+        self.assertEqual(install_agents.main(args), 0)
+        self.assertEqual(self.state.read_text().splitlines(), ["unrelated", "t3-code", "pycharm"])
+        before = self.state.read_bytes()
+        self.assertEqual(install_agents.main(args), 0)
+        self.assertEqual(self.state.read_bytes(), before)
+        self.assertFalse((self.root / "home").exists())
+
+    def test_failed_or_unregistered_install_still_installs_other_selected_client(self) -> None:
+        for failure in ("TEST_FAIL_CASK", "TEST_MISSING_CASK"):
+            with self.subTest(failure=failure), patch.dict(os.environ, {failure: "t3-code"}):
+                self.state.unlink(missing_ok=True)
+                self.assertEqual(install_agents.main(["--client", "t3code", "--client", "pycharm"]), 1)
+                self.assertEqual(self.state.read_text().splitlines(), ["pycharm"])
+
+    def test_existing_unmanaged_app_is_preserved_without_homebrew(self) -> None:
+        app = self.apps / "PyCharm.app"
+        app.mkdir(parents=True)
+        marker = app / "user-installation"
+        marker.write_text("keep", encoding="utf-8")
+        with patch.dict(os.environ, {"PATH": ""}):
+            self.assertEqual(install_agents.main(["--client", "pycharm"]), 0)
+        self.assertEqual(marker.read_text(), "keep")
+        self.assertFalse(self.state.exists())
+
+    def test_unsupported_host_and_missing_brew_fail_without_installation(self) -> None:
+        with patch.object(install_agents.platform, "system", return_value="Linux"):
+            self.assertEqual(install_agents.main(["--client", "t3code"]), 1)
+        with patch.dict(os.environ, {"PATH": ""}):
+            self.assertEqual(install_agents.main(["--client", "pycharm"]), 1)
+        self.assertFalse(self.state.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

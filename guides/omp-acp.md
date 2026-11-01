@@ -2,6 +2,21 @@
 
 OMP provides ACP v1 through `omp acp`. The native configurations live in [pycharm.json](../agentic_env/acp/pycharm.json) and [t3code.json](../agentic_env/acp/t3code.json).
 
+## Install the applications
+
+On macOS with [Homebrew](https://brew.sh/) already installed:
+
+```sh
+uv run --frozen agentic-install-agents --client t3code --client pycharm --yes
+```
+
+This installs the `t3-code` and `pycharm` casks. Repeat `--client` to choose both, or select the unchecked desktop rows in the interactive installer. Desktop clients are opt-in: `--all` and noninteractive bootstrap still install only agent CLIs. Combine `--all` with explicit `--client` flags to install both.
+
+Existing application bundles, PyCharm launchers (including JetBrains Toolbox), and installed casks are left alone; update them through their original app updater or package manager. For a Homebrew-managed installation, use `brew upgrade --cask t3-code pycharm`. Installation does not configure ACP, install OMP, sign in, or install/enable PyCharm's AI Assistant plugin. `agentic-update-stack` and doctor do not manage these optional applications.
+
+On Linux/Windows, or without Homebrew, install [T3 Code](https://github.com/pingdotgg/t3code/releases) and [PyCharm](https://www.jetbrains.com/pycharm/download/) manually. An explicit unsupported automatic-install request fails rather than reporting success. Enable [JetBrains AI Assistant](https://www.jetbrains.com/help/ai-assistant/installation-guide-ai-assistant.html) for ACP chat. T3 Code 0.1.6 supports this registration; older versions without the `acpRegistry` provider must be upgraded first.
+
+
 ## Copy the JSON
 
 From this checkout:
@@ -35,6 +50,23 @@ Preview either mode with `--dry-run`. Repeat `--client` to select both clients. 
 After configuration, select **Oh My Pi** in PyCharm's AI Chat or T3 Code's model picker. T3's Providers page shows the local command and discovered models. PyCharm may need a restart to refresh its agent list.
 
 OMP uses the credentials and configuration of the OS user running the agent. Existing working credentials need no login. Otherwise run `omp login` on that machine. A remote T3 environment uses its server's installation and credentials. Do not copy tokens into client JSON. A JetBrains AI subscription is not required for custom ACP agents.
+
+## OpenAI Standard/Fast
+
+OMP 18.15.0 advertises only Mode, Model, and Thinking over ACP. T3's native Codex Standard/Fast footer is not provided by this integration; changing the registration JSON cannot add the missing OMP configuration option.
+
+With an OpenAI model selected, send these provider commands in the conversation:
+
+```text
+/fast on
+/fast status
+/fast off
+```
+
+`on` selects OpenAI's `priority` tier when the model supports it; `off` clears priority/ultrafast, returning an otherwise unconfigured session to normal service. It does not clear another explicit tier such as `flex`. These commands update only the session, not global settings. Priority may cost more or consume quota faster; status confirms the configured tier, not a latency guarantee.
+
+Verified directly over ACP with OMP 18.15.0 and `openai-codex/gpt-6.1-sol`: on → status on → off → status off, with priority/cleared-tier records in the disposable session. This is protocol evidence, not a T3/PyCharm UI check. A picker requires OMP to advertise and handle a service-tier config option upstream.
+
 
 ## Permissions and MCP
 
@@ -74,3 +106,5 @@ Report the client/version, selected model, and result for each step. PyCharm's *
 - [OMP ACP implementation](https://github.com/can1357/oh-my-pi/blob/v18.14.2/packages/coding-agent/src/modes/acp/acp-agent.ts) and [approval behavior](https://github.com/can1357/oh-my-pi/blob/v18.14.2/docs/approval-mode.md#acp-sessions).
 - [JetBrains custom agents](https://www.jetbrains.com/help/ai-assistant/acp.html#add-a-custom-agent).
 - [T3 Code local ACP commands](https://github.com/pingdotgg/t3code/blob/v0.1.6/docs/user/providers-acp.md#add-a-local-command) and [settings schema](https://github.com/pingdotgg/t3code/blob/v0.1.6/packages/provider-acp-registry/src/settings.ts).
+- [Homebrew T3 Code](https://formulae.brew.sh/cask/t3-code) and [PyCharm](https://formulae.brew.sh/cask/pycharm).
+- [OMP ACP option builder](https://github.com/can1357/oh-my-pi/blob/v18.15.0/packages/coding-agent/src/modes/acp/acp-agent.ts#L2236-L2282), [`/fast` handler](https://github.com/can1357/oh-my-pi/blob/v18.15.0/packages/coding-agent/src/slash-commands/builtin-modes.ts#L75-L109), and [T3 agent-provided options](https://github.com/pingdotgg/t3code/blob/v0.1.6/docs/user/providers-acp.md#models-and-options).

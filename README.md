@@ -7,6 +7,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [Project memory](docs/project-memory-stack.md): per-repo setup.
 - [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
 - [Skill routing](guides/skill-routing.md): choose a skill for the task; every curated skill, when it runs, and who starts it.
+- [OMP in T3 Code and PyCharm](guides/omp-acp.md): copy or install native ACP JSON with the CLI.
 
 ## Quick usage
 
@@ -26,6 +27,7 @@ agentic-stack-doctor
 | `agentic-install-agents` | Install Hermes, OMP, Codex and Claude Code |
 | `agentic-install-skills-mcps` | Install selected skills and MCP tooling |
 | `agentic-configure-agent-mcps` | Add missing managed entries; report existing drift |
+| `agentic-configure-acp` | Copy ACP JSON or add OMP to PyCharm/T3 Code without replacing existing settings |
 | `agentic-update-stack` | Refresh components, then run doctor; does not update this package |
 | `agentic-stack-doctor` | Read-only diagnosis; OMP failures exit 1, secondary/Hermes failures warn |
 | `agentic-skill-drift` | Read-only: compare curated skills against their pack sources and upstreams |

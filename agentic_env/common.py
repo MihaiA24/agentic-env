@@ -4,6 +4,7 @@
 import contextlib
 import hashlib
 import io
+import json
 import os
 import re
 import shutil
@@ -24,6 +25,7 @@ import questionary
 
 console = Console()
 _VERBOSE_OUTPUT = False
+_BACKUP_SUFFIX = ".agentic-env.bak"
 
 
 def set_verbose(enabled: bool) -> None:
@@ -302,3 +304,68 @@ def skip(message: str) -> None:
 
 def warn(message: str) -> None:
     console.print(f"[red]![/] {message}")
+
+
+def load_json_object(path: Path) -> dict[str, object] | None:
+    """Parsed JSON object; ``{}`` when absent, ``None`` (after a warning) when unusable."""
+    if not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        warn(f"{path}: invalid JSON; skipped")
+        return None
+    if not isinstance(value, dict):
+        warn(f"{path}: root JSON value is not an object; skipped")
+        return None
+    return value
+
+
+def write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
+    # A symlinked config (e.g. dotfiles-managed) keeps its link: write the resolved
+    # target, with temp file and backup beside the target.
+    if path.is_symlink():
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            warn(f"{path}: refusing to write through dangling or looping symlink ({exc})")
+            return False
+
+    if dry_run:
+        skip(f"dry-run: would write {path}")
+        return True
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    backup_path = path.with_suffix(path.suffix + _BACKUP_SUFFIX)
+    if path.exists():
+        if backup_path.exists():
+            try:
+                backup_path.unlink()
+            except OSError as exc:
+                warn(f"{path}: failed to clear stale backup {backup_path}: {exc}")
+                return False
+        try:
+            shutil.copy2(path, backup_path)
+        except OSError as exc:
+            warn(f"{path}: failed to create backup {backup_path}: {exc}")
+            return False
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=path.parent, delete=False
+        ) as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+            temp_path = Path(stream.name)
+        os.replace(temp_path, path)
+        return True
+    except Exception as exc:
+        warn(f"{path}: atomic write failed: {exc}")
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        return False

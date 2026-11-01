@@ -7,7 +7,6 @@ import json
 import os
 import shutil
 import sys
-import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,10 +19,12 @@ from .common import (
     choose,
     cmd_exists,
     interactive,
+    load_json_object,
     ok,
     set_verbose,
     skip,
     warn,
+    write_atomic_text,
 )
 from .stack_metadata import AGENTMEMORY_VERSION, CONFIGURE_AGENT_CHOICES
 
@@ -101,7 +102,6 @@ OMP_SKILL_ROOTS = (
 )
 HERMES_CONFIG_PATH = Path.home() / ".hermes" / "config.yaml"
 HERMES_SKILL_ROOT = Path.home() / ".hermes" / "skills"
-_BACKUP_SUFFIX = ".agentic-env.bak"
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -129,21 +129,6 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def load_json_object(path: Path) -> dict[str, object] | None:
-    """Parsed JSON object; ``{}`` when absent, ``None`` (after a warning) when unusable."""
-    if not path.exists():
-        return {}
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        warn(f"{path}: invalid JSON; skipped")
-        return None
-    if not isinstance(value, dict):
-        warn(f"{path}: root JSON value is not an object; skipped")
-        return None
-    return value
-
-
 def load_yaml_object(path: Path) -> dict[str, object] | None:
     """Parsed YAML mapping; ``{}`` when absent or empty, ``None`` (after a warning) when unusable."""
     if not path.exists():
@@ -160,55 +145,6 @@ def load_yaml_object(path: Path) -> dict[str, object] | None:
         return None
     return value
 
-
-def _write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
-    # A symlinked config (e.g. dotfiles-managed) keeps its link: write the resolved
-    # target, with temp file and backup beside the target.
-    if path.is_symlink():
-        try:
-            path = path.resolve(strict=True)
-        except (OSError, RuntimeError) as exc:
-            warn(f"{path}: refusing to write through dangling or looping symlink ({exc})")
-            return False
-
-    if dry_run:
-        skip(f"dry-run: would write {path}")
-        return True
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    backup_path = path.with_suffix(path.suffix + _BACKUP_SUFFIX)
-    if path.exists():
-        if backup_path.exists():
-            try:
-                backup_path.unlink()
-            except OSError as exc:
-                warn(f"{path}: failed to clear stale backup {backup_path}: {exc}")
-                return False
-        try:
-            shutil.copy2(path, backup_path)
-        except OSError as exc:
-            warn(f"{path}: failed to create backup {backup_path}: {exc}")
-            return False
-
-    temp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            "w", encoding="utf-8", dir=path.parent, delete=False
-        ) as stream:
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-            temp_path = Path(stream.name)
-        os.replace(temp_path, path)
-        return True
-    except Exception as exc:
-        warn(f"{path}: atomic write failed: {exc}")
-        if temp_path is not None and temp_path.exists():
-            try:
-                temp_path.unlink()
-            except OSError:
-                pass
-        return False
 
 def mcp_entry_drift(entry: object, server: McpServer) -> str:
     if not isinstance(entry, dict):
@@ -396,7 +332,7 @@ def _converge_config(
         return False
     if not changed:
         return True
-    if not _write_atomic_text(path, render(data), dry_run=dry_run):
+    if not write_atomic_text(path, render(data), dry_run=dry_run):
         return False
     if dry_run:
         return True
@@ -559,7 +495,7 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
             )
             return False
         content = _omp_agent_config_text(hooks_dir)
-        if not _write_atomic_text(path, content, dry_run=dry_run):
+        if not write_atomic_text(path, content, dry_run=dry_run):
             return False
         if not dry_run:
             ok(f"{path}: agent config seeded from stack contract")
@@ -588,7 +524,7 @@ def _install_skill(root: Path, skill: Skill, *, dry_run: bool) -> bool:
         return True
 
     content = skill.body.rstrip() + "\n"
-    if not _write_atomic_text(skill_path, content, dry_run=dry_run):
+    if not write_atomic_text(skill_path, content, dry_run=dry_run):
         return False
     if dry_run:
         return True

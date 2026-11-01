@@ -7,6 +7,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [Project memory](docs/project-memory-stack.md): per-repo setup.
 - [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
 - [Skill routing](guides/skill-routing.md): choose a skill for the task; every curated skill, when it runs, and who starts it.
+- [OMP in T3 Code and PyCharm](guides/omp-acp.md): native ACP configuration, protocol smoke checks, and desktop acceptance.
 
 ## Quick usage
 

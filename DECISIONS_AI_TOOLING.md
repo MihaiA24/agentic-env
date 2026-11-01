@@ -54,6 +54,7 @@ Every rejection below names the pre-registered threshold it missed: lean-ctx 1 s
 - **Rejected as primary:** Hermes, Claude Code, opencode, Codex. A paired OMP/Hermes benchmark is [parked](#parked).
 - **Revisit:** never unless OMP fails. OMP major bump → re-verify the converge keys against `packages/coding-agent/src/config/settings-schema.ts` at the new tag, raise the floor, and re-run the docker smoke.
 - **Wiring:** contract keys verified at the pinned tag: `memory.backend`, `compaction.{thresholdTokens,idleEnabled,handoffSaveToDisk,methodOrder}`, `skills.{enableClaudeUser,enableAgentsUser}`, `extensions`. The drift check is block-scoped (`OMP_AGENT_CONFIG_CONTRACT`), not a substring match. The `node_repl` built-in is disabled on both OMP roots (0 calls; `OMP_GATED_BUILTINS`, doctor-enforced). MCP servers and the skill roster bind at instance start, so after any `mcp.json` edit run `/mcp reload` or restart live omp instances.
+- **Desktop clients (2026-11-01):** T3 Code and PyCharm use native `omp acp`, not a Claude Code/Codex adapter. [Setup and evidence](guides/omp-acp.md). Client registrations are opt-in workstation configuration, not bootstrap/doctor requirements. ACP owns its MCP list through the client; OMP's on-disk MCP discovery is disabled in this mode. Client permission modes only answer requests OMP emits; they do not sandbox OMP or guarantee approval for every edit.
 
 #### Agent tiers (2026-09-02)
 

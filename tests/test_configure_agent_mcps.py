@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import yaml
 
-from agentic_env import configure_agent_mcps
+from agentic_env import common, configure_agent_mcps
 from agentic_env.stack_metadata import AGENTMEMORY_VERSION
 
 
@@ -18,7 +18,7 @@ class ConfigureAgentMcpsTests(unittest.TestCase):
             path = Path(temp_dir) / "mcp.json"
             path.write_text('{"old": true}\n', encoding="utf-8")
 
-            assert configure_agent_mcps._write_atomic_text(path, '{"new": true}\n', dry_run=False)
+            assert common.write_atomic_text(path, '{"new": true}\n', dry_run=False)
 
             assert path.read_text(encoding="utf-8") == '{"new": true}\n'
             backup = path.with_suffix(path.suffix + ".agentic-env.bak")
@@ -37,7 +37,7 @@ class ConfigureAgentMcpsTests(unittest.TestCase):
             outer = links / "mcp.json"
             outer.symlink_to(links.resolve() / inner.name)
 
-            assert configure_agent_mcps._write_atomic_text(outer, '{"new": true}\n', dry_run=False)
+            assert common.write_atomic_text(outer, '{"new": true}\n', dry_run=False)
 
             self.assertTrue(outer.is_symlink())
             self.assertTrue(inner.is_symlink())
@@ -53,9 +53,9 @@ class ConfigureAgentMcpsTests(unittest.TestCase):
             missing = Path(temp_dir) / "gone" / "config.yml"
             link.symlink_to(missing)
 
-            with patch("agentic_env.configure_agent_mcps.warn"):
+            with patch("agentic_env.common.warn"):
                 self.assertFalse(
-                    configure_agent_mcps._write_atomic_text(link, "x: 1\n", dry_run=False)
+                    common.write_atomic_text(link, "x: 1\n", dry_run=False)
                 )
 
             self.assertTrue(link.is_symlink())

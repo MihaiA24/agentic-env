@@ -1,6 +1,6 @@
 ---
 name: verify-agentic-env
-description: Verify agentic-env CLI changes through checkout-isolated user commands, persisted-file evidence, and the maintained feature map. Use for copier, installer/picker, MCP configuration, bootstrap/update, or doctor/drift behavior proof.
+description: Verify agentic-env CLI changes through checkout-isolated user commands, persisted-file evidence, and the maintained feature map. Use for copier, installer/picker, MCP/ACP configuration, bootstrap/update, or doctor/drift behavior proof.
 ---
 
 # Verify agentic-env
@@ -50,6 +50,7 @@ python3 "$V" drive copy --entry script --skill writing-for-agents
 python3 "$V" drive inspect
 python3 "$V" drive bootstrap --entry module --mode plan --format json
 python3 "$V" drive configure --agent omp --server codebase-memory-mcp --dry-run
+python3 "$V" drive configure-acp --entry console --client pycharm --client t3code --mode export --dry-run
 python3 "$V" drive drift --pack mattpocock --pack pstack --format json
 python3 "$V" drive help install-skills --entry console
 ```

@@ -7,7 +7,7 @@ Read [the skill](../SKILL.md) for launch, isolation, evidence and cleanup; this 
 - Work from the complete checkout root with Python 3.12+ and uv. Set `V=.agents/skills/verify-agentic-env/verifier/control.py`.
 - Run `python3 "$V" launch`, then `python3 "$V" doctor`; require current source/build identity. Use only its reported owned workspace, never host skill/config directories.
 - The workspace starts with an empty sandbox HOME and no copied packages. For another fresh journey, preserve evidence, run cleanup, then launch again. Launch alone does not reset files.
-- Copier, safe bootstrap, source-only drift and configurator journeys require no provider credentials. Native skills installation additionally requires npm/Git/network. Full provisioning/update belongs to the existing authorized clean-acceptance runner, not the offline sandbox.
+- Copier, safe bootstrap, source-only drift and configurator journeys require no provider credentials. ACP configuration needs the real OMP executable on host PATH; native skills installation needs npm/Git/network. Full provisioning/update uses the authorized clean-acceptance runner, not the offline sandbox.
 - No background service, TCP port, seed database or browser is applicable. Synchronize on process exit or the named terminal prompt, not sleeps.
 
 ## Driving conventions
@@ -18,7 +18,7 @@ Every map uses exactly four H2s. IDs in `Sub-features` name the report rows; the
 
 For every applicable branch, record success, cancel/decline, error, intentionally empty selection, and persistence/no-write behavior. Mark each entry point as passed, failed, blocked (attempt + unmet precondition), or N/A (reason). Unsupported wrapper routes are not N/A product features: exercise them in the authorized isolated environment or report the block. Fixtures/tests supplement those paths, not substitute for them.
 
-User-visible installed entry points are `agentic-install-agents`, `agentic-install-skills-mcps`, `agentic-configure-agent-mcps`, `agentic-bootstrap`, `agentic-update-stack`, `agentic-stack-doctor`, and `agentic-skill-drift`. Each also has `uv run --frozen python -m agentic_env.<module>` from the checkout. The standalone copier is `python3 agentic_env/copy_skills.py` or `python3 -m agentic_env.copy_skills`; its Windows route uses `py -3`/`python`.
+User-visible installed entry points are `agentic-install-agents`, `agentic-install-skills-mcps`, `agentic-configure-agent-mcps`, `agentic-configure-acp`, `agentic-bootstrap`, `agentic-update-stack`, `agentic-stack-doctor`, and `agentic-skill-drift`. Each also has `uv run --frozen python -m agentic_env.<module>` from the checkout. The standalone copier is `python3 agentic_env/copy_skills.py` or `python3 -m agentic_env.copy_skills`; its Windows route uses `py -3`/`python`.
 
 ## Proof and skip reporting
 
@@ -31,5 +31,6 @@ The isolation profile is not a skill profile. Copier default/`drive copy --all` 
 - [Copier](copier.md): direct/module and Windows routes, complete package/subset/all copy, rejected selections/collisions and persisted hashes.
 - [Skills installation and pickers](skills-install.md): native custom-directory and managed targets, selectors, confirmation/cancel/empty choices, MCP tools and real installation boundary.
 - [MCP configuration](mcp-config.md): OMP/Hermes, server/descriptor options, dry runs, repeat convergence, notify-only drift and preserved configuration.
+- [ACP configuration](acp.md): PyCharm/T3 Code native settings and JSON exports, real OMP resolution, previews, repeat preservation and preflight rejection.
 - [Bootstrap and update](bootstrap-update.md): plans/reports/skips, interactive agent installation and authorized clean acceptance/update.
 - [Diagnosis and drift](diagnosis-drift.md): read-only stack diagnosis, source/installed/upstream comparisons, scopes, errors and separately authorized baseline review.

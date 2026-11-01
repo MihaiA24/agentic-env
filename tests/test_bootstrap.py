@@ -109,41 +109,19 @@ class BootstrapTests(unittest.TestCase):
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
     @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
     @patch("agentic_env.bootstrap.configure_agent_mcps.main")
-    def test_rejects_unknown_skill_agent(
-        self,
-        configure_main,
-        doctor_main,
-        skills_main,
-        agents_main,
+    def test_rejects_invalid_bootstrap_selection(
+        self, configure_main, doctor_main, skills_main, agents_main,
     ) -> None:
-        result = bootstrap.main(["--skill-agent", "bad-agent"])
-
-        self.assertEqual(result, 1)
-        agents_main.assert_not_called()
-        skills_main.assert_not_called()
-        configure_main.assert_not_called()
-
-    @patch("agentic_env.bootstrap.install_agents.main")
-    @patch("agentic_env.bootstrap.install_skills_mcps.main")
-    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
-    @patch("agentic_env.bootstrap.configure_agent_mcps.main")
-    def test_rejects_unknown_server(
-        self,
-        configure_main,
-        doctor_main,
-        skills_main,
-        agents_main,
-    ) -> None:
-        agents_main.return_value = 0
-        skills_main.return_value = 0
-        configure_main.return_value = 0
-
-        result = bootstrap.main(["--server", "not-a-server"])
-
-        self.assertEqual(result, 1)
-        agents_main.assert_not_called()
-        skills_main.assert_not_called()
-        configure_main.assert_not_called()
+        for argv in (
+            ["--skill-agent", "bad-agent"],
+            ["--server", "not-a-server"],
+            ["--skill-profile", ""],
+        ):
+            with self.subTest(argv=argv):
+                self.assertEqual(bootstrap.main(argv), 1)
+                agents_main.assert_not_called()
+                skills_main.assert_not_called()
+                configure_main.assert_not_called()
 
     @patch("agentic_env.bootstrap.install_agents.main")
     @patch("agentic_env.bootstrap.install_skills_mcps.main")
@@ -198,28 +176,6 @@ class BootstrapTests(unittest.TestCase):
         )
 
         self.assertEqual(result, 0)
-
-    @patch("agentic_env.bootstrap.install_agents.main")
-    @patch("agentic_env.bootstrap.install_skills_mcps.main")
-    @patch("agentic_env.bootstrap.stack_doctor.main", return_value=0)
-    @patch("agentic_env.bootstrap.configure_agent_mcps.main")
-    def test_rejects_empty_skill_profile(
-        self,
-        configure_main,
-        doctor_main,
-        skills_main,
-        agents_main,
-    ) -> None:
-        agents_main.return_value = 0
-        skills_main.return_value = 0
-        configure_main.return_value = 0
-
-        result = bootstrap.main(["--skill-profile", ""])
-
-        self.assertEqual(result, 1)
-        agents_main.assert_not_called()
-        skills_main.assert_not_called()
-        configure_main.assert_not_called()
 
     def test_bootstrap_plan_marks_requested_and_skipped_phases(self) -> None:
         args = bootstrap._parse(["--skip-install-agents"])

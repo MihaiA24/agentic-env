@@ -316,6 +316,8 @@ Use `python3 -S -m unittest discover -s tests -p test_copy_skills.py -v` on macO
 
 Full-stack acceptance uses [the smoke script](docker-smoke-test.sh). [The isolation wrapper](clean-acceptance.sh) rejects root, the real HOME and nonempty fresh environments, clears inherited credentials/configuration, and uses checkout hooks. No provider credentials are required. Smoke verifies doctor and Hermes wiring plus the bootstrap-installed `default` profile's package content with `agentic-skill-drift --no-upstream --skill-profile default`; opt-in packs are not installed there, and today's upstream revision need not match. Windows gets only the copier check under [Development](#development), not this provisioning contract.
 
+Smoke checks both Python-module entry points and installed command callability. Checks-only skips installation and bootstrap, not these checks.
+
 ### Containers
 
 Requires Docker/Compose with amd64 support. Run from this directory:

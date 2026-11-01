@@ -99,13 +99,6 @@ class SkillManifest:
             return str((self.config_path.parent / source[2:]).resolve())
         return source
 
-    def profile_skills(self, profile: str) -> list[str]:
-        """Curated skill roster: union of every pack filter in `profile` (manifest order)."""
-        names: list[str] = []
-        for pack in self.profiles[profile]:
-            names.extend(skill for skill in self.packs[pack].skills if skill not in names)
-        return names
-
 
 @dataclass(frozen=True)
 class SkillPackSelection:
@@ -298,12 +291,6 @@ def load_skill_manifest(path: Path) -> SkillManifest | None:
         return None
 
     return _parse_skill_pack_config(payload, path)
-
-
-def profile_skills(profile: str, path: Path = SKILL_PACK_CONFIG_PATH) -> list[str]:
-    """Roster of `profile` from the manifest at `path`, or [] when it does not load."""
-    manifest = load_skill_manifest(path)
-    return manifest.profile_skills(profile) if manifest else []
 
 
 def _validate_remote_contract() -> bool:
@@ -609,22 +596,6 @@ def _install_npm_global(package: str, label: str) -> bool:
         return _install_agentmemory_user_local(package)
 
 
-def _configure_hermes_agentmemory() -> bool:
-    return (
-        configure_agent_mcps.main(
-            [
-                "--server",
-                "agentmemory",
-                "--agent",
-                "hermes",
-                "--yes",
-                "--no-skills",
-            ]
-        )
-        == 0
-    )
-
-
 def _resolve_pack_skills(
     manifest: SkillManifest, packs: list[str], requested: list[str]
 ) -> dict[str, list[str]]:
@@ -814,7 +785,12 @@ def _install_agentmemory(non_interactive: bool) -> bool:
         warn("agentmemory: installed version is below the reviewed version")
         return False
 
-    return _configure_hermes_agentmemory()
+    return (
+        configure_agent_mcps.main(
+            ["--server", "agentmemory", "--agent", "hermes", "--yes", "--no-skills"]
+        )
+        == 0
+    )
 
 
 def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:

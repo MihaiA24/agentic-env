@@ -343,24 +343,6 @@ def _converge_config(
     return True
 
 
-def _configure_omp_mcp(
-    path: Path,
-    servers: list[McpServer],
-    *,
-    remove: tuple[str, ...],
-    gate: tuple[str, ...],
-    dry_run: bool,
-) -> bool:
-    return _converge_config(
-        path,
-        load=load_json_object,
-        merge=lambda data: _merge_omp_mcp(path, data, servers, remove=remove, gate=gate),
-        validate=lambda data: _validate_omp_mcp(data, servers),
-        render=lambda data: json.dumps(data, indent=2) + "\n",
-        dry_run=dry_run,
-    )
-
-
 def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
     providers = [server.hermes_memory_provider for server in servers if server.hermes_memory_provider]
     required_provider = providers[-1] if providers else None
@@ -404,10 +386,16 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS) + OMP_GATED_BUILTINS + excluded
     ok_all = True
     for path in OMP_MCP_PATHS:
-        if not _configure_omp_mcp(
-            path, omp_servers, remove=excluded, gate=gated, dry_run=dry_run
-        ):
-            ok_all = False
+        ok_all = _converge_config(
+            path,
+            load=load_json_object,
+            merge=lambda data: _merge_omp_mcp(
+                path, data, omp_servers, remove=excluded, gate=gated
+            ),
+            validate=lambda data: _validate_omp_mcp(data, omp_servers),
+            render=lambda data: json.dumps(data, indent=2) + "\n",
+            dry_run=dry_run,
+        ) and ok_all
     return ok_all
 
 

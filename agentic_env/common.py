@@ -33,33 +33,6 @@ def set_verbose(enabled: bool) -> None:
     _VERBOSE_OUTPUT = bool(enabled)
 
 
-def _run(
-    cmd: Iterable[str], cwd: str | None = None
-) -> subprocess.CompletedProcess[str]:
-    command = list(cmd)
-    if _VERBOSE_OUTPUT:
-        result = subprocess.run(command, check=False, text=True, cwd=cwd)
-    else:
-        result = subprocess.run(
-            command,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=cwd,
-        )
-
-    if result.returncode != 0:
-        if result.stdout:
-            warn(result.stdout.rstrip())
-        if result.stderr:
-            warn(result.stderr.rstrip())
-        raise subprocess.CalledProcessError(
-            result.returncode, command, output=result.stdout, stderr=result.stderr
-        )
-    return result
-
-
 def cmd_exists(name: str) -> bool:
     return shutil.which(name) is not None
 
@@ -168,7 +141,18 @@ def choose(prompt: str, options: Sequence[Option | str]) -> list[str]:
 
 
 def run(cmd: Iterable[str], *, cwd: str | None = None) -> None:
-    _run(cmd, cwd=cwd)
+    command = list(cmd)
+    result = subprocess.run(
+        command, check=False, capture_output=not _VERBOSE_OUTPUT, text=True, cwd=cwd
+    )
+    if result.returncode != 0:
+        if result.stdout:
+            warn(result.stdout.rstrip())
+        if result.stderr:
+            warn(result.stderr.rstrip())
+        raise subprocess.CalledProcessError(
+            result.returncode, command, output=result.stdout, stderr=result.stderr
+        )
 
 
 def is_valid_sha256(value: str | None) -> bool:
@@ -220,7 +204,7 @@ def run_remote_script(
         # Neutral cwd: installers must not inherit our project context
         # (e.g. Hermes runs `uv venv --python 3.11`, which refuses under a
         # pyproject that pins requires-python >= 3.12).
-        _run(script_command, cwd=str(Path.home()))
+        run(script_command, cwd=str(Path.home()))
     except subprocess.CalledProcessError:
         warn(f"{label}: installer script execution failed")
         return False

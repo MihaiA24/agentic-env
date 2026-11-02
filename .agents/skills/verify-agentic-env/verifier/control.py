@@ -25,6 +25,7 @@ EVIDENCE = BASE / "evidence"
 ENTRIES = {
     "bootstrap": "bootstrap", "install-agents": "install_agents",
     "install-skills": "install_skills_mcps", "configure": "configure_agent_mcps",
+    "configure-acp": "configure_acp",
     "stack-doctor": "stack_doctor", "drift": "skill_drift", "update": "update_agentic_stack",
 }
 SUITES = {
@@ -44,14 +45,15 @@ def safe_paths() -> None:
     # Never follow a workspace/evidence replacement into another checkout or HOME.
     paths = [ROOT / ".verifier", BASE, DATA, EVIDENCE, BASE / "owner.json", BASE / "lock",
              BASE / "cache", BASE / "cache/uv", BASE / "cache/npm", BASE / "cache/python",
-             DATA / "home", DATA / "skills", DATA / "venv", DATA / "npm", DATA / "tools", DATA / "bin"]
+             DATA / "home", DATA / "skills", DATA / "acp", DATA / "venv", DATA / "npm", DATA / "tools", DATA / "bin"]
     home = DATA / "home"
-    paths.extend(home / name for name in (".config", ".local", ".local/share", ".npmrc"))
+    paths.extend(home / name for name in (".config", ".local", ".local/share", ".npmrc", ".jetbrains", ".t3"))
     # External version probes can create executable links; protect writable
     # directories and managed configs, not harmless references to executables.
     paths.extend(path for path in home.rglob("*") if path.is_dir())
-    for name in (".omp", ".pi", ".hermes"):
+    for name in (".omp", ".pi", ".hermes", ".jetbrains", ".t3"):
         paths.extend((home / name).rglob("*"))
+    paths.extend((DATA / "acp").rglob("*"))
     for path in paths:
         if path.is_symlink():
             raise ValueError(f"Refusing symlink {path}; restore this checkout's own verifier directory.")
@@ -130,7 +132,7 @@ def environment() -> dict[str, str]:
 
 def inventory() -> dict[str, Any]:
     result = {}
-    for directory in (DATA / "skills", DATA / "home"):
+    for directory in (DATA / "skills", DATA / "home", DATA / "acp"):
         if directory.is_symlink():
             raise ValueError(f"Refusing symlink {directory}; cleanup the owned workspace first.")
         if not directory.exists():
@@ -265,6 +267,17 @@ def drive_command(args: argparse.Namespace) -> list[str]:
             command += ["--no-skills"]
         if args.dry_run:
             command += ["--dry-run"]
+    if args.action == "configure-acp":
+        executable = shutil.which("omp")
+        if executable is None:
+            raise ValueError("ACP verification needs the real omp executable on host PATH; install OMP, then retry.")
+        command += ["--omp", str(Path(executable).absolute())]
+        for client in args.client:
+            command += ["--client", client]
+        if args.mode == "export":
+            command += ["--output-dir", str(DATA / "acp")]
+        if args.dry_run:
+            command += ["--dry-run"]
     if args.action == "drift":
         command += ["--offline", "--no-upstream", "--no-installed"]
         for pack in args.pack or []:
@@ -305,10 +318,11 @@ Evidence survives cleanup; host HOME/configuration and credentials are not inher
     actions.add_parser("inspect", help="Read persisted sandbox file hashes after a user path (not an action or eval setter)")
     tests = actions.add_parser("tests", help="Reuse repository pytest suites, including its existing prompt-driven PTY harness")
     tests.add_argument("--suite", choices=tuple(SUITES), default="all", help="Existing suite to run (default: all); picker tests mock install boundaries, not live provisioning proof")
-    for entry in ("bootstrap", "configure", "drift", "stack-doctor", "help", "install-skills"):
+    for entry in ("bootstrap", "configure", "configure-acp", "drift", "stack-doctor", "help", "install-skills"):
         sub = actions.add_parser(entry, help={
             "bootstrap": "Safe bootstrap plans or real all-skipped reports; never provisions the host",
             "configure": "Write/read sandbox MCP configuration using the real configurator",
+            "configure-acp": "Configure sandbox ACP clients or export native JSON using the real host OMP executable",
             "drift": "Offline repository-source checks; never accepts/rewrites a baseline",
             "stack-doctor": "Diagnose sandbox stack; missing unprovisioned binaries/config may fail",
             "help": "Exercise a management CLI's own help entry point",
@@ -323,6 +337,10 @@ Evidence survives cleanup; host HOME/configuration and credentials are not inher
             sub.add_argument("--server", choices=("codebase-memory-mcp", "agentmemory", "all"), default="codebase-memory-mcp", help="MCP entry to configure")
             sub.add_argument("--no-skills", action="store_true", help="Exercise app flag that skips matching skill descriptors")
             sub.add_argument("--dry-run", action="store_true", help="App dry run; compare before/after hashes to establish what it skips")
+        elif entry == "configure-acp":
+            sub.add_argument("--client", action="append", choices=("pycharm", "t3code"), required=True, help="Sandbox client; repeat to select both")
+            sub.add_argument("--mode", choices=("native", "export"), default="native", help="Native sandbox settings or JSON exports in workspace/acp")
+            sub.add_argument("--dry-run", action="store_true", help="App preflight without configuration writes or backups")
         elif entry == "drift":
             sub.add_argument("--pack", action="append", help="Manifest pack name; repeat to scope source checks")
             sub.add_argument("--format", choices=("json", "text"), default="json", help="App report format")

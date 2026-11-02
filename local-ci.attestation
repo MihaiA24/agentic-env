@@ -1,5 +1,5 @@
-tree 61c1b0e805fa59ceac11c1823a72e1568557a718
-commit 6f3691b088887e069addbd44348e14d2188aeca6
-date 2026-10-28T22:47:10Z
-host macOS 27.0.1 arm64
+tree 06c864b5abeee605306ceaebf31a68ad44d107fe
+commit c4c027c2e890db499bf237a7e2aa6f33506afe68
+date 2026-11-01T23:55:42Z
+host macOS 27.2 arm64
 passed pytest bun-hooks debian arch macos

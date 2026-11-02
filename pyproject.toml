@@ -17,6 +17,7 @@ dev = ["pytest"]
 agentic-install-agents = "agentic_env.install_agents:main"
 agentic-install-skills-mcps = "agentic_env.install_skills_mcps:main"
 agentic-configure-agent-mcps = "agentic_env.configure_agent_mcps:main"
+agentic-configure-acp = "agentic_env.configure_acp:main"
 agentic-bootstrap = "agentic_env.bootstrap:main"
 agentic-update-stack = "agentic_env.update_agentic_stack:main"
 agentic-stack-doctor = "agentic_env.stack_doctor:main"
@@ -28,6 +29,7 @@ artifacts = [
   "agentic_env/skill-packs.json",
   "agentic_env/skill-fingerprints.json",
   "agentic_env/skill_bodies/*.md",
+  "agentic_env/acp/*.json",
   "agentic_env/vendored/**",
   "agentic_env/skills/**",
 ]

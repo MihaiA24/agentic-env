@@ -1,0 +1,14 @@
+{
+  "providerInstances": {
+    "acpRegistry_omp": {
+      "driver": "acpRegistry",
+      "displayName": "Oh My Pi",
+      "enabled": true,
+      "config": {
+        "source": "local",
+        "commandPath": "omp",
+        "commandArgs": ["acp"]
+      }
+    }
+  }
+}

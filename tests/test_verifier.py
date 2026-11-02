@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
+import hashlib
 import importlib.util
 import io
 import json
@@ -138,6 +139,12 @@ class VerifierSafetyTests(unittest.TestCase):
                  self.base / "cache/python", self.data / "home", self.data / "home/.config",
                  self.data / "home/.local/share", self.data / "home/.npmrc", self.data / "skills",
                  self.data / "venv", self.data / "npm", self.data / "tools", self.data / "bin",
+                 self.data / "home/.jetbrains", self.data / "home/.jetbrains/acp.json",
+                 self.data / "home/.jetbrains/acp.json.agentic-env.bak",
+                 self.data / "home/.t3", self.data / "home/.t3/userdata",
+                 self.data / "home/.t3/userdata/settings.json",
+                 self.data / "home/.t3/userdata/settings.json.agentic-env.bak",
+                 self.data / "acp", self.data / "acp/pycharm.json", self.data / "acp/t3code.json",
                  self.base / "owner.json", self.base / "lock"]
         for index, link in enumerate(paths):
             with self.subTest(path=link.relative_to(self.root)):
@@ -147,7 +154,7 @@ class VerifierSafetyTests(unittest.TestCase):
                 keep = foreign / "keep.txt"
                 content = (self.base / "owner.json").read_bytes() if link.name == "owner.json" else b"keep\n"
                 keep.write_bytes(content)
-                is_file = link.name in ("owner.json", "lock", ".npmrc")
+                is_file = link.suffix in (".json", ".bak") or link.name in ("lock", ".npmrc")
                 if link.is_dir():
                     shutil.rmtree(link)
                 elif link.exists():
@@ -155,13 +162,50 @@ class VerifierSafetyTests(unittest.TestCase):
                 link.parent.mkdir(parents=True, exist_ok=True)
                 link.symlink_to(keep if is_file else foreign, target_is_directory=not is_file)
                 try:
-                    for arguments in (("launch",), ("drive", "copy"), ("cleanup",)):
+                    for arguments in (("launch",), ("drive", "copy"),
+                                      ("drive", "configure-acp", "--client", "pycharm", "--client", "t3code"),
+                                      ("drive", "configure-acp", "--client", "pycharm", "--mode", "export"),
+                                      ("cleanup",)):
                         with self.subTest(arguments=arguments):
                             self.assertEqual(self.invoke(*arguments)[0], 1)
                             self.assertEqual(keep.read_bytes(), content)
                             self.assertEqual(list(foreign.iterdir()), [keep])
                 finally:
                     link.unlink()
+
+    def test_dangling_acp_storage_links_refuse_drives_and_cleanup(self) -> None:
+        missing = self.temporary / "missing-target"
+        for relative in ("home/.jetbrains", "home/.t3", "home/.t3/userdata",
+                         "home/.jetbrains/acp.json", "home/.t3/userdata/settings.json",
+                         "acp", "acp/pycharm.json", "acp/t3code.json"):
+            with self.subTest(path=relative):
+                link = self.data / relative
+                link.parent.mkdir(parents=True, exist_ok=True)
+                link.symlink_to(missing)
+                try:
+                    for arguments in (("doctor",),
+                                      ("drive", "configure-acp", "--client", "pycharm"),
+                                      ("drive", "configure-acp", "--client", "t3code", "--mode", "export"),
+                                      ("cleanup", "--dry-run"), ("cleanup",)):
+                        self.assertEqual(self.invoke(*arguments)[0], 1)
+                        self.assertTrue(link.is_symlink())
+                        self.assertFalse(missing.exists())
+                        self.assertEqual(list(self.evidence.iterdir()), [])
+                finally:
+                    link.unlink()
+
+    def test_acp_requires_available_real_omp_before_running_child(self) -> None:
+        with patch.object(self.control.shutil, "which", return_value=None):
+            for mode in ("native", "export"):
+                with self.subTest(mode=mode):
+                    before = self.control.inventory()
+                    code, _, stderr = self.invoke("drive", "configure-acp", "--client", "pycharm",
+                                                  "--mode", mode, "--dry-run")
+                    self.assertEqual(code, 1)
+                    self.assertIn("real omp executable on host PATH", stderr)
+                    self.assertEqual(self.control.inventory(), before)
+                    self.assertEqual(list(self.evidence.iterdir()), [])
+                    self.assertFalse((self.data / "home/child-wrote.txt").exists())
 
     def test_runtime_executable_links_allow_inspection_and_safe_cleanup(self) -> None:
         executable = self.temporary / "external-executable"
@@ -186,16 +230,30 @@ class VerifierSafetyTests(unittest.TestCase):
         keep = self.data / "skills/keep.txt"
         keep.parent.mkdir()
         keep.write_bytes(b"workspace content\n")
+        acp_files = {}
+        for relative in ("home/.jetbrains/acp.json", "home/.t3/userdata/settings.json",
+                         "home/.jetbrains/acp.json.agentic-env.bak",
+                         "acp/pycharm.json", "acp/t3code.json"):
+            path = self.data / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            content = (json.dumps({"fixture": relative}) + "\n").encode()
+            path.write_bytes(content)
+            acp_files[relative] = content
         cache = self.base / "cache/uv/cache.bin"
         cache.parent.mkdir(parents=True)
         cache.write_bytes(b"cache content\n")
         self.assertEqual(self.invoke("drive", "inspect")[0], 0)
         state = next(self.evidence.glob("*/state.json"))
         evidence_bytes = state.read_bytes()
+        observed = json.loads(evidence_bytes)["files"]
+        for relative, content in acp_files.items():
+            self.assertEqual(observed[relative], {"sha256": hashlib.sha256(content).hexdigest()})
 
         self.assertEqual(self.invoke("cleanup", "--dry-run")[0], 0)
         self.assertEqual(keep.read_bytes(), b"workspace content\n")
         self.assertEqual(cache.read_bytes(), b"cache content\n")
+        for relative, content in acp_files.items():
+            self.assertEqual((self.data / relative).read_bytes(), content)
         self.assertEqual(state.read_bytes(), evidence_bytes)
         self.assertEqual(self.invoke("cleanup")[0], 0)
         self.assertFalse(self.data.exists())

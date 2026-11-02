@@ -91,21 +91,15 @@ PY
 if [ "$SKIP_INSTALL" != "1" ]; then
   echo "[2/5] Installing agentic-env CLI"
   run_cmd "uv tool install --force --python \"$_python\" ."
-fi
-
-if [ "$SKIP_INSTALL" != "1" ]; then
   echo "[3/5] Running one-shot bootstrap"
   run_cmd "agentic-bootstrap"
 fi
 
 echo "[4/5] Verifying package module entry points and installed binaries"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.bootstrap --help"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.install_agents --help"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.install_skills_mcps --help"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.configure_agent_mcps --help"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.update_agentic_stack --help"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.stack_doctor --help"
-run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.skill_drift --help"
+for module in bootstrap install_agents install_skills_mcps configure_agent_mcps \
+  update_agentic_stack stack_doctor skill_drift; do
+  run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.$module --help"
+done
 
 failures=0
 
@@ -125,20 +119,11 @@ require_command() {
   fi
 }
 
-require_command agentic-bootstrap
-require_command agentic-install-agents
-require_command agentic-install-skills-mcps
-require_command agentic-configure-agent-mcps
-require_command agentic-update-stack
-require_command agentic-stack-doctor
-require_command agentic-skill-drift
-
-require_command hermes
-require_command omp
-require_command codex
-require_command claude
-require_command codebase-memory-mcp
-require_command agentmemory
+for command in agentic-bootstrap agentic-install-agents agentic-install-skills-mcps \
+  agentic-configure-agent-mcps agentic-update-stack agentic-stack-doctor \
+  agentic-skill-drift hermes omp codex claude codebase-memory-mcp agentmemory; do
+  require_command "$command"
+done
 
 for command in hermes omp codex claude codebase-memory-mcp agentmemory; do
   echo "Version evidence: $command"

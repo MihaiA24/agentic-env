@@ -4,6 +4,7 @@
 import contextlib
 import hashlib
 import io
+import json
 import os
 import re
 import shutil
@@ -24,38 +25,12 @@ import questionary
 
 console = Console()
 _VERBOSE_OUTPUT = False
+_BACKUP_SUFFIX = ".agentic-env.bak"
 
 
 def set_verbose(enabled: bool) -> None:
     global _VERBOSE_OUTPUT
     _VERBOSE_OUTPUT = bool(enabled)
-
-
-def _run(
-    cmd: Iterable[str], cwd: str | None = None
-) -> subprocess.CompletedProcess[str]:
-    command = list(cmd)
-    if _VERBOSE_OUTPUT:
-        result = subprocess.run(command, check=False, text=True, cwd=cwd)
-    else:
-        result = subprocess.run(
-            command,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=cwd,
-        )
-
-    if result.returncode != 0:
-        if result.stdout:
-            warn(result.stdout.rstrip())
-        if result.stderr:
-            warn(result.stderr.rstrip())
-        raise subprocess.CalledProcessError(
-            result.returncode, command, output=result.stdout, stderr=result.stderr
-        )
-    return result
 
 
 def cmd_exists(name: str) -> bool:
@@ -166,7 +141,18 @@ def choose(prompt: str, options: Sequence[Option | str]) -> list[str]:
 
 
 def run(cmd: Iterable[str], *, cwd: str | None = None) -> None:
-    _run(cmd, cwd=cwd)
+    command = list(cmd)
+    result = subprocess.run(
+        command, check=False, capture_output=not _VERBOSE_OUTPUT, text=True, cwd=cwd
+    )
+    if result.returncode != 0:
+        if result.stdout:
+            warn(result.stdout.rstrip())
+        if result.stderr:
+            warn(result.stderr.rstrip())
+        raise subprocess.CalledProcessError(
+            result.returncode, command, output=result.stdout, stderr=result.stderr
+        )
 
 
 def is_valid_sha256(value: str | None) -> bool:
@@ -218,7 +204,7 @@ def run_remote_script(
         # Neutral cwd: installers must not inherit our project context
         # (e.g. Hermes runs `uv venv --python 3.11`, which refuses under a
         # pyproject that pins requires-python >= 3.12).
-        _run(script_command, cwd=str(Path.home()))
+        run(script_command, cwd=str(Path.home()))
     except subprocess.CalledProcessError:
         warn(f"{label}: installer script execution failed")
         return False
@@ -302,3 +288,68 @@ def skip(message: str) -> None:
 
 def warn(message: str) -> None:
     console.print(f"[red]![/] {message}")
+
+
+def load_json_object(path: Path) -> dict[str, object] | None:
+    """Parsed JSON object; ``{}`` when absent, ``None`` (after a warning) when unusable."""
+    if not path.exists():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        warn(f"{path}: invalid JSON; skipped")
+        return None
+    if not isinstance(value, dict):
+        warn(f"{path}: root JSON value is not an object; skipped")
+        return None
+    return value
+
+
+def write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
+    # A symlinked config (e.g. dotfiles-managed) keeps its link: write the resolved
+    # target, with temp file and backup beside the target.
+    if path.is_symlink():
+        try:
+            path = path.resolve(strict=True)
+        except (OSError, RuntimeError) as exc:
+            warn(f"{path}: refusing to write through dangling or looping symlink ({exc})")
+            return False
+
+    if dry_run:
+        skip(f"dry-run: would write {path}")
+        return True
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    backup_path = path.with_suffix(path.suffix + _BACKUP_SUFFIX)
+    if path.exists():
+        if backup_path.exists():
+            try:
+                backup_path.unlink()
+            except OSError as exc:
+                warn(f"{path}: failed to clear stale backup {backup_path}: {exc}")
+                return False
+        try:
+            shutil.copy2(path, backup_path)
+        except OSError as exc:
+            warn(f"{path}: failed to create backup {backup_path}: {exc}")
+            return False
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=path.parent, delete=False
+        ) as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+            temp_path = Path(stream.name)
+        os.replace(temp_path, path)
+        return True
+    except Exception as exc:
+        warn(f"{path}: atomic write failed: {exc}")
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        return False

@@ -18,7 +18,7 @@ from pathlib import Path
 from rich.table import Table
 
 from . import configure_agent_mcps as cfg
-from .common import cmd_exists, cmd_version_at_least, console
+from .common import cmd_exists, cmd_version_at_least, console, load_json_object
 from .stack_metadata import STACK_VERSION_FLOORS
 
 CLAUDE_USER_CONFIG_PATH = Path.home() / ".claude.json"
@@ -55,7 +55,7 @@ def _check_binary(name: str, *, fix: str, mandatory: bool) -> Check:
 
 
 def _mcp_servers(path: Path) -> tuple[dict[str, object], list[object]] | None:
-    data = cfg.load_json_object(path)
+    data = load_json_object(path)
     if data is None:
         return None
     servers = data.get("mcpServers")

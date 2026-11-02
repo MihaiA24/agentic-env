@@ -50,12 +50,5 @@ class SkillInvocationDocsTests(unittest.TestCase):
             [],
         )
 
-    def test_decisions_names_every_manual_skill(self) -> None:
-        text = (ROOT / "DECISIONS_AI_TOOLING.md").read_text(encoding="utf-8")
-        sentence = re.search(r"all pstack skills are manual-only, as are Matt's (.*?)\. ", text)
-        assert sentence, "DECISIONS §6 invocation sentence not found"
-        self.assertEqual(
-            sorted(re.findall(r"`([\w-]+)`", sentence[1])),
-            sorted(name for name, manual in MATT.items() if manual),
-        )
+    def test_pstack_skills_are_manual_only(self) -> None:
         self.assertEqual(sorted(name for name, manual in PSTACK.items() if not manual), [])

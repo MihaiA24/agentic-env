@@ -170,6 +170,23 @@ class InstallOmpReleaseTests(unittest.TestCase):
             ],
         )
 
+    def test_cache_reuses_bytes_but_resolves_latest_for_each_fresh_install(self, warn, ok, info) -> None:
+        cache = self.bin.parent / "artifacts"
+        with patch.dict(os.environ, {"AGENTIC_ARTIFACT_CACHE": str(cache)}):
+            for number, tag in enumerate(("v99.0.0", "v99.0.0", "v99.0.1", "v99.0.0")):
+                self.TAG = tag
+                binary = self.publish(tag.removeprefix("v"))
+                destination = self.bin.parent / f"fresh-{number}"
+                with patch.dict(os.environ, {
+                    "PI_INSTALL_DIR": str(destination),
+                    "PATH": f"{destination}{os.pathsep}{os.environ['PATH']}",
+                }):
+                    self.assertTrue(install_agents._install_omp_release())
+                self.assertEqual((destination / "omp").read_bytes(), binary)
+            self.assertEqual(self.paths().count("/releases/latest"), 4)
+            for tag in ("v99.0.0", "v99.0.1"):
+                self.assertEqual(self.paths().count(f"/releases/download/{tag}/{self.asset}"), 1)
+
     def test_force_updates_a_compliant_install_but_default_leaves_it_alone(self, warn, ok, info) -> None:
         self.bin.mkdir()
         installed = self.bin / "omp"

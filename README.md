@@ -393,6 +393,89 @@ git add local-ci.attestation && git commit -m "chore: attest local checks"
 
 The gate exports the committed HEAD with `git archive`, so uncommitted and untracked files are never tested. It runs the Python suite and both Bun hook suites first, then Debian, Arch and (on Apple Silicon) native macOS acceptance in parallel, each through fresh installation, an explicit isolated update and checks-only. Logs stay in the printed temporary directory when a leg fails. On Apple Silicon the amd64 containers run under emulation.
 
+#### Host-wide artifact cache
+
+The gate defaults to `${XDG_CACHE_HOME:-$HOME/.cache}/agentic-env/local-ci`,
+outside the exported tree and temporary acceptance directories. Override it with
+an absolute `AGENTIC_CI_CACHE_ROOT`. No branch/PR keys or automatic pruning:
+older pinned artifacts remain available to other branches. Targets are separate
+`debian-amd64`, `arch-amd64`, and `macos-arm64` directories; host unit-test uv
+downloads use a separate host-platform directory.
+
+Each run still creates fresh HOME/configuration, installed binaries, Python
+installations, virtual environments, tool environments, npm prefixes and npx
+execution environments. Only these artifact stores persist:
+
+| Store | Reused bytes | Installation remains fresh |
+|---|---|---|
+| `uv` | uv's package, source and build cache | `UV_TOOL_DIR` and virtual environments stay in acceptance HOME |
+| `python-downloads` | uv's managed-Python archives (`UV_PYTHON_CACHE_DIR`) | `UV_PYTHON_INSTALL_DIR` stays in acceptance HOME; archives are extracted again |
+| `npm/_cacache` | npm's content-addressed HTTP/package cache | HOME-local npm cache symlinks only `_cacache`; `_npx`, `_logs`, `_tuf` and prefixes stay disposable |
+| `artifacts` | OMP binaries by resolved release URL/checksum, pinned codebase-memory archives, commit-pinned Hermes installer | Copies/extraction/execution and existing version-floor checks run again |
+
+Direct artifacts use per-URL/checksum file locks, streaming SHA256 checks and
+atomic publication. Hits are checksum-checked again; corrupt entries are
+discarded and fetched again. Failure/interruption cannot publish partial bytes;
+the next miss overwrites a killed writer's partial file. Different artifacts
+and different gates do not share a global lock. uv/npm retain their supported
+concurrency/integrity behavior, not a custom resolver. Native cache misses can
+still duplicate transfers; uv's Python archive cache can report corrupt-archive
+errors rather than repair them. Cache contents are reusable artifacts, not
+guaranteed offline availability ([uv](https://docs.astral.sh/uv/concepts/cache/#cache-safety),
+[Python archives](https://docs.astral.sh/uv/reference/environment/#uv_python_cache_dir),
+[npm](https://docs.npmjs.com/cli/v11/commands/npm-cache/#details)).
+
+Cache leaves are sticky shared-writable (`1777`) to accommodate the containers'
+UID 1000 without changing host ownership. Use a trusted host/cache root, not a
+hostile multi-user cache. Normal completion removes only the gate's uniquely
+named containers, network and image tags; interruption can leave those owned
+resources behind.
+
+For an empty-cache run, select a new host directory; the command still tests
+committed HEAD:
+
+```bash
+AGENTIC_CI_CACHE_ROOT="$HOME/.cache/agentic-env/local-ci-empty-$(date +%s)" ./local-ci.sh
+```
+
+A warm-cache pass is **not** proof of cold-network availability. OMP's latest
+redirect/checksum metadata, npm floating selectors and Claude's floating,
+hash-pinned installer still resolve normally. Standalone `clean-acceptance.sh`
+keeps disposable caches unless `AGENTIC_ACCEPTANCE_CACHE` explicitly names a
+target directory.
+
+**Coverage gaps, traced rather than intercepted:** the
+[pinned Hermes installer](https://github.com/NousResearch/hermes-agent/blob/95d42656021a22f20201c618a67da07a618d16f3/scripts/install.sh)
+clones Git content and bootstraps its own uv using curl; optional Node, browser
+and computer-use-driver downloads use upstream downloaders too. The
+[Claude bootstrap](https://downloads.claude.ai/claude-code-releases/bootstrap.sh)
+downloads a native binary, then delegates installation to it; neither path uses
+our uv/npm caches. Skills CLI repository/direct-source acquisition and Docker
+build-time prerequisites also bypass these stores. Pinned upstream installers
+are unchanged; there is no proxy/daemon or universal download-once guarantee.
+
+Observed native arm64 path timings on 2026-11-02, one cold/warm pair each using
+an initially empty dedicated host cache and different fresh installations:
+
+| Path | Cold | Warm | Checked result |
+|---|---:|---:|---|
+| OMP release installation | 49.533s | 3.759s | `omp/18.15.0`, identical SHA256 |
+| uv install `pyyaml==6.0.3` | 0.443s | 0.050s | Imported 6.0.3 and parsed YAML in each fresh venv |
+| uv managed Python 3.11 | 3.251s | 0.680s | Fresh Python 3.11.18 executable; warm log reports archive extraction |
+| npm exec `semver@7.7.2` | 1.541s | 1.032s | `1.2.3` from each newly created `_npx` environment |
+
+These are bounded path observations, not benchmark medians or an end-to-end
+gate speedup estimate. uv venv setup and post-install observations were outside
+the timed install command; OMP includes current release resolution. The host
+was busy (load average 11.51 on 10 logical CPUs). No earlier 27-minute gate
+was rerun to establish a baseline.
+Measurement tools: uv 0.13.6, npm 11.20.0/Node 26.13.0, Python 3.13.11 for
+the package-install driver (the acceptance prerequisites remain unchanged).
+Bounded HTTP/subprocess checks exercised cold/warm reuse, version changes,
+corrupt entries, killed writers and independent artifact locks. Two real
+Debian amd64 Compose projects shared a cold artifact with exactly one HTTP
+request; removing the first project's resources left the second usable.
+
 `local-ci.attestation` records the tree hash: `git ls-tree -r` of the tested commit without the attestation line, hashed by `git hash-object`. Committing the attestation leaves it valid; any other change, including a rebase onto a newer `main`, makes `--verify` fail until the gate runs again. Rebase onto `main` before running it, so the squash-merged tree is the attested one. The record is self-attested evidence that the checks passed on this tree, not tamper-proof proof.
 
 ### CI and recorded evidence

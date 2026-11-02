@@ -58,6 +58,7 @@ _GATE_COMMAND = """\
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 
@@ -100,6 +101,7 @@ elif name == "docker":
         sys.exit(0)
     if args[0] == "compose":
         project = args[args.index("--project-name") + 1]
+        assert re.fullmatch(r"[a-z0-9][a-z0-9_-]*", project), "invalid Compose project name"
         assert os.environ["COMPOSE_PROJECT_NAME"] == project
         assert args[args.index("--env-file") + 1] == "/dev/null"
         assert Path(args[args.index("--file") + 1]).is_file()

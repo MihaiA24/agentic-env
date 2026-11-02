@@ -88,7 +88,7 @@ for directory in "$host_cache" "$host_uv" "$host_cache/python-downloads"; do
   [ ! -L "$directory" ] || { echo "CI cache directory must not be a symlink: $directory" >&2; exit 1; }
   mkdir -p "$directory"
 done
-project="agentic-env-$(basename "$work" | tr '[:upper:]' '[:lower:]')-$$"
+project="agentic-env-$(printf '%s' "${work##*.}" | tr '[:upper:]' '[:lower:]')-$$"
 mkdir "$work/tree"
 git archive "$sha" | tar -x -C "$work/tree"
 cd "$work/tree"

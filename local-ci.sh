@@ -9,7 +9,7 @@
 set -eu
 
 ATTESTATION=local-ci.attestation
-ROOT="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+ROOT="$(CDPATH= cd "$(dirname "$0")" && pwd -P)"
 cd "$ROOT"
 
 # Every tracked file except the attestation: committing it keeps it valid,
@@ -50,42 +50,86 @@ fi
 
 sha=$(git rev-parse HEAD)
 work=$(mktemp -d "${TMPDIR:-/tmp}/agentic-env-local-ci.XXXXXX")
+work="$(CDPATH= cd "$work" && pwd -P)"
+cache_root=${AGENTIC_CI_CACHE_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/agentic-env/local-ci}
+case "$cache_root" in
+  /*) ;;
+  *) echo "AGENTIC_CI_CACHE_ROOT must be an absolute path" >&2; exit 1 ;;
+esac
+mkdir -p "$cache_root"
+cache_root="$(CDPATH= cd "$cache_root" && pwd -P)"
+real_home="$(CDPATH= cd "$HOME" && pwd -P)"
+case "$cache_root/" in
+  //|"$real_home/"|"$ROOT/"*|"$work/"*|*/agentic-env-local-ci.*/*|*/agentic-env-smoke.*/*|*/agentic-env-acceptance.*/*)
+    echo "CI cache must be outside checkout/disposable HOME/work directories, not HOME or /" >&2
+    exit 1 ;;
+esac
+if [ "$(git -C "$cache_root" rev-parse --is-inside-work-tree 2>/dev/null || true)" = true ]; then
+  echo "CI cache must not be inside a Git worktree" >&2
+  exit 1
+fi
+export AGENTIC_CI_CACHE_ROOT="$cache_root"
+prepare_cache() {
+  target=$1
+  for directory in "$target" "$target/npm" "$target/artifacts" "$target/uv" "$target/python-downloads" "$target/npm/_cacache"; do
+    [ ! -L "$directory" ] || { echo "CI cache directory must not be a symlink: $directory" >&2; exit 1; }
+    mkdir -p "$directory"
+  done
+  chmod 755 "$target" "$target/npm"
+  # Only artifact leaves are shared-writable: node is uid 1000, not the host UID.
+  chmod 1777 "$target/artifacts" "$target/uv" "$target/python-downloads" "$target/npm/_cacache"
+}
+prepare_cache "$cache_root/debian-amd64"
+prepare_cache "$cache_root/arch-amd64"
+case $legs in *macos) prepare_cache "$cache_root/macos-arm64" ;; esac
+host_cache="$cache_root/host-$(uname -s)-$(uname -m)"
+host_uv="$host_cache/uv"
+for directory in "$host_cache" "$host_uv" "$host_cache/python-downloads"; do
+  [ ! -L "$directory" ] || { echo "CI cache directory must not be a symlink: $directory" >&2; exit 1; }
+  mkdir -p "$directory"
+done
+project="agentic-env-$(printf '%s' "${work##*.}" | tr '[:upper:]' '[:lower:]')-$$"
 mkdir "$work/tree"
 git archive "$sha" | tar -x -C "$work/tree"
 cd "$work/tree"
 echo "Testing commit $sha (uncommitted changes are not part of it) in $work"
 
 # clean-acceptance.sh reads the revision from GITHUB_SHA: the export has no .git.
-export GITHUB_SHA="$sha" COMPOSE_PROJECT_NAME=agentic-env-local-ci
-UV_PROJECT_ENVIRONMENT="$work/venv" uv run --frozen pytest -q -p no:cacheprovider
+export GITHUB_SHA="$sha" COMPOSE_PROJECT_NAME="$project" SKIP_INSTALL=0
+UV_CACHE_DIR="$host_uv" UV_PYTHON_CACHE_DIR="$host_cache/python-downloads" \
+  UV_PROJECT_ENVIRONMENT="$work/venv" uv run --frozen pytest -q -p no:cacheprovider
 bun test omp/hooks/
 
-linux_leg() {  # service [compose flags]: one container through all three passes
+linux_leg() {  # service target [compose flags]: one container through all three passes
   service=$1
-  shift
+  target=$2
+  shift 2
   container=$COMPOSE_PROJECT_NAME-$service
-  docker rm -f "$container" >/dev/null 2>&1 || true
-  docker compose "$@" run --build -d --name "$container" "$service" sleep infinity
+  docker compose --env-file /dev/null --file "$work/tree/docker-compose.yml" \
+    --project-name "$COMPOSE_PROJECT_NAME" "$@" run --build -d --name "$container" \
+    --volume "$cache_root/$target:/var/cache/agentic-env" \
+    --env AGENTIC_ACCEPTANCE_CACHE=/var/cache/agentic-env "$service" sleep infinity || return $?
   # Explicit cleanup: an EXIT trap in this backgrounded function does not fire under macOS /bin/sh.
   rc=0
   docker exec "$container" /bin/sh ./clean-acceptance.sh \
     && docker exec "$container" /bin/sh ./clean-acceptance.sh --update \
     && docker exec -e SKIP_INSTALL=1 "$container" /bin/sh ./clean-acceptance.sh \
     || rc=$?
-  docker rm -f "$container" >/dev/null
+  docker rm -f "$container" >/dev/null || rc=$?
   return "$rc"
 }
 
 macos_leg() {  # native, in a fresh acceptance HOME inside $work
   export AGENTIC_SMOKE_HOME="$work/macos-home"
+  export AGENTIC_ACCEPTANCE_CACHE="$cache_root/macos-arm64"
   sh ./clean-acceptance.sh
   sh ./clean-acceptance.sh --update
   SKIP_INSTALL=1 sh ./clean-acceptance.sh
 }
 
-linux_leg fresh-install >"$work/debian.log" 2>&1 &
+linux_leg fresh-install debian-amd64 >"$work/debian.log" 2>&1 &
 debian=$!
-linux_leg fresh-install-arch --profile arch >"$work/arch.log" 2>&1 &
+linux_leg fresh-install-arch arch-amd64 --profile arch >"$work/arch.log" 2>&1 &
 arch=$!
 macos=
 case $legs in *macos) macos_leg >"$work/macos.log" 2>&1 & macos=$! ;; esac
@@ -104,6 +148,12 @@ collect() {  # leg pid
 collect debian "$debian"
 collect arch "$arch"
 [ -z "$macos" ] || collect macos "$macos"
+# Remove only this run's network and exact image tags, never shared build/cache layers.
+docker compose --env-file /dev/null --file "$work/tree/docker-compose.yml" \
+  --project-name "$COMPOSE_PROJECT_NAME" --profile arch down \
+  || echo "Warning: could not remove this gate's Compose network" >&2
+docker image rm "$COMPOSE_PROJECT_NAME-debian-amd64" "$COMPOSE_PROJECT_NAME-arch-amd64" \
+  || echo "Warning: could not remove this gate's image tags" >&2
 [ -z "$failed" ] || { echo "Failed:$failed. Logs kept in $work" >&2; exit 1; }
 
 cd "$ROOT"

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import hashlib
 import os
 import platform
 import re
@@ -31,6 +30,7 @@ from .common import (
     set_verbose,
     skip,
     warn,
+    verified_download,
 )
 from .remote_install_contract import validate_remote_contract
 from .stack_metadata import (
@@ -79,6 +79,7 @@ def _install_hermes(non_interactive: bool) -> bool:
         expected_sha256=HERMES_INSTALL_SHA256,
         interpreter="bash",
         interpreter_args=["--skip-setup", "--commit", HERMES_COMMIT],
+        immutable=True,
     ):
         return False
     if not cmd_version_at_least("hermes", STACK_VERSION_FLOORS["hermes"]):
@@ -178,25 +179,14 @@ def _install_omp_release() -> bool:
 
     install_dir = Path(os.environ.get("PI_INSTALL_DIR") or Path.home() / ".local" / "bin")
     floor = STACK_VERSION_FLOORS["omp"]
-    request = urllib.request.Request(
-        f"{release}/{asset}", headers={"User-Agent": "agentic-env/1.0"}
-    )
     temporary: str | None = None
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            install_dir.mkdir(parents=True, exist_ok=True)
-            fd, temporary = tempfile.mkstemp(prefix=".omp.", dir=install_dir)
-            digest = hashlib.sha256()
-            # Streamed in 1 MiB chunks; the checksum below catches truncation.
-            with os.fdopen(fd, "wb") as target:
-                while chunk := response.read(1 << 20):
-                    digest.update(chunk)
-                    target.write(chunk)
-        actual = digest.hexdigest()
-        if actual != expected[0].lower():
-            warn(f"OMP / Oh My Pi: {tag}/{asset} checksum mismatch")
-            warn(f"OMP / Oh My Pi: expected {expected[0]}, got {actual}")
-            return False
+        install_dir.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix=".omp.", dir=install_dir)
+        with os.fdopen(fd, "wb") as target:
+            with verified_download(f"{release}/{asset}", expected[0], 120) as source:
+                with source.open("rb") as payload:
+                    shutil.copyfileobj(payload, target, length=1 << 20)
         os.chmod(temporary, 0o755)
         if not cmd_version_at_least(temporary, floor):
             warn("OMP / Oh My Pi: downloaded executable fails the reviewed version floor")

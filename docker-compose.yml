@@ -1,6 +1,7 @@
 services:
   fresh-install: &fresh-install
     platform: linux/amd64
+    image: ${COMPOSE_PROJECT_NAME:-agentic-env}-debian-amd64
     build:
       context: .
       dockerfile: Dockerfile.agentic
@@ -19,6 +20,7 @@ services:
   fresh-install-arch:
     <<: *fresh-install
     profiles: ["arch"]
+    image: ${COMPOSE_PROJECT_NAME:-agentic-env}-arch-amd64
     build:
       context: .
       dockerfile: Dockerfile.arch

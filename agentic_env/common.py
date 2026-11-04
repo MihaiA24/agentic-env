@@ -166,6 +166,62 @@ def fetch_url(url: str, timeout_sec: int) -> bytes:
         return response.read()
 
 
+@contextlib.contextmanager
+def verified_download(url: str, expected_sha256: str, timeout_sec: int):
+    """Yield checksum-verified bytes on disk; cache only immutable caller identities.
+
+    Locks are per URL/checksum, never per run. Keep lock files: unlinking a lock
+    lets waiters lock a different inode. A killed writer leaves only .partial,
+    which the next miss overwrites before atomic publication.
+    """
+    if not is_valid_sha256(expected_sha256):
+        raise ValueError(f"invalid sha256 checksum in contract: {expected_sha256}")
+    expected = expected_sha256.lower()
+
+    def valid(path: Path) -> bool:
+        if not path.is_file():
+            return False
+        with path.open("rb") as source:
+            return hashlib.file_digest(source, "sha256").hexdigest() == expected
+
+    def download(path: Path) -> None:
+        request = urllib.request.Request(url, headers={"User-Agent": "agentic-env/1.0"})
+        digest = hashlib.sha256()
+        with urllib.request.urlopen(request, timeout=timeout_sec) as response, path.open("wb") as target:
+            while chunk := response.read(1 << 20):
+                digest.update(chunk)
+                target.write(chunk)
+        if digest.hexdigest() != expected:
+            raise ValueError(f"checksum mismatch for {url}; expected {expected}")
+
+    cache = os.environ.get("AGENTIC_ARTIFACT_CACHE")
+    if not cache:
+        with tempfile.TemporaryDirectory(prefix="agentic-download-") as temporary:
+            path = Path(temporary) / "artifact"
+            download(path)
+            yield path
+        return
+
+    # Acceptance runs on POSIX; don't require fcntl for the Windows-only copier.
+    import fcntl
+
+    root = Path(cache)
+    root.mkdir(parents=True, exist_ok=True)
+    key = hashlib.sha256(f"{url}\0{expected}".encode()).hexdigest()
+    path = root / key
+    partial = root / f"{key}.partial"
+    with (root / f"{key}.lock").open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not valid(path):
+            path.unlink(missing_ok=True)
+            try:
+                download(partial)
+                os.replace(partial, path)
+            finally:
+                partial.unlink(missing_ok=True)
+        yield path
+
+
 def run_remote_script(
     *,
     label: str,
@@ -174,10 +230,16 @@ def run_remote_script(
     interpreter: str,
     interpreter_args: list[str] | None = None,
     timeout_sec: int = 30,
+    immutable: bool = False,
 ) -> bool:
     """Download and execute a remote installer script with optional checksum pinning."""
     try:
-        payload = fetch_url(url, timeout_sec)
+        if immutable and expected_sha256 is not None:
+            with verified_download(url, expected_sha256, timeout_sec) as source:
+                payload = source.read_bytes()
+        else:
+            # Floating scripts must still be fetched to detect upstream drift.
+            payload = fetch_url(url, timeout_sec)
     except Exception as exc:
         warn(f"{label}: failed to download installer script: {exc}")
         return False
@@ -223,18 +285,10 @@ def install_pinned_binary_archive(
 ) -> bool:
     """Install one checksum-pinned binary from a release tarball."""
     try:
-        payload = fetch_url(url, timeout_sec)
+        with verified_download(url, expected_sha256, timeout_sec) as source:
+            payload = source.read_bytes()
     except Exception as exc:
         warn(f"{label}: failed to download release: {exc}")
-        return False
-
-    actual = hashlib.sha256(payload).hexdigest()
-    if (
-        not is_valid_sha256(expected_sha256)
-        or actual.lower() != expected_sha256.lower()
-    ):
-        warn(f"{label}: release checksum mismatch for {url}")
-        warn(f"{label}: expected {expected_sha256}, got {actual}")
         return False
 
     install_dir = Path.home() / ".local" / "bin"

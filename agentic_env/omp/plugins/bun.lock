@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "omp-plugins",
+      "dependencies": {
+        "@dietrichgebert/ponytail": "https://github.com/DietrichGebert/ponytail",
+      },
+    },
+  },
+  "packages": {
+    "@dietrichgebert/ponytail": ["@dietrichgebert/ponytail@github:DietrichGebert/ponytail#16f2980", {}, "DietrichGebert-ponytail-16f2980", "sha512-2C2dIqgrx+UBcV+2gtCg1RxhSeSe4jMBTCmlGouY2M1dAxi5t5z1YqJ5VKGw1TaA/lFriZQ1kc1T34YGAF+ogA=="],
+  }
+}

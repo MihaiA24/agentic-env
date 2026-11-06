@@ -447,7 +447,7 @@ known_plugin_toolsets:
                 self.assertIn("codebase-memory-mcp", parsed["mcpServers"])
                 self.assertEqual(parsed["disabledServers"], expected_disabled)
 
-    def test_converge_omp_agent_config_seeds_missing_file(self) -> None:
+    def test_converge_omp_seeds_settings_without_replacing_user_models(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             checkout = Path(temp_dir) / "agentic: env #[x], {y}"
             hooks = checkout / "omp" / "hooks"
@@ -455,6 +455,9 @@ known_plugin_toolsets:
             for name in configure_agent_mcps.OMP_HOOK_FILES:
                 (hooks / name).write_text("// hook\n", encoding="utf-8")
             config_path = Path(temp_dir) / "config.yml"
+            models_path = config_path.with_name("models.yml")
+            original_models = b"# user-owned models\nproviders:\n  local:\n    baseUrl: http://localhost:11434/v1\n"
+            models_path.write_bytes(original_models)
             with (
                 patch(
                     "agentic_env.configure_agent_mcps.OMP_AGENT_CONFIG_PATH",
@@ -472,6 +475,8 @@ known_plugin_toolsets:
                 seeded["extensions"],
                 [str(hooks / name) for name in configure_agent_mcps.OMP_HOOK_FILES],
             )
+            self.assertEqual(models_path.read_bytes(), original_models)
+            self.assertFalse(models_path.with_suffix(".yml.agentic-env.bak").exists())
 
     def test_converge_omp_agent_config_finds_hooks_from_checkout_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

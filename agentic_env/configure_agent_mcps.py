@@ -96,6 +96,7 @@ OMP_MCP_PATHS = (
     Path.home() / ".pi" / "agent" / "mcp.json",
 )
 OMP_AGENT_CONFIG_PATH = Path.home() / ".omp" / "agent" / "config.yml"
+_OMP_CONFIG_DIR = Path(__file__).with_name("omp") / "agent"
 OMP_SKILL_ROOTS = (
     Path.home() / ".omp" / "agent" / "skills",
     Path.home() / ".pi" / "agent" / "skills",
@@ -419,11 +420,12 @@ OMP_AGENT_CONFIG_CONTRACT = (
 
 
 def _omp_agent_config_text(hooks_dir: Path) -> str:
-    sections: dict[str, dict[str, object]] = {}
-    for block, key, value in OMP_AGENT_CONFIG_CONTRACT:
-        sections.setdefault(block, {})[key] = value
+    data = yaml.safe_load((_OMP_CONFIG_DIR / "config.yml").read_text(encoding="utf-8"))
+    data["extensions"] = [
+        str(hooks_dir / Path(entry).relative_to("omp/hooks")) for entry in data["extensions"]
+    ]
     return yaml.safe_dump(
-        {**sections, "extensions": [str(hooks_dir / name) for name in OMP_HOOK_FILES]},
+        data,
         sort_keys=False,
         allow_unicode=True,
     )
@@ -486,23 +488,30 @@ def converge_omp_agent_config(*, dry_run: bool) -> bool:
         if not write_atomic_text(path, content, dry_run=dry_run):
             return False
         if not dry_run:
-            ok(f"{path}: agent config seeded from stack contract")
-        return True
-
-    # Existing config is user-owned YAML; OMP convergence is deliberately read-only.
-    # Verify the contract and report drift instead of rewriting syntax/comments.
-    data = load_yaml_object(path)
-    if data is None:
-        return False
-    missing = omp_config_drift(data)
-    if not missing:
+            ok(f"{path}: agent config seeded from device snapshot")
+    else:
+        # Existing config is user-owned YAML; verify the contract without rewriting it.
+        data = load_yaml_object(path)
+        if data is None:
+            return False
+        missing = omp_config_drift(data)
+        if missing:
+            warn(
+                f"{path}: missing stack contract settings: {', '.join(missing)} "
+                "(see DECISIONS_AI_TOOLING.md 'Live wiring'; merge manually)"
+            )
+            return False
         skip(f"{path}: agent config matches stack contract")
+
+    models_path = path.with_name("models.yml")
+    if models_path.exists():
+        skip(f"{models_path}: existing model definitions preserved")
         return True
-    warn(
-        f"{path}: missing stack contract settings: {', '.join(missing)} "
-        "(see DECISIONS_AI_TOOLING.md 'Live wiring'; merge manually)"
+    return write_atomic_text(
+        models_path,
+        (_OMP_CONFIG_DIR / "models.yml").read_text(encoding="utf-8"),
+        dry_run=dry_run,
     )
-    return False
 
 
 def _install_skill(root: Path, skill: Skill, *, dry_run: bool) -> bool:

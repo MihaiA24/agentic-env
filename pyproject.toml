@@ -30,6 +30,7 @@ artifacts = [
   "agentic_env/skill-fingerprints.json",
   "agentic_env/skill_bodies/*.md",
   "agentic_env/acp/*.json",
+  "agentic_env/omp/**",
   "agentic_env/vendored/**",
   "agentic_env/skills/**",
 ]

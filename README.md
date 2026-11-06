@@ -42,6 +42,23 @@ Optional desktop clients: `agentic-install-agents --client t3code --client pycha
 
 For automation, completed `agentic-bootstrap --summary-format json` runs emit one JSON document on stdout and send progress, including child-process output, to stderr. Add `--dry-run` to report the plan without executing it. Each phase records its arguments, requested/executed/skipped state, skip reason, error and duration. Status is `failed` (exit 1) after any returned or raised phase failure, `partial` (exit 0) when some phases were skipped, or `ok` (exit 0); an all-skipped run is `ok`. Argument errors and interactive cancellation may exit without a JSON report; cancellation stops the workflow.
 
+### Copy this OMP setup to another device
+
+[`agentic_env/omp/`](agentic_env/omp/) captures this device's persisted OMP 18.17.0 configuration (2026-11-06): preferences, model roles/fallbacks, subagent overrides, custom providers, and plugin metadata. Only the two checkout-specific hook paths are made relative.
+
+After installing the management CLI and OMP on the new device, run from this checkout:
+
+```bash
+agentic-configure-agent-mcps --agent omp --server codebase-memory-mcp --yes
+omp plugin install 'https://github.com/DietrichGebert/ponytail#16f2980'
+```
+
+The configurator (also called by `agentic-bootstrap`) seeds missing `~/.omp/agent/config.yml` and `models.yml` from the snapshot and resolves hook paths to this checkout. It reproduces the existing MCP policy. Existing settings and model files are left untouched; a different device's preferences are not silently replaced. Keep this checkout available for the hooks.
+
+The explicit native plugin command restores this device's enabled Ponytail **4.8.4** at its locked commit; bootstrap does not install OMP plugins. The original plugin manifest and lockfiles are retained under `plugins/`, without `node_modules`. Curated skills remain the existing skills installer's responsibility.
+
+`models.yml` deliberately retains the original Ollama endpoint, `http://192.168.1.132:11434/v1`; another network needs a reachable replacement. The snapshot also retains microphone input, automatic OMP updates, and Auto QA consent. Credentials, sessions, memory databases, caches and logs are excluded: authenticate separately with `omp login`. This captures saved overrides, not every runtime default; other harnesses are unchanged.
+
 ### Skills
 
 #### Choose an installation path
@@ -275,7 +292,7 @@ Do not use the installed `agentic-skill-drift --update-baseline` for repository 
 
 ## Configuration and updates
 
-- The configurator validates existing managed MCP definitions and OMP settings but does not repair them; drift returns exit 1. Correct reported fields manually. Existing OMP settings YAML stays untouched; fresh settings are generated from the same contract the doctor checks.
+- The configurator validates existing managed MCP definitions and OMP settings but does not repair them; drift returns exit 1. Correct reported fields manually. Existing OMP settings YAML stays untouched; missing settings and model definitions are seeded from the [device snapshot](#copy-this-omp-setup-to-another-device), with mandatory settings checked by the doctor's contract.
 - Configuration writes preserve symlinks and atomically update their resolved target, keeping a `.agentic-env.bak` beside that target. Dangling or looping links are refused. Hermes YAML writes may drop comments and formatting. The configurator fails on Hermes drift; doctor only warns.
 - OMP gates `codebase-memory-mcp` and `node_repl`; `agentmemory` and `lean-ctx` stay excluded. The configurator seeds missing OMP settings only when the required checkout hooks exist. See [the contract](DECISIONS_AI_TOOLING.md).
 - Reviewed versions in [stack metadata](agentic_env/stack_metadata.py) are floors. Install/update fetch the latest floating components and reject versions below the floor. Claude uses its `latest` channel.

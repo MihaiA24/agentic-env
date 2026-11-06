@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "@dietrichgebert/ponytail": {
+      "version": "4.8.4",
+      "enabledFeatures": null,
+      "enabled": true
+    }
+  },
+  "settings": {}
+}

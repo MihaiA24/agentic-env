@@ -1,0 +1,136 @@
+{
+  "date": "2026-11-10",
+  "scope": "Disposable native CLI acceptance; not deployment or full local gate",
+  "regression_checks": {
+    "command": "uv run --frozen pytest -q tests/test_isolated_omp.py tests/test_doc_links.py",
+    "exit": 0,
+    "passed_tests": 7,
+    "passed_subtests": 6
+  },
+  "local_gate": {
+    "command": "./local-ci.sh",
+    "exit": 1,
+    "stderr": "Start Docker first",
+    "attestation_written": false,
+    "remaining_prerequisites": "Available Docker, Bun and an authorized committed HEAD containing the changes"
+  },
+  "cleanup": {
+    "removed_directory": "/tmp/agentic-nono-40iczvfb",
+    "absence_checked": true,
+    "dedicated_local_oauth_database_removed": true,
+    "provider_side_revocation": "Not performed; separate operator action"
+  },
+  "host": {
+    "kernel": "7.3.3-1-cachyos",
+    "architecture": "x86_64",
+    "uid": 1000,
+    "landlock_abi": 11
+  },
+  "versions": {
+    "nono": "0.81.0",
+    "omp": "18.18.7",
+    "bun": "1.4.4"
+  },
+  "sha256": {
+    "nono_release_archive": "7ecc33ff9c349bdfa84b4496e7a7555f67bcc33f1e125c7df9efb653c6c4e569",
+    "policy.json": "1efab0ac01a15ccb7a8c30dcd98bf7bdabe7ca18975e0934958d6249b2671808",
+    "bin/nono": "d8ac3fa92d87bfbe80a52ea68729a8b5b461149437d55225c356b82af5bfc90f",
+    "bin/omp": "ea6c216feb260a3766a591760aad06bdc608efd5c632912603f5ccb41b0a4bb1",
+    "agentic_env/isolated_omp.py": "702b40e4cb515f001b06e30a0c7f9be277f50566aa45f354eb4c0367350fb1ad",
+    "agentic_env/isolation_probe.py": "b7aa2a11839fc2864bcc1e306d3103115c2f7830874abb64fd95392b7c4098dc",
+    "project_input_and_output": "2b4928e9d8c8688151d6c09dde85ec562e542b9b3378a56f0acd5a24c75b54d5"
+  },
+  "instance": "/tmp/agentic-nono-40iczvfb/instance",
+  "project": "/tmp/agentic-nono-40iczvfb/project",
+  "entrypoint_prefix": [
+    "uv",
+    "run",
+    "--frozen",
+    "agentic-omp-isolated",
+    "--instance",
+    "/tmp/agentic-nono-40iczvfb/instance"
+  ],
+  "init": {
+    "exit": 0,
+    "args": [
+      "init",
+      "--project",
+      "/tmp/agentic-nono-40iczvfb/project"
+    ],
+    "version_stdout": "omp/18.18.7"
+  },
+  "init_collision": {
+    "exit": 1,
+    "reason": "already exists; initialization never overwrites state"
+  },
+  "check": {
+    "exit": 0,
+    "passed": [
+      "project read/write",
+      "outside content read",
+      "outside content write",
+      "symlink escape",
+      "policy modification",
+      "toolchain modification",
+      "inherited environment filtering",
+      "host pathname socket inside writable project",
+      "direct TCP egress",
+      "direct UDP egress",
+      "allowlisted HTTPS",
+      "unapproved HTTPS denied by proxy",
+      "proxy bypass denied",
+      "canonical-path command denial"
+    ]
+  },
+  "oauth": {
+    "args": [
+      "run",
+      "--",
+      "login",
+      "openai-codex-device"
+    ],
+    "exit": 0,
+    "fresh_operator_authorized_login": true,
+    "credential_boundary": "Dedicated direct OAuth; tokens visible to sandbox tools; no personal authentication copied",
+    "database": "runtime/agent/agent.db"
+  },
+  "provider_session": {
+    "exit": 0,
+    "provider": "openai-codex",
+    "model": "gpt-5.6-luna",
+    "mode": "json",
+    "tools": [
+      "read",
+      "bash"
+    ],
+    "max_time_seconds": 120,
+    "max_cost_usd": 0.1,
+    "text_delta_count": 21,
+    "streamed_text": "ISOLATION_OK nono-acceptance-7a94e3d261b8490c",
+    "tool_results": [
+      {
+        "tool": "read",
+        "is_error": false,
+        "text": "nono-acceptance-7a94e3d261b8490c"
+      },
+      {
+        "tool": "bash",
+        "is_error": false,
+        "text": "(no output, exit code 0)"
+      }
+    ],
+    "independent_cmp_exit": 0
+  },
+  "module_version_and_normal_omp_version": {
+    "exit": 0,
+    "stdout_versions": [
+      "omp/18.18.7",
+      "omp/18.18.7"
+    ]
+  },
+  "limitations": [
+    "No interactive TUI, ACP desktop session or complete build-toolchain acceptance",
+    "No gateway/broker service; dedicated OAuth tokens are inside runtime",
+    "No permanent sandbox rollout"
+  ]
+}

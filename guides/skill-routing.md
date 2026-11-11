@@ -1,6 +1,6 @@
 # Choose a skill for the job
 
-Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 14 from pstack, three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 16 from pstack, three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
 Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies; Claude Code still loads a manual dependency only when your message names it. Reading a skill to check discovery does not invoke it.
 
@@ -14,7 +14,7 @@ The **Starts** column says who starts a skill:
 | Situation | Route |
 |---|---|
 | A small change you already understand | Implement it and exercise the affected user path with the project verifier. Show the evidence; skip the planning document, interview and critique. |
-| A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
+| A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix; `/in-your-own-words` is the one-line version |
 | Proof that a change works | The project verifier, on the affected paths |
 
 ## During implementation
@@ -36,6 +36,8 @@ While it works, the agent can also pick `codebase-design`, `prototype`, `researc
 
 | Skill | From | Starts | Use it for |
 |---|---|---|---|
+| `in-your-own-words` | pstack | You | Before work on an unclear ask: the agent restates your goals and the problem |
+| `sharpen` | pstack | You | A shallow prompt: name what an expert would do, start from and check, then get the rewritten prompt |
 | `recall` | pstack | You | Resuming earlier work: rebuild the context of earlier sessions |
 | `how` | pstack | You | How the current code works, and where a change should go |
 | `why` | pstack | You | Why the code has its shape, from history and documents; scope it to one target and question |

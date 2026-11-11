@@ -78,7 +78,9 @@
         { "name": "reflect", "description": "Review the transcript and route learnings into skill edits" },
         { "name": "recall", "description": "Rebuild recent working context into a current-state brief" },
         { "name": "benchmark-checklist", "description": "Vet a measured perf number before you report or act on it" },
-        { "name": "correct", "description": "Turn mistakes agents repeat into guards that make them impossible" }
+        { "name": "correct", "description": "Turn mistakes agents repeat into guards that make them impossible" },
+        { "name": "in-your-own-words", "description": "Restate the user's goals and problem before work starts" },
+        { "name": "sharpen", "description": "Deepen a task without widening it, then rewrite the prompt" }
       ]
     },
     {

@@ -16,7 +16,7 @@
         "pr": "1cb140ca4e50bef7fdd47bda7f47f7fc0891dab67a19bb4ebc43766e7c99c2e3",
         "prototype": "59c35a917f6285fb10a91b49600edccd64e0d5656b6deaad3ade853263e5fad7",
         "research": "8c6a8c6b7819869f4663aeaea90fe6b3e642deb79c49f64c48f49aced107881a",
-        "resolving-merge-conflicts": "ccf0d62887cd06bf501a2865f130a3aea36a5e9c555fff6dd6cdaf92ff940e8e",
+        "resolving-merge-conflicts": "2074d58fc687f73cc6a19ba33345fa22b841c7e160172cb07a8c36c35b23e8d8",
         "retro": "a772d32f66d2345d4977d98122777644084bfadc81c182915a7740fe87434549",
         "tdd": "f20b2e1cd5c1173924a766520ad7f76928bb89857d237eb77d28193332ff7d3b",
         "to-spec": "d0fc2e91f98fc86a70fe4d5ceba79a85268d877cae7b3853a838fb1055e32dc6",
@@ -70,8 +70,8 @@
       "source": "./skills",
       "upstream": null,
       "skills": {
-        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
-        "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8"
+        "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8",
+        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3"
       }
     }
   }

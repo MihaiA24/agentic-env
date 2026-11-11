@@ -20,7 +20,7 @@ The [manifest](../../skill-packs.json) selects twenty complete packages from `sk
 - The `CONTEXT.md` convention stays: upstream `d80fa0f` renamed `CONTEXT.md`, `CONTEXT-MAP.md` and `CONTEXT-FORMAT.md` to `GLOSSARY*`, but the user's repos use the old names. `domain-modeling` (with `CONTEXT-FORMAT.md`), `codebase-design`, `diagnosing-bugs`, `improve-codebase-architecture`, `tdd`, `wait-what` and `pr` keep them; "glossary" stays an ordinary noun.
 - `retro` is manual-only with metadata and body guards, and report-only: implementing a candidate, commits, CI or hook changes need separate authorization. It reads the current session directly; a past session the user names is consulted through an OMP `seance` task, never a newest-file guess. Its reviewer agent and `CODING_STANDARDS.md` map to `code-review` and the repo's own standards file.
 - `pr` only drafts the body; pushing, opening or editing a PR is a separate authorized effect. Evidence is what the session observed, never fabricated.
-- `resolving-merge-conflicts` stages only the conflicted paths it resolved, honours a requested abort, concludes the merge or rebase only when the user asked for it to be finished, and never pushes. Upstream staged everything and never aborted.
+- `resolving-merge-conflicts` stages only the paths it resolved or changed to fix the merge, honours a requested abort, concludes the merge or the whole rebase only when the user asked for it to be finished, and never pushes. Upstream staged everything and never aborted.
 
 Other supporting content retains upstream bytes, apart from the `CONTEXT.md` names and the documented wizard dotenv fix. See [the operative policy](../../../DECISIONS_AI_TOOLING.md#6-skills).
 

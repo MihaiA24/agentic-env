@@ -61,7 +61,7 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) contains 41 skills: the 39-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
@@ -115,7 +115,7 @@ cd /path/to/agentic-env
 # Skip the destination prompts; still choose skills interactively.
 uv run agentic-install-skills-mcps --skills-dir "/path/to/project/.devin/skills"
 
-# Default profile: 39 skills, without prompts.
+# Default profile: 41 skills, without prompts.
 uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/project/.devin/skills" --skill-profile default --yes
 
@@ -158,7 +158,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **6 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies the **38 locally packaged skills** (36 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 

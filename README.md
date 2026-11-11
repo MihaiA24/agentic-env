@@ -251,7 +251,7 @@ Add `--diff` for unified diffs; add `--json` for machine-readable results. `--di
 |---|---|
 | **Source** | Pack source against the reviewed fingerprint in [`skill-fingerprints.json`](agentic_env/skill-fingerprints.json). Unreviewed vendored edits show as `changed`. |
 | **Installed** | `~/.agents/skills/<skill>` against the pack source; `missing` or `modified`. Remote packs also report `foreign:<source>` from the skills CLI lockfile; vendored packs use content rather than stale lock origins. `--no-installed` skips this and the unmanaged-skill scan. |
-| **Upstream** | Pinned upstream package against the latest upstream package. Local adaptations do not affect this column. |
+| **Upstream** | Pinned upstream package against the latest upstream package. Local adaptations do not affect this column. `absent` means the package exists at only one of the two revisions; `local` means it exists at neither, so the skill is maintained here and is not drift. |
 | **Local/upstream** | Latest upstream package against our pack source. `different` exposes local deviations, including deliberate adaptations; it does **not** count as drift by itself. |
 
 `--diff` shows **pinned → latest** changes for update review and **latest → local** differences to identify adaptations. JSON includes both diffs and the pinned/latest refs per skill; a null diff means it was not computed, while an empty string means no differences.

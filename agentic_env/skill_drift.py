@@ -90,7 +90,7 @@ class SkillStatus:
 
     def drifted(self) -> bool:
         return any(
-            value not in ("ok", UNKNOWN, "new", "skipped", NOT_INSTALLED)
+            value not in ("ok", UNKNOWN, "new", "skipped", "local", NOT_INSTALLED)
             for value in (self.source, self.install, self.upstream)
         )
 
@@ -378,7 +378,10 @@ def inspect_pack(
         elif upstream_pinned is None or upstream_latest is None:
             upstream_status = UNKNOWN
         else:
-            if pinned_digest is None or latest_digest is None:
+            if pinned_digest is None and latest_digest is None:
+                # No upstream package at either revision: maintained locally, nothing to track.
+                upstream_status = "local"
+            elif pinned_digest is None or latest_digest is None:
                 upstream_status = "absent"
             else:
                 upstream_status = "ok" if pinned_digest == latest_digest else "changed"
@@ -390,7 +393,7 @@ def inspect_pack(
 
         if check_upstream and upstream_latest is not None and pinned_source is not None:
             if source_digest is None or latest_digest is None:
-                local_status = "absent"
+                local_status = "local" if upstream_status == "local" else "absent"
             else:
                 local_status = "ok" if source_digest == latest_digest else "different"
             if show_diff:
@@ -476,6 +479,7 @@ _STYLES = {
     "new": "cyan",
     UNKNOWN: "yellow",
     "skipped": "dim",
+    "local": "dim",
     NOT_INSTALLED: "dim",
     "different": "cyan",
     "changed": "red",

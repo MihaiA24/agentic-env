@@ -90,7 +90,7 @@ Each smell reads *what it is* → *how to fix*; match it against the snapshot:
 
 ### 4. Dispatch both sub-agents in parallel
 
-Dispatch both axes in one batch with the runtime's delegation tool, in the foreground: wait for both and aggregate the reports they return. In OMP, use a read-only agent (`scout`) unless a dedicated reviewer has an enforced read-only grant. In Hermes, delegate only with read/query tools if those grants can actually be restricted; otherwise use tool-less one-shots with the complete frozen material supplied inline. A "do not edit" prompt is not a tool permission boundary.
+Dispatch both axes in one batch with the runtime's delegation tool, in the foreground: wait for both and aggregate the reports they return. In OMP, use `scout` unless a dedicated reviewer has an enforced read-only grant; read-only depends on the actual tool grant (including inherited MCP/custom tools), so check it and use the tool-less path below when mutation must be impossible and the grant cannot enforce that. In Hermes, delegate only with read/query tools if those grants can actually be restricted; otherwise use tool-less one-shots with the complete frozen material supplied inline. A "do not edit" prompt is not a tool permission boundary.
 
 Both prompts must include:
 

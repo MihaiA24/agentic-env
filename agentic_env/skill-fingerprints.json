@@ -5,7 +5,7 @@
       "source": "./vendored/mattpocock/skills",
       "upstream": "mattpocock/skills@4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
       "skills": {
-        "code-review": "73605d13be3416cb75ddcddd6ed29e3bc166b44a67a675ee7540f373875d8280",
+        "code-review": "5c6587cc58f22b0526153c887d07d452cadbe63a03a14cfffb231d55729a9706",
         "codebase-design": "5cc2906c4e0e918d4315b59dc71f45639314d317a1dca771d1cad4fb58e3793b",
         "diagnosing-bugs": "c0340f4f5c6bde5d8037a1a121348f4e9dc7faa9a6f4160863b8a34d29ce7439",
         "domain-modeling": "2cc88b237a4704f9fe2057492024856a48ea803a5b9257b1c1e3174eb1f13a09",
@@ -16,14 +16,14 @@
         "pr": "1cb140ca4e50bef7fdd47bda7f47f7fc0891dab67a19bb4ebc43766e7c99c2e3",
         "prototype": "59c35a917f6285fb10a91b49600edccd64e0d5656b6deaad3ade853263e5fad7",
         "research": "8c6a8c6b7819869f4663aeaea90fe6b3e642deb79c49f64c48f49aced107881a",
-        "retro": "6e485cb802258afbfdef5940b77a203c109125749fc8031aec9b8982544e884f",
+        "retro": "a772d32f66d2345d4977d98122777644084bfadc81c182915a7740fe87434549",
         "tdd": "f20b2e1cd5c1173924a766520ad7f76928bb89857d237eb77d28193332ff7d3b",
         "to-spec": "d0fc2e91f98fc86a70fe4d5ceba79a85268d877cae7b3853a838fb1055e32dc6",
         "to-tickets": "57b6dea962ccd6869f838aa9d4b030903d738ed6ff25d98394e9c76d6bebcd16",
         "wait-what": "d8c5157780c8b4933f887639779f807c51f18e0564bf6236e1a4cb2c793bd73c",
         "wayfinder": "0300642170e1f24fb09735a2f88fffc6646ecb11c3e191534e498a56f383043e",
         "wizard": "5c8b56fd2d209eaec0968cda1b282b87fddb9540ce76d201593e5738bef23095",
-        "writing-for-agents": "236995a0833ea7f69544aa9acbce3bbd9893fce02196fbc52aa01129b2e9e45c"
+        "writing-for-agents": "def99e7ed25f49e2e3390cb4b6c98f15ceb61d910d1f2b7c6d40cd69d577b335"
       }
     },
     "caveman": {

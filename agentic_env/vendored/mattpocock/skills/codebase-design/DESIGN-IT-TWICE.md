@@ -18,7 +18,7 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 ### 2. Spawn sub-agents
 
-Dispatch 3+ sub-agents in parallel with your runtime's own delegation tool (OMP: `task`, one batch; Hermes: `delegate_task`). Each must produce a **radically different** interface for the deepened module. They design and report; none of them edits the codebase.
+Dispatch 3+ sub-agents in parallel, each with a fresh context window, with your runtime's own delegation tool (OMP: `task`, one batch; Hermes: `delegate_task`). Each must produce a **radically different** interface for the deepened module. They design and report; none of them edits the codebase.
 
 Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
 

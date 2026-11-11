@@ -8,7 +8,7 @@ Two-axis review of an **immutable snapshot** of the intended change, taken again
 - **Standards**: does the code conform to the bundled coding standards and this repo's own?
 - **Spec**: does the code faithfully implement the originating issue / spec?
 
-Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. Both read the same snapshot, so neither reviews a working tree that moved underneath it.
+Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings. Start every sub-agent with a fresh context window. Both read the same snapshot, so neither reviews a working tree that moved underneath it.
 
 Review reports; it never lands anything. No edits, no commits, no pushes, no PRs, no tracker writes from this skill.
 

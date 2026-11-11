@@ -28,7 +28,7 @@ Either way, **say what you scoped to before you scan**, so the survey covers the
 
 Read the project's domain glossary (`CONTEXT.md`) and any ADRs in the area you're touching first.
 
-Then walk that scope. Delegate to sub-agents only where the scope is genuinely wide enough to partition; one survey agent dispatched by reflex buys nothing a direct read doesn't. Don't follow rigid heuristics; explore organically and note where you experience friction:
+Then walk that scope. Delegate to sub-agents, each with a fresh context window, only where the scope is genuinely wide enough to partition; one survey agent dispatched by reflex buys nothing a direct read doesn't. Don't follow rigid heuristics; explore organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow**, with an interface nearly as complex as the implementation?

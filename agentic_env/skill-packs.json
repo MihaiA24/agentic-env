@@ -3,7 +3,7 @@
     {
       "name": "mattpocock",
       "source": "./vendored/mattpocock/skills",
-      "note": "reviewed 49dd158d1076134a641b33efb035946536778336 with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
+      "note": "reviewed 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
       "label": "mattpocock skills",
       "aliases": [
         "mattpocock",
@@ -11,7 +11,7 @@
       ],
       "upstream": {
         "repo": "mattpocock/skills",
-        "ref": "49dd158d1076134a641b33efb035946536778336",
+        "ref": "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
         "path": "skills"
       },
       "skills": [

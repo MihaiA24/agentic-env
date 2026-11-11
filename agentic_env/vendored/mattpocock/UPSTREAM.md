@@ -1,8 +1,8 @@
 # Matt skills provenance
 
-Source: [mattpocock/skills at `49dd158d1076134a641b33efb035946536778336`](https://github.com/mattpocock/skills/tree/49dd158d1076134a641b33efb035946536778336), 2026-10-09. Licence: [MIT, Matt Pocock](LICENSE).
+Source: [mattpocock/skills at `4ae2317ddb22b046e26455e4f9c9b3aaaf62212d`](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d), 2026-10-31. Licence: [MIT, Matt Pocock](LICENSE).
 
-Rechecked 2026-10-19 through [`5beb35b040e3de97e54fa9e386d7e42d15c295c2`](https://github.com/mattpocock/skills/compare/49dd158d1076134a641b33efb035946536778336...5beb35b040e3de97e54fa9e386d7e42d15c295c2): only the excluded `chief-of-staff` package and its changeset changed. All nineteen selected packages are unchanged upstream; the source pin stays at `49dd158`.
+Updated 2026-11-11 from [`49dd158`](https://github.com/mattpocock/skills/compare/49dd158d1076134a641b33efb035946536778336...4ae2317ddb22b046e26455e4f9c9b3aaaf62212d): upstream `7739eae` starts every sub-agent "with a fresh context window" in `code-review`, `codebase-design` (`DESIGN-IT-TWICE.md`), `grilling`, `improve-codebase-architecture`, `research` and `wayfinder`; the phrase is merged into the adapted delegation lines. The other selected packages are unchanged upstream. The rest of the range touches only unselected packages: `implement-spec`, `setup-matt-pocock-skills`, and in-progress `chief-of-staff` and `software-factory`.
 
 The [manifest](../../skill-packs.json) selects nineteen complete packages from `skills/engineering/` and `skills/productivity/`, flattened into `skills/`. Supporting files and per-skill descriptors are retained; category indexes and unselected skills are omitted. `teach` was removed with its format files and descriptor; the public `teach` is pstack's. `resolving-merge-conflicts` was removed upstream in `daa01d8` and is dropped here. Vendoring exists to preserve local adaptations, not to work around CLI pinning, since the skills CLI supports tags and commit SHAs.
 

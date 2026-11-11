@@ -1,6 +1,6 @@
 # Choose a skill for the job
 
-Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 16 from pstack, three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 20 from Matt Pocock, 16 from pstack, three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
 Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies; Claude Code still loads a manual dependency only when your message names it. Reading a skill to check discovery does not invoke it.
 
@@ -24,6 +24,7 @@ The **Starts** column says who starts a skill:
 | `ponytail` | ponytail | Always on, injected | Every change | Smallest complete change: reuse what exists, fix the root cause, say what was skipped. A small diff is cheap to verify. |
 | `/verify-<app>` checks | Generated per repository | Always on, through `AGENTS.md` | Every user-visible change | Proof on the real path. Approved checks stop the agent re-verifying in loops. |
 | `diagnosing-bugs` | Matt | Agent | Something fails, throws or is slow | Builds a reproducible feedback loop before guessing a fix. |
+| `resolving-merge-conflicts` | Matt | Agent | A merge or rebase stops on conflicts | Rebuilds each side's intent from history before resolving. Stages only the conflicted paths and finishes the merge only when you asked for that. |
 | `tdd` | Matt | Agent | You ask for test-first | One behavior test at a time through the public interface, so tests survive refactors. |
 | `blast-radius` | pstack | You | Risky change: lifecycle, shared state, downstream consumers | Finds what breaks outside the diff and proves, by running real code, the one fact that makes it safe. |
 | `benchmark-checklist` | pstack | You | A measured number you'll report or act on | Checks what limits the number and that the work actually ran before you trust it. |

@@ -30,6 +30,7 @@
         { "name": "pr", "description": "Draft a PR body: summary visual, before/after evidence, merge danger" },
         { "name": "retro", "description": "Retrospective that reports environment improvements for future runs" },
         { "name": "diagnosing-bugs", "description": "Diagnosis loop for hard bugs and performance regressions" },
+        { "name": "resolving-merge-conflicts", "description": "Resolve an in-progress merge or rebase conflict from both sides' intent" },
         { "name": "writing-for-agents", "description": "How to write skills, AGENTS.md, and docs an agent reads" },
         { "name": "improve-codebase-architecture", "description": "Report deepening opportunities, then grill the one you pick" },
         { "name": "wizard", "description": "Generate a bash wizard for a manual procedure" },

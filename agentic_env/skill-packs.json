@@ -83,7 +83,7 @@
     },
     {
       "name": "ponytail",
-      "source": "DietrichGebert/ponytail#v4.9.0",
+      "source": "DietrichGebert/ponytail#v5.3.3",
       "label": "ponytail skill",
       "aliases": [
         "ponytail",
@@ -91,10 +91,9 @@
       ],
       "upstream": { "path": "skills" },
       "skills": [
-        { "name": "ponytail", "description": "Forces the laziest solution that works, YAGNI first" },
-        { "name": "ponytail-audit", "description": "Whole-repo over-engineering audit, ranked deletions" },
-        { "name": "ponytail-debt", "description": "Collect ponytail: comments into a debt ledger" },
-        { "name": "ponytail-review", "description": "Review a diff only for over-engineering" }
+        { "name": "ponytail", "description": "Smallest change that fully solves the task; names what it skipped" },
+        { "name": "ponytail-audit", "description": "Whole-repo quality audit: bugs, risk, load, tests, speed, what to cut" },
+        { "name": "ponytail-debt", "description": "Collect shortcut: (and older ponytail:) comments into a debt ledger" }
       ]
     },
     {

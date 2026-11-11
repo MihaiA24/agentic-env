@@ -55,13 +55,12 @@
       }
     },
     "ponytail": {
-      "source": "DietrichGebert/ponytail#v4.9.0",
-      "upstream": "DietrichGebert/ponytail@v4.9.0",
+      "source": "DietrichGebert/ponytail#v5.3.3",
+      "upstream": "DietrichGebert/ponytail@v5.3.3",
       "skills": {
-        "ponytail": "388ec42c9551f47d12555b1723b1af67b8fe18a8afbea0a8db96cfb870eb3803",
-        "ponytail-audit": "e3d9eddf58dd7b4dae504266d8a5eb7b306db1e69114710800d554ef386ccfd0",
-        "ponytail-debt": "368db847eb919b0d841d253da745e8215e234cb217609b55b27528e8cb754c84",
-        "ponytail-review": "cd3715f0513d93e4caab8cc30ad09080ae62f763ed8b95304fd84efda5fbf0be"
+        "ponytail": "b40d655883ea462755ae12373b59833fce20ba256bc06b0bc4e08dc59ba2ca5d",
+        "ponytail-audit": "e06adf4f4ee04dc135b8ff0ce9f168590c0540c69c02fc76400b6ad3bb11f10e",
+        "ponytail-debt": "576b8ad55b041a9b87e50719534a7148e68752ca02ceec4b1afdf364bf142aa4"
       }
     },
     "agentic-env": {

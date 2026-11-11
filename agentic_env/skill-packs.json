@@ -38,7 +38,7 @@
     },
     {
       "name": "caveman",
-      "source": "JuliusBrussee/caveman#v2.3.1",
+      "source": "JuliusBrussee/caveman#v4.1.0",
       "label": "caveman skills",
       "aliases": [
         "caveman",
@@ -46,7 +46,7 @@
       ],
       "upstream": { "path": "skills" },
       "skills": [
-        { "name": "caveman", "description": "Ultra-compressed replies, about 65% fewer output tokens" },
+        { "name": "caveman", "description": "Terse replies: answer first, fluff gone, technical facts kept" },
         { "name": "caveman-commit", "description": "Conventional Commits messages with the noise removed" }
       ]
     },

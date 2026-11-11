@@ -20,7 +20,7 @@ Read only this session and its named children. Session headers contain metadata,
 
 ## 2. Run three reviewers in parallel
 
-Three lenses, one dispatch. In OMP use one `task` batch with read-only `scout` agents; in Hermes delegate only if the granted tools can actually exclude writes. Reviewers may query already-authorized sources cited in this session. If a restricted grant is unavailable, the parent gathers that evidence and supplies it to tool-less reviewers. A prohibition in the prompt is not a permission boundary.
+Three lenses, one dispatch. In OMP use one `task` batch with `scout` agents whose actual tool grants exclude writes; in Hermes delegate only if the granted tools can actually exclude writes. Reviewers may query already-authorized sources cited in this session. If a restricted grant is unavailable, the parent gathers that evidence and supplies it to tool-less reviewers. A prohibition in the prompt is not a permission boundary.
 
 | Lens | Prompt template |
 |---|---|
@@ -43,6 +43,8 @@ Move any Accepted item that a lint rule, script, metadata flag, test, or doctor 
 ## 5. Apply
 
 Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval before applying any Accepted edit. The user picks the subset and may redirect routings. Skill changes affect every future agent on this machine. Do not auto-apply.
+
+Before approval, name each edit's destination: the skill's source — its repository package for a curated skill, or the project's `.agents/skills/<name>` for a project skill. After approval, edit there. Installed copies in managed skill stores (`~/.agents/skills` and the roots linked to it) are overwritten by the next reinstall and read as drift.
 
 Nothing files itself. Backlog items are reported to the user, not written to a tracker, and creating an issue, a branch, a commit or a PR is a separate ask each time. Reflection produces edits in the working tree and a list; publication is the user's call.
 

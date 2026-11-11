@@ -61,7 +61,7 @@
       ],
       "upstream": {
         "repo": "cursor/plugins",
-        "ref": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+        "ref": "c742dd61706fbacc1b95f1a20b7b988cf096ce6c",
         "path": "pstack"
       },
       "skills": [

@@ -49,7 +49,7 @@ Check source-control access through git and the available forge tools; do not as
 Spawn one investigator per category that has a matching authorized source, all in a single dispatch so they run concurrently, each owning exactly one tool or MCP. Don't ask one agent to cover multiple sources. Query only sources the user has already connected and authorized for this work; do not reach for a new account, credential or workspace to fill a category.
 
 Subagent config (each):
-- **OMP:** one item per category in a single `task` call. Use a read-only agent (`scout`) for source control and filesystem evidence. For an MCP-backed category, use an agent that can reach the MCP tools, granted query tools only. Investigators do not write files, mutate tickets, comment, commit or publish.
+- **OMP:** one item per category in a single `task` call. Use `scout` with a checked read/query-only tool grant for source control and filesystem evidence. For an MCP-backed category, use an agent that can reach the MCP tools, granted query tools only. Investigators do not write files, mutate tickets, comment, commit or publish.
 - **Hermes:** one `delegate_task` per category, all dispatched together, each given only the tools its source needs.
 - **Model:** the runtime default unless the user names a model confirmed available here. Do not copy model aliases from another harness, and do not claim source diversity from dispatch count.
 

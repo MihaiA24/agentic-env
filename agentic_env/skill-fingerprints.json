@@ -3,73 +3,75 @@
   "packs": {
     "mattpocock": {
       "source": "./vendored/mattpocock/skills",
-      "upstream": "mattpocock/skills@49dd158d1076134a641b33efb035946536778336",
+      "upstream": "mattpocock/skills@4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
       "skills": {
-        "code-review": "6b8977c25985c19d54e417e8a09f8885724ae818773dca298f48ce7501b95595",
-        "codebase-design": "6024e02ce74efbb392fb0a6b83e4575bcf55eae860f119c09c95634e9eae06fc",
+        "code-review": "5c6587cc58f22b0526153c887d07d452cadbe63a03a14cfffb231d55729a9706",
+        "codebase-design": "5cc2906c4e0e918d4315b59dc71f45639314d317a1dca771d1cad4fb58e3793b",
         "diagnosing-bugs": "c0340f4f5c6bde5d8037a1a121348f4e9dc7faa9a6f4160863b8a34d29ce7439",
         "domain-modeling": "2cc88b237a4704f9fe2057492024856a48ea803a5b9257b1c1e3174eb1f13a09",
         "grill-with-docs": "b125979dfbb5464ab1a4a0e93b8dd9dc22ff84f3c715991fe6c2dc15220ad8b1",
-        "grilling": "84ca0320c5fa81a1261d6d1d4c120ada9dea80f856a2c2565404f7125a809b86",
+        "grilling": "27f71f106a7062691b2982d4f847304a62930ebed8b50734f4d4fd498d60afa8",
         "handoff": "97311a4c4327384265f9c4c655c6cbbf03bc2a2e76d56c5ed4b6b72b56273ae8",
-        "improve-codebase-architecture": "a98dd5823f22507c5270516fd93078a66bfae03a6e17920463dd2114580feeb7",
+        "improve-codebase-architecture": "c8fb6ac0bea461d110b0133bc6d462a57934ca778e78921daa1050c7c89e5598",
         "pr": "1cb140ca4e50bef7fdd47bda7f47f7fc0891dab67a19bb4ebc43766e7c99c2e3",
         "prototype": "59c35a917f6285fb10a91b49600edccd64e0d5656b6deaad3ade853263e5fad7",
-        "research": "658985148034e2704824524363bae1c2871fb7caae8c3708168c96665fa8a9be",
-        "retro": "6e485cb802258afbfdef5940b77a203c109125749fc8031aec9b8982544e884f",
+        "research": "8c6a8c6b7819869f4663aeaea90fe6b3e642deb79c49f64c48f49aced107881a",
+        "resolving-merge-conflicts": "2074d58fc687f73cc6a19ba33345fa22b841c7e160172cb07a8c36c35b23e8d8",
+        "retro": "a772d32f66d2345d4977d98122777644084bfadc81c182915a7740fe87434549",
         "tdd": "f20b2e1cd5c1173924a766520ad7f76928bb89857d237eb77d28193332ff7d3b",
         "to-spec": "d0fc2e91f98fc86a70fe4d5ceba79a85268d877cae7b3853a838fb1055e32dc6",
         "to-tickets": "57b6dea962ccd6869f838aa9d4b030903d738ed6ff25d98394e9c76d6bebcd16",
         "wait-what": "d8c5157780c8b4933f887639779f807c51f18e0564bf6236e1a4cb2c793bd73c",
-        "wayfinder": "ac4c5be4ee51956b511689891e7aec92c14989462daef8f2fa95d4214f3f9bab",
+        "wayfinder": "0300642170e1f24fb09735a2f88fffc6646ecb11c3e191534e498a56f383043e",
         "wizard": "5c8b56fd2d209eaec0968cda1b282b87fddb9540ce76d201593e5738bef23095",
-        "writing-for-agents": "236995a0833ea7f69544aa9acbce3bbd9893fce02196fbc52aa01129b2e9e45c"
+        "writing-for-agents": "def99e7ed25f49e2e3390cb4b6c98f15ceb61d910d1f2b7c6d40cd69d577b335"
       }
     },
     "caveman": {
-      "source": "JuliusBrussee/caveman#v2.3.1",
-      "upstream": "JuliusBrussee/caveman@v2.3.1",
+      "source": "JuliusBrussee/caveman#v4.1.0",
+      "upstream": "JuliusBrussee/caveman@v4.1.0",
       "skills": {
-        "caveman": "2a53959c5238aec65da1fa506ab715da83216ea2365f74dfe7401d0d5fb5c317",
-        "caveman-commit": "1abb9081b8cf9cc26512ed42887567e67469c556e8781a9af11ea3cff0388a91"
+        "caveman": "8dd75b3ad1dccebfc375f3ec73e714b02ef5666791416f228d8ebc53c8540597",
+        "caveman-commit": "0157f6cd11ea35db6ab69a61442c502053626da6f6f44b0d100288ec50f63d6d"
       }
     },
     "pstack": {
       "source": "./vendored/pstack/skills",
-      "upstream": "cursor/plugins@1dcc2bacde73ddd284803b7af28164d0436198fc",
+      "upstream": "cursor/plugins@c742dd61706fbacc1b95f1a20b7b988cf096ce6c",
       "skills": {
         "benchmark-checklist": "d503ad5dc9cc45742428595d36cabd187e93bee9169a9b1c5b166fcdd9c6f7b0",
         "blast-radius": "6b4b7511100f524414a3e0e7ec0b7db207f67f057b62bf26d2f0a3026608d09b",
         "correct": "dee7fcd28ed3f78de179eea011881e0b43432a14ca407b1080a178d51e4bce0e",
         "create-verification-skill": "9beba0e39a802143dd5e3f252a0cae206f43e0f16fd7185ef9d8e3fc8459cc57",
-        "how": "3ac78211baaf39a066d8513199a0eaaf7816d6c186ddc2ed3ac146c7c7a9b6ee",
+        "how": "342e5efa0905463dc703ce83ad8904ede462fb8e9e2b1d865655f7698248a1e1",
+        "in-your-own-words": "87ef01583e8c34267258e3b339233938f9e5ee37f055051b37bea74a361641cd",
         "interrogate": "fcbee1d1421e3b2ac9f8c5dca556b2e1ce65d13c80b33d580f267aecac185d73",
-        "maintain-verification-skill": "f7599628d5a7052d5e8cce6770ce2a7366c917ee4d59e6a630405d23a527d1e7",
-        "recall": "ae11245e76755b88c649d5fbcb8d2a31594217a08ec5c1be15bce941600f7016",
-        "reflect": "556912fd12911b76c99753012d14922cbede899a1d74d6f0aab20c57de991bd9",
+        "maintain-verification-skill": "3c1a4d48e8ffa7d212b295404b42a022dd581d7c6cd694c77010658177bb63b9",
+        "recall": "3437dad12d5d066fe2375eef9d8e335c4487663eb6af08e8743499fdcdb78e6c",
+        "reflect": "c42e5be76f62f8bb7b96817bb81a452525a3cd11bd4e7048a67bb87978614199",
+        "sharpen": "0c43d614cac22e714bd1f4cb11782f5915a12cd9b0b1fb1f587796dea16479a1",
         "show-me-your-work": "1f04fed90bbb018809fd283308caa1463157cc79db19db3eb1a3423a4aab2929",
         "teach": "cace7494b75c4767b5fa4e357a52b4dfe2c25562eb9f28fd42a3bea6f71219a6",
         "technical-writing": "d59b4195fc6fd0671a423d0ac6a7f2951bb53d8a02e9a19a1bcb6b43333e4922",
         "unslop": "848389a2490f3bb0e2be1e515e13085faf6b62df0efd56414dfd94325587e94a",
-        "why": "f2c3fbbe3f23e681e0caa1c8c27b39aa01f9786e288213c39ea2a60bea9c09d9"
+        "why": "e5dae4f8668868e038552fbcc170a0b0b99c32facd21dab18115b095495f1342"
       }
     },
     "ponytail": {
-      "source": "DietrichGebert/ponytail#v4.9.0",
-      "upstream": "DietrichGebert/ponytail@v4.9.0",
+      "source": "DietrichGebert/ponytail#v5.3.3",
+      "upstream": "DietrichGebert/ponytail@v5.3.3",
       "skills": {
-        "ponytail": "388ec42c9551f47d12555b1723b1af67b8fe18a8afbea0a8db96cfb870eb3803",
-        "ponytail-audit": "e3d9eddf58dd7b4dae504266d8a5eb7b306db1e69114710800d554ef386ccfd0",
-        "ponytail-debt": "368db847eb919b0d841d253da745e8215e234cb217609b55b27528e8cb754c84",
-        "ponytail-review": "cd3715f0513d93e4caab8cc30ad09080ae62f763ed8b95304fd84efda5fbf0be"
+        "ponytail": "b40d655883ea462755ae12373b59833fce20ba256bc06b0bc4e08dc59ba2ca5d",
+        "ponytail-audit": "e06adf4f4ee04dc135b8ff0ce9f168590c0540c69c02fc76400b6ad3bb11f10e",
+        "ponytail-debt": "576b8ad55b041a9b87e50719534a7148e68752ca02ceec4b1afdf364bf142aa4"
       }
     },
     "agentic-env": {
       "source": "./skills",
       "upstream": null,
       "skills": {
-        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
-        "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8"
+        "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8",
+        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3"
       }
     }
   }

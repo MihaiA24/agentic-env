@@ -518,6 +518,21 @@ class RemoteComparisonTests(unittest.TestCase):
             self.assertIn("-upstream alpha\n", rows["alpha"]["upstream_diff"])
             self.assertIn("+++ /dev/null\n", rows["alpha"]["upstream_diff"])
 
+    def test_skill_without_an_upstream_package_is_local_not_drift(self) -> None:
+        """A locally maintained skill in an upstream pack: absent at the pin and at latest."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            config = self._fixture(root)
+            for tree in ("pinned", "latest"):
+                (root / tree / "skills" / "alpha" / "SKILL.md").unlink()
+
+            code, rows = self._check(root, config)
+
+            self.assertEqual(code, 0)
+            self.assertEqual(rows["alpha"]["upstream"], "local")
+            self.assertEqual(rows["alpha"]["local_upstream"], "local")
+            self.assertEqual(rows["beta"]["upstream"], "ok")
+
 
 class BaselineTests(unittest.TestCase):
 

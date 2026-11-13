@@ -27,7 +27,7 @@ Decompose the question into 2 to 4 angles, each a distinct, independent slice of
 
 Runtime:
 
-- **OMP:** one item per angle in a single `task` call, on the read-only `scout` agent. Read-only is enforced by the agent type, not by the prompt.
+- **OMP:** one item per angle in a single `task` call, on `scout`. Check the actual tool grant, including inherited MCP and custom tools; when mutation must be impossible, use a restricted grant or tool-less frozen input.
 - **Hermes:** one `delegate_task` per angle, dispatched together, each instructed to investigate only and given no write-capable tools.
 - **Model:** use the runtime's default unless the user names a model you have confirmed exists here. Do not copy model aliases from another harness.
 - If Hermes cannot enforce a read/query-only grant, investigate inline instead of calling a write-capable worker "read-only".
@@ -38,7 +38,7 @@ Explorers return findings, not prose.
 
 Once all explorers have returned, merge their findings into one explanation. Their slices overlap and can contradict; reconcile them and re-read the code yourself wherever they disagree.
 
-Do this inline when the findings are small enough to hold. When they are not, delegate it to a single explainer (OMP `scout`, Hermes `delegate_task` without write tools) built from `references/explainer-prompt.md` with every explorer's findings filled in.
+Do this inline when the findings are small enough to hold. When they are not, delegate it to a single explainer (OMP `scout` with a checked read/query-only grant or tool-less frozen input, Hermes `delegate_task` without write tools) built from `references/explainer-prompt.md` with every explorer's findings filled in.
 
 ## 4. Present
 

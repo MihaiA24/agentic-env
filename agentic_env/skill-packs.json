@@ -3,7 +3,7 @@
     {
       "name": "mattpocock",
       "source": "./vendored/mattpocock/skills",
-      "note": "reviewed 49dd158d1076134a641b33efb035946536778336 with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
+      "note": "reviewed 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d with documented OMP/Hermes adaptations; see vendored/mattpocock/UPSTREAM.md",
       "label": "mattpocock skills",
       "aliases": [
         "mattpocock",
@@ -11,7 +11,7 @@
       ],
       "upstream": {
         "repo": "mattpocock/skills",
-        "ref": "49dd158d1076134a641b33efb035946536778336",
+        "ref": "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
         "path": "skills"
       },
       "skills": [
@@ -30,6 +30,7 @@
         { "name": "pr", "description": "Draft a PR body: summary visual, before/after evidence, merge danger" },
         { "name": "retro", "description": "Retrospective that reports environment improvements for future runs" },
         { "name": "diagnosing-bugs", "description": "Diagnosis loop for hard bugs and performance regressions" },
+        { "name": "resolving-merge-conflicts", "description": "Resolve an in-progress merge or rebase conflict from both sides' intent" },
         { "name": "writing-for-agents", "description": "How to write skills, AGENTS.md, and docs an agent reads" },
         { "name": "improve-codebase-architecture", "description": "Report deepening opportunities, then grill the one you pick" },
         { "name": "wizard", "description": "Generate a bash wizard for a manual procedure" },
@@ -38,7 +39,7 @@
     },
     {
       "name": "caveman",
-      "source": "JuliusBrussee/caveman#v2.3.1",
+      "source": "JuliusBrussee/caveman#v4.1.0",
       "label": "caveman skills",
       "aliases": [
         "caveman",
@@ -46,7 +47,7 @@
       ],
       "upstream": { "path": "skills" },
       "skills": [
-        { "name": "caveman", "description": "Ultra-compressed replies, about 65% fewer output tokens" },
+        { "name": "caveman", "description": "Terse replies: answer first, fluff gone, technical facts kept" },
         { "name": "caveman-commit", "description": "Conventional Commits messages with the noise removed" }
       ]
     },
@@ -61,7 +62,7 @@
       ],
       "upstream": {
         "repo": "cursor/plugins",
-        "ref": "1dcc2bacde73ddd284803b7af28164d0436198fc",
+        "ref": "c742dd61706fbacc1b95f1a20b7b988cf096ce6c",
         "path": "pstack"
       },
       "skills": [
@@ -78,12 +79,14 @@
         { "name": "reflect", "description": "Review the transcript and route learnings into skill edits" },
         { "name": "recall", "description": "Rebuild recent working context into a current-state brief" },
         { "name": "benchmark-checklist", "description": "Vet a measured perf number before you report or act on it" },
-        { "name": "correct", "description": "Turn mistakes agents repeat into guards that make them impossible" }
+        { "name": "correct", "description": "Turn mistakes agents repeat into guards that make them impossible" },
+        { "name": "in-your-own-words", "description": "Restate the user's goals and problem before work starts" },
+        { "name": "sharpen", "description": "Deepen a task without widening it, then rewrite the prompt" }
       ]
     },
     {
       "name": "ponytail",
-      "source": "DietrichGebert/ponytail#v4.9.0",
+      "source": "DietrichGebert/ponytail#v5.3.3",
       "label": "ponytail skill",
       "aliases": [
         "ponytail",
@@ -91,10 +94,9 @@
       ],
       "upstream": { "path": "skills" },
       "skills": [
-        { "name": "ponytail", "description": "Forces the laziest solution that works, YAGNI first" },
-        { "name": "ponytail-audit", "description": "Whole-repo over-engineering audit, ranked deletions" },
-        { "name": "ponytail-debt", "description": "Collect ponytail: comments into a debt ledger" },
-        { "name": "ponytail-review", "description": "Review a diff only for over-engineering" }
+        { "name": "ponytail", "description": "Smallest change that fully solves the task; names what it skipped" },
+        { "name": "ponytail-audit", "description": "Whole-repo quality audit: bugs, risk, load, tests, speed, what to cut" },
+        { "name": "ponytail-debt", "description": "Collect shortcut: (and older ponytail:) comments into a debt ledger" }
       ]
     },
     {

@@ -14,7 +14,7 @@ A retro reports; it lands nothing. Implementing any candidate, committing, and c
 
 1. Load the `writing-for-agents` skill from your runtime's skill directory (OMP: `read skill://writing-for-agents`; Hermes: `skill_view writing-for-agents`) for the writing style guide.
 
-2. Read the primary sources for the session in scope: the current one, unless the user names another (by ID, path, or a description). Use the runtime's own transcripts: in OMP, `history://<id>` for agents of this run, or the named file under `~/.omp/agent/sessions/<workspace-directory>/`; in Hermes, the session ID's record under the active Hermes home's `sessions/` or `state.db`. Never pick a session because it is the newest: match a description against what the user said (workspace, opening prompt, date), and ask if it fits none or more than one.
+2. Read the primary sources for the session in scope: the current one, unless the user names another (by ID, path, or a description). In OMP, read the current session directly (`history://<id>` for agents of this run, or its file under `~/.omp/agent/sessions/<workspace-directory>/`); consult a named past session through one `task` item with `agent: "seance"` and `sourceSession: <id or path>`, a read-only historical fork that answers with evidence. Use native `archive` to discover candidates, reserving raw session JSONL for narrow record-level checks. In Hermes, use the session ID's record under the active Hermes home's `sessions/` or `state.db`. Never pick a session because it is the newest: match a description against what the user said (workspace, opening prompt, date), and ask if it fits none or more than one.
 
 3. Look for candidates for improvement in these categories.
 

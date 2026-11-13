@@ -8,7 +8,7 @@ Investigate the question against **primary sources** (official docs, source code
 ## Execution
 
 - Handle a focused docs or API lookup inline.
-- Delegate substantial, independent reading slices only when you can continue other useful work while they run. Use your runtime's delegation tool (OMP: `task`; Hermes: `delegate_task`); otherwise research inline.
+- Delegate substantial, independent reading slices only when you can continue other useful work while they run. Use your runtime's delegation tool (OMP: `task`; Hermes: `delegate_task`) and start each agent with a fresh context window; otherwise research inline.
 - Cover the requested scope in either mode. Delegation changes who reads, not what must be investigated.
 
 ## Findings

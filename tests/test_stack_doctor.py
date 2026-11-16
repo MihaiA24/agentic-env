@@ -42,8 +42,7 @@ class _Host:
         self.claude_json.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
         # No curated skills: they are opt-in, so a compliant host may have none.
         for skills_root in self.skill_roots:
-            for name in ("codebase-memory-mcp", "ponytail"):
-                _skill(skills_root, name)
+            _skill(skills_root, "ponytail")
         self.hermes_config.parent.mkdir(parents=True)
         self.hermes_config.write_text(
             "mcp_servers:\n  codebase-memory-mcp:\n    command: codebase-memory-mcp\n"
@@ -62,11 +61,9 @@ class _Host:
         extra: dict[str, object] | None = None,
         disabled: list[str] | None = None,
     ) -> None:
-        servers: dict[str, object] = {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}
-        servers.update(extra or {})
         if disabled is None:
-            disabled = ["codebase-memory-mcp", "node_repl", *configure_agent_mcps.OMP_EXCLUDED_SERVERS] if gated else []
-        data = {"mcpServers": servers, "disabledServers": disabled}
+            disabled = ["node_repl", *configure_agent_mcps.OMP_EXCLUDED_SERVERS] if gated else []
+        data = {"mcpServers": extra or {}, "disabledServers": disabled}
         path.write_text(json.dumps(data), encoding="utf-8")
 
     def patched(self, *, missing_commands: tuple[str, ...] = ()) -> contextlib.ExitStack:
@@ -140,7 +137,7 @@ class StackDoctorTests(unittest.TestCase):
             host = _Host(Path(temp_dir))
             host.write_mcp(
                 host.mcp_paths[0], gated=True,
-                disabled=["codebase-memory-mcp", *configure_agent_mcps.OMP_EXCLUDED_SERVERS],
+                disabled=list(configure_agent_mcps.OMP_EXCLUDED_SERVERS),
             )
             code, output = _run(host)
         self.assertEqual(code, 1)
@@ -149,7 +146,7 @@ class StackDoctorTests(unittest.TestCase):
     def test_excluded_names_must_stay_disabled_even_when_absent(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             host = _Host(Path(temp_dir))
-            host.write_mcp(host.mcp_paths[0], gated=True, disabled=["codebase-memory-mcp", "node_repl"])
+            host.write_mcp(host.mcp_paths[0], gated=True, disabled=["node_repl"])
             original = host.mcp_paths[0].read_bytes()
             with host.patched():
                 failures = [check for check in stack_doctor.run_checks() if not check.ok]
@@ -158,23 +155,29 @@ class StackDoctorTests(unittest.TestCase):
                 self.assertTrue(any(name in check.detail and check.mandatory for check in failures))
             self.assertEqual(host.mcp_paths[0].read_bytes(), original)
 
-    def test_wrong_omp_definition_fails_without_repair(self) -> None:
-        for entry in (
-            {"command": "wrong-binary"},
-            {"command": "codebase-memory-mcp", "args": ["--wrong"]},
-            "not-a-mapping",
-        ):
-            with self.subTest(entry=entry), tempfile.TemporaryDirectory() as temp_dir:
-                host = _Host(Path(temp_dir))
-                path = host.mcp_paths[0]
-                host.write_mcp(path, gated=True, extra={"codebase-memory-mcp": entry})
-                original = path.read_bytes()
-                with host.patched():
-                    failures = [check for check in stack_doctor.run_checks() if not check.ok]
-                    self.assertEqual(stack_doctor.report(failures), 1)
-                self.assertTrue(any(check.mandatory and "mcpServers.codebase-memory-mcp" in check.fix for check in failures))
-                self.assertTrue(all(stack_doctor.FIX_CONFIGURE not in check.fix for check in failures))
-                self.assertEqual(path.read_bytes(), original)
+    def test_leftover_code_graph_entry_names_the_configurator(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            path = host.mcp_paths[0]
+            host.write_mcp(path, gated=True, extra={"codebase-memory-mcp": {"command": "codebase-memory-mcp"}})
+            original = path.read_bytes()
+            with host.patched():
+                failures = [check for check in stack_doctor.run_checks() if not check.ok]
+            self.assertEqual(
+                [(check.detail, check.fix, check.mandatory) for check in failures],
+                [("codebase-memory-mcp", stack_doctor.FIX_CONFIGURE, True)],
+            )
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_claude_code_keeps_its_own_code_graph_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            host.claude_json.write_text(
+                json.dumps({"mcpServers": {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}}}),
+                encoding="utf-8",
+            )
+            with host.patched():
+                self.assertEqual([check for check in stack_doctor.run_checks() if not check.ok], [])
 
     def test_method_order_requires_exact_sequence_but_accepts_yaml_forms(self) -> None:
         method_block = "  methodOrder:\n  - handoff\n  - remote\n  - soft\n"

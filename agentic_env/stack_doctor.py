@@ -133,8 +133,8 @@ def _check_omp_mcp(path: Path) -> list[Check]:
 
 
 def _check_claude_import() -> list[Check]:
-    """OMP's claude-import mounts ~/.claude.json servers: excluded names and
-    read-interception prose are forbidden there too."""
+    """OMP's claude-import mounts ~/.claude.json servers: excluded names (bar
+    `CLAUDE_IMPORT_ALLOWED`) and read-interception prose are forbidden there too."""
     prose = "~/.claude.json: no read-interception prose"
     absent = "~/.claude.json: excluded servers absent"
     if not CLAUDE_USER_CONFIG_PATH.exists():

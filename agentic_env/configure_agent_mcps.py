@@ -359,17 +359,16 @@ def configure_hermes(servers: list[McpServer], *, dry_run: bool) -> bool:
 
 
 # MCP servers deliberately absent from OMP; stale pre-existing entries are removed on converge
-# and the names stay in `disabledServers` so OMP's claude-import (~/.claude.json) cannot
-# mount them either. lean-ctx is Rejected stack-wide (ADR-0009).
+# and the names stay in `disabledServers` so OMP's import of another agent's config
+# (~/.claude.json, ~/.codex/config.toml) cannot mount them either. lean-ctx is Rejected
+# stack-wide (ADR-0009).
 OMP_EXCLUDED_SERVERS = {
     "agentmemory": "ADR-0006: Mnemopi owns narrative memory on OMP",
     "lean-ctx": "ADR-0009: lean-ctx removed from the stack",
+    "codebase-memory-mcp": "DECISIONS §5: litmus never fired; mount it per project",
 }
 
-# Servers wired on OMP but default-off ("Gated" in DECISIONS_AI_TOOLING.md); the installer
-# keeps them in `disabledServers` so a fresh machine never mounts them silently.
-OMP_GATED_SERVERS = ("codebase-memory-mcp",)
-# OMP built-ins with no `mcpServers` entry; gated the same way (0 calls, DECISIONS "Rejected").
+# OMP built-ins with no `mcpServers` entry; kept in `disabledServers` (0 calls, DECISIONS "Rejected").
 OMP_GATED_BUILTINS = ("node_repl",)
 
 
@@ -383,7 +382,7 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
             omp_servers.append(server)
 
     excluded = tuple(OMP_EXCLUDED_SERVERS)
-    gated = tuple(s.name for s in omp_servers if s.name in OMP_GATED_SERVERS) + OMP_GATED_BUILTINS + excluded
+    gated = OMP_GATED_BUILTINS + excluded
     ok_all = True
     for path in OMP_MCP_PATHS:
         ok_all = _converge_config(

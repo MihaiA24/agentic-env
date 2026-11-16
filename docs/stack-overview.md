@@ -10,7 +10,7 @@ What the stack is made of, what was surveyed for each part, and where to read th
 | Context I/O | lean-ctx, Headroom, rtk, LLMLingua, Repomix, repo maps | [ADR-0007](adr/0007-omp-core-owns-context-io.md); [ADR-0008](adr/0008-lean-ctx-gated-to-semantic-search-on-omp.md) → [ADR-0009](adr/0009-lean-ctx-removed-from-stack.md) (lean-ctx lifecycle); DECISIONS §2 | Native OMP tools only |
 | Compaction | Handoff/remote/soft method orders, 120K vs 150K thresholds | DECISIONS §3 | Handoff at 150K |
 | Memory | Mnemopi, agentmemory, Hindsight, mem0 | [Memory backend research](memory-backend-research.md); [ADR-0006](adr/0006-mnemopi-owns-narrative-memory-on-omp.md); DECISIONS §4 | Mnemopi on OMP, agentmemory on Hermes |
-| Code graph | codebase-memory-mcp, GitNexus, GraphRAG, cognee, Graphiti, Semantica, Serena | DECISIONS §5 | codebase-memory-mcp, gated off behind a litmus |
+| Code graph | codebase-memory-mcp, GitNexus, GraphRAG, cognee, Graphiti, Semantica, Serena | DECISIONS §5 | codebase-memory-mcp, installed; OMP mounts it per project only |
 | Skills | Matt, pstack, ponytail and caveman | [Research and verification](skills-workflow-recheck-2026-09-21.md) | [38 skills, routed by job](../DECISIONS_AI_TOOLING.md#6-skills) |
 | Hooks | verification-recorder, retention-canary, cadence-governor | DECISIONS §7 | The first two; cadence-governor rejected on measured non-adherence |
 | Project memory | Per-repo use of the above | [Project memory stack](project-memory-stack.md) | Template, not a machine setting |

@@ -16,7 +16,7 @@ Roles differ by harness:
 
 Rule: if losing a generated store would lose project truth, record the fact in plain text too.
 
-On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). `lean-ctx` was dropped from OMP on 2026-08-11 (ADR-0008 pre-registered fallback) and removed from the whole stack on 2026-09-02 (ADR-0009). `codebase-memory-mcp` stays available on OMP, gated behind the codebase-memory litmus.
+On OMP, the core owns context I/O and Mnemopi owns narrative memory (ADR-0006). `lean-ctx` was dropped from OMP on 2026-08-11 (ADR-0008 pre-registered fallback) and removed from the whole stack on 2026-09-02 (ADR-0009). `codebase-memory-mcp` left the OMP roots on 2026-11-16 because its litmus never fired (DECISIONS §5). The binary stays installed, Hermes stays wired, and an OMP project that needs the graph mounts it in its own `.omp/mcp.json`.
 
 ## Repository template
 
@@ -117,7 +117,7 @@ Run this when opening a repo for agent work:
 1. Ensure `CONTEXT.md` exists.
 2. Ensure `docs/adr/` exists or create it on first ADR.
 3. On OMP, use native context I/O and Mnemopi; on Hermes, verify its `agentmemory` wiring (`agentic-stack-doctor` warns on it).
-4. If the codebase-memory litmus passes, index the repo with `codebase-memory-mcp` or enable auto-index.
+4. If the codebase-memory litmus passes, index the repo with `codebase-memory-mcp` or enable auto-index. On OMP, mount the server in the project's `.omp/mcp.json` first (DECISIONS §5).
 5. Ask structural questions through `codebase-memory-mcp` only after that litmus passes.
 6. During `grill-with-docs`, update `CONTEXT.md` immediately when a term is settled.
 7. Create an ADR only when the ADR threshold is met.

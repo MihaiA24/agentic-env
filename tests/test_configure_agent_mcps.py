@@ -127,7 +127,7 @@ memory:
             self.assertEqual(parsed["memory"]["provider"], "agentmemory")
 
     def test_stale_selected_entries_fail_without_partial_writes(self) -> None:
-        server = configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]
+        server = configure_agent_mcps.McpServer("selected", "selected-mcp")
         missing = configure_agent_mcps.McpServer("missing", "missing-mcp")
         for agent, key in (
             ("hermes", "mcp_servers"),
@@ -371,27 +371,6 @@ known_plugin_toolsets:
                     )
                 self.assertEqual(path.read_text(encoding="utf-8"), original)
 
-    def test_configure_omp_only_adds_codebase_memory(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            path = Path(temp_dir) / "mcp.json"
-            path.write_text("{}", encoding="utf-8")
-            with patch(
-                "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
-                (path,),
-            ):
-                assert configure_agent_mcps.configure_omp(
-                    [
-                        configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"],
-                        configure_agent_mcps.MCP_SERVERS["agentmemory"],
-                    ],
-                    dry_run=False,
-                )
-            parsed = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                parsed["mcpServers"],
-                {"codebase-memory-mcp": {"command": "codebase-memory-mcp"}},
-            )
-
     def test_configure_omp_removes_excluded_entries_from_existing_config(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "mcp.json"
@@ -401,6 +380,7 @@ known_plugin_toolsets:
                         "mcpServers": {
                             "agentmemory": {"command": "agentmemory"},
                             "lean-ctx": {"command": "lean-ctx-mcp"},
+                            "codebase-memory-mcp": {"command": "codebase-memory-mcp"},
                             "user-owned": {"command": "keep-me"},
                         }
                     }
@@ -419,17 +399,16 @@ known_plugin_toolsets:
             self.assertEqual(
                 parsed["mcpServers"],
                 {
-                    "codebase-memory-mcp": {"command": "codebase-memory-mcp"},
                     "user-owned": {"command": "keep-me"},
                 },
             )
 
-    def test_configure_omp_gates_default_off_servers(self) -> None:
+    def test_configure_omp_writes_no_stack_server_and_disables_their_names(self) -> None:
         for existing, expected_disabled in (
-            ({}, ["codebase-memory-mcp", "node_repl", "agentmemory", "lean-ctx"]),
+            ({}, ["node_repl", "agentmemory", "lean-ctx", "codebase-memory-mcp"]),
             (
-                {"disabledServers": ["node_repl"]},
-                ["node_repl", "codebase-memory-mcp", "agentmemory", "lean-ctx"],
+                {"disabledServers": ["codebase-memory-mcp"]},
+                ["codebase-memory-mcp", "node_repl", "agentmemory", "lean-ctx"],
             ),
         ):
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -440,11 +419,11 @@ known_plugin_toolsets:
                     (path,),
                 ):
                     assert configure_agent_mcps.configure_omp(
-                        [configure_agent_mcps.MCP_SERVERS["codebase-memory-mcp"]],
+                        list(configure_agent_mcps.MCP_SERVERS.values()),
                         dry_run=False,
                     )
                 parsed = json.loads(path.read_text(encoding="utf-8"))
-                self.assertIn("codebase-memory-mcp", parsed["mcpServers"])
+                self.assertEqual(parsed["mcpServers"], {})
                 self.assertEqual(parsed["disabledServers"], expected_disabled)
 
     def test_converge_omp_agent_config_seeds_missing_file(self) -> None:
@@ -521,9 +500,9 @@ known_plugin_toolsets:
             self.assertIn("compaction.thresholdTokens", diagnostic)
             self.assertEqual(config_path.read_bytes(), original)
             self.assertFalse(config_path.with_suffix(".yml.agentic-env.bak").exists())
-            self.assertIn("codebase-memory-mcp", json.loads(mcp_path.read_text(encoding="utf-8"))["mcpServers"])
+            self.assertIn("codebase-memory-mcp", json.loads(mcp_path.read_text(encoding="utf-8"))["disabledServers"])
 
-    def test_install_skills_omits_agentmemory_on_omp(self) -> None:
+    def test_install_skills_omits_excluded_servers_on_omp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "skills"
             with patch(
@@ -537,7 +516,7 @@ known_plugin_toolsets:
                 )
 
             self.assertFalse((root / "agentmemory").exists())
-            self.assertTrue((root / "codebase-memory-mcp" / "SKILL.md").is_file())
+            self.assertFalse((root / "codebase-memory-mcp").exists())
             self.assertTrue((root / "ponytail" / "SKILL.md").is_file())
 
     def test_configure_omp_rejects_non_object_root_without_writing(self) -> None:

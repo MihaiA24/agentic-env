@@ -35,6 +35,10 @@ FIX_CODEBASE_MEMORY = "agentic-install-skills-mcps --mcp codebase-memory-mcp --y
 # loads MCP definitions from (ADR-0007, ADR-0009).
 INTERCEPTION_MARKERS = ("ctx_", "shadow mode", "auto-route")
 
+# Excluded from OMP for lack of use, not for a conflict (DECISIONS §5): Claude Code keeps
+# its own entry, which `disabledServers` hides from OMP's claude-import.
+CLAUDE_IMPORT_ALLOWED = ("codebase-memory-mcp",)
+
 
 @dataclass(frozen=True)
 class Check:
@@ -89,20 +93,6 @@ def _check_omp_mcp(path: Path) -> list[Check]:
         return [Check(f"{label} present", False, "unreadable JSON", f"fix {label} by hand")]
     servers, disabled = loaded
     checks = []
-    for name in cfg.OMP_GATED_SERVERS:
-        entry = f"mcpServers.{name}"
-        drift = cfg.mcp_entry_drift(servers[name], cfg.MCP_SERVERS[name]) if name in servers else ""
-        checks.append(
-            Check(
-                f"{label}: {name} wired + gated",
-                name in servers and not drift and name in disabled,
-                f"{entry}: {drift}" if drift
-                else "missing from mcpServers" if name not in servers
-                else "not in disabledServers" if name not in disabled
-                else "mcpServers + disabledServers",
-                f"fix {entry} in {label} by hand" if drift else FIX_CONFIGURE,
-            )
-        )
     for name in cfg.OMP_GATED_BUILTINS:
         checks.append(
             Check(
@@ -154,7 +144,8 @@ def _check_claude_import() -> list[Check]:
         return [Check(prose, False, "unreadable JSON", "fix ~/.claude.json by hand")]
     servers = loaded[0]
     hits = _interception_prose(servers)
-    mounted = [name for name in cfg.OMP_EXCLUDED_SERVERS if name in servers]
+    forbidden = [name for name in cfg.OMP_EXCLUDED_SERVERS if name not in CLAUDE_IMPORT_ALLOWED]
+    mounted = [name for name in forbidden if name in servers]
     return [
         Check(
             prose,
@@ -165,7 +156,7 @@ def _check_claude_import() -> list[Check]:
         Check(
             absent,
             not mounted,
-            ", ".join(mounted) if mounted else ", ".join(cfg.OMP_EXCLUDED_SERVERS),
+            ", ".join(mounted) if mounted else ", ".join(forbidden),
             " && ".join(f"delete mcpServers.{name} from ~/.claude.json" for name in mounted),
         ),
     ]

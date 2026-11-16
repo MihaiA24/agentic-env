@@ -354,6 +354,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 (b"Install skills where?", b"\r"),
                 (b"Install skills for which agents?", b"a\r"),
                 (b"Select MCP tooling", b"a\r"),
+                (b"recommended agent rules", b"n\r"),
             ],
             argv=["--skill", "tdd"],
         )
@@ -456,6 +457,28 @@ class InstallSkillsMcpsTests(unittest.TestCase):
 
         self.assertEqual(install_skills_mcps.main(["--mcp", "nope", "--yes"]), 1)
 
+    @patch("agentic_env.install_skills_mcps._validate_remote_contract", return_value=True)
+    def test_agent_rules_flag_writes_the_managed_file_and_keeps_a_backup(self, _validate) -> None:
+        source = install_skills_mcps.AGENT_RULES_SOURCE.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as temp:
+            target = Path(temp) / ".agents" / "AGENTS.md"
+            backup = target.with_name("AGENTS.md.agentic-env.bak")
+            with patch.object(install_skills_mcps, "AGENT_RULES_PATH", target):
+                self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
+                self.assertEqual(target.read_text(encoding="utf-8"), source)
+
+                # Current content is left alone, so it never becomes its own backup.
+                self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
+                self.assertFalse(backup.exists())
+
+                target.write_text("my own rules\n", encoding="utf-8")
+                self.assertEqual(install_skills_mcps.main(["--yes"]), 0)
+                self.assertEqual(target.read_text(encoding="utf-8"), "my own rules\n")
+
+                self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
+                self.assertEqual(target.read_text(encoding="utf-8"), source)
+                self.assertEqual(backup.read_text(encoding="utf-8"), "my own rules\n")
+
     def test_directory_install_copies_assets_and_refuses_collisions_before_writing(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
             install_skills_mcps.SKILL_PACK_CONFIG_PATH
@@ -501,7 +524,9 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             install_skills_mcps.SKILL_PACK_CONFIG_PATH
         )
         assert manifest is not None
-        for conflicting in (["--skill-agent", "claude"], ["--mcp", "agentmemory"], ["--all-mcps"]):
+        for conflicting in (
+            ["--skill-agent", "claude"], ["--mcp", "agentmemory"], ["--all-mcps"], ["--agent-rules"]
+        ):
             with self.subTest(conflicting=conflicting):
                 args = install_skills_mcps._parse(["--skills-dir", "skills", *conflicting])
                 self.assertIsNone(
@@ -542,6 +567,13 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             False,
             False,
         )
+        with_rules = replay(manifest, {}, ("claude",), False, True, True)
+        assert with_rules is not None
+        rules_plan = install_skills_mcps._build_install_plan(
+            install_skills_mcps._parse(shlex.split(with_rules)[1:]), manifest
+        )
+        assert rules_plan is not None
+        self.assertEqual((rules_plan.do_agentmemory, rules_plan.do_agent_rules), (True, True))
 
         # A pack that ships no roster takes everything it ships, so a `--skill`
         # filter needed by another pack would narrow it. That has no flag-only form.
@@ -563,8 +595,8 @@ class InstallSkillsMcpsTests(unittest.TestCase):
 
     def test_guided_pty_run_with_everything_cleared_installs_nothing(self) -> None:
         """Drive the real pickers through a pseudo-terminal: clear every skill and
-        MCP with `a`, confirm -> three skips, exit 0. Clearing the skills also
-        drops the agent picker; installers are stubbed to fail if reached."""
+        MCP with `a`, decline the agent rules -> four skips, exit 0. Clearing the
+        skills also drops the agent picker; installers are stubbed to fail if reached."""
         manifest = install_skills_mcps.load_skill_manifest(
             install_skills_mcps.SKILL_PACK_CONFIG_PATH
         )
@@ -575,6 +607,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 # The first `a` selects all rows; the second clears them.
                 (b"Select skills to install", b"aa\r"),
                 (b"Select MCP tooling", b"a\r"),
+                (b"recommended agent rules", b"n\r"),
             ],
         )
         text = re.sub(rb"\x1b\[[0-9;?]*[A-Za-z]", b"", output).decode("utf-8", "replace")
@@ -582,7 +615,10 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         self.assertEqual(status, 0, text)
         self.assertNotIn("INSTALL-CALLED", text)
         self.assertNotIn("which agents?", text)
-        for line in ("skill packs: skipped", "codebase-memory-mcp: skipped", "agentmemory: skipped"):
+        for line in (
+            "skill packs: skipped", "codebase-memory-mcp: skipped",
+            "agentmemory: skipped", "agent rules: skipped",
+        ):
             self.assertIn(line, text)
         for pack in manifest.packs.values():
             self.assertIn(pack.label, text)
@@ -600,6 +636,7 @@ trip = {"side_effect": AssertionError("INSTALL-CALLED")}
 with patch.object(m, "_validate_remote_contract", return_value=True), \\
      patch.object(m, "_install_skills", **trip), \\
      patch.object(m, "_install_codebase_memory", **trip), \\
+     patch.object(m, "_install_agent_rules", **trip), \\
      patch.object(m, "_install_agentmemory", **trip):
     raise SystemExit(m.main(sys.argv[1:]))
 """

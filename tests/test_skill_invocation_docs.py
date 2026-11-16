@@ -50,5 +50,8 @@ class SkillInvocationDocsTests(unittest.TestCase):
             [],
         )
 
-    def test_pstack_skills_are_manual_only(self) -> None:
-        self.assertEqual(sorted(name for name, manual in PSTACK.items() if not manual), [])
+    def test_pstack_skills_are_manual_only_except_technical_writing(self) -> None:
+        # `technical-writing` loads on a document deliverable (Decisions §6, 2026-11-16).
+        self.assertEqual(
+            sorted(name for name, manual in PSTACK.items() if not manual), ["technical-writing"]
+        )

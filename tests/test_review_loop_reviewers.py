@@ -8,10 +8,41 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "agentic_env/vendored/pstack/skills/interrogate/scripts/run_reviewers.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "agentic_env/vendored/pstack/skills/review-loop/scripts/run_reviewers.py"
 
 
-class InterrogateReviewerTests(unittest.TestCase):
+class ReviewLoopReviewerTests(unittest.TestCase):
+    def test_single_reviewer_with_thinking_level_and_attachment_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            prompt = root / "prompt.txt"
+            prompt.write_text("Review the supplied fixture, report only.\n")
+            image = root / "screen.png"
+            image.write_bytes(b"fixture image")
+            client = root / "omp-fixture"
+            client.write_text(
+                f"#!{sys.executable}\n"
+                "import json, sys\n"
+                "sys.stdin.buffer.read()\n"
+                "files = ' '.join(a for a in sys.argv if a.startswith('@'))\n"
+                "message = {'role': 'assistant', 'provider': 'fixture', 'model': 'one', "
+                "'stopReason': 'stop', 'content': [{'type': 'text', 'text': 'Saw ' + files}]}\n"
+                "print(json.dumps({'type': 'turn_end', 'message': message}))\n"
+            )
+            client.chmod(0o755)
+            output = root / "reviews"
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--omp", str(client),
+                 "--prompt", str(prompt), "--output", str(output),
+                 "--model", "fixture/one:high", "--attach", str(image)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            summary = json.loads((output / "reviewers.json").read_text())
+            self.assertEqual(summary["distinct_models"], ["fixture/one"])
+            self.assertEqual(summary["substitutions"], [])
+            self.assertIn(f"Saw @{image.resolve()}", (output / "reviewer-1.review.md").read_text())
+
     def test_failed_and_aliased_responses_do_not_establish_model_diversity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

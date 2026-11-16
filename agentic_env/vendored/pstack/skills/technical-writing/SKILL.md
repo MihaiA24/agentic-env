@@ -1,16 +1,15 @@
 ---
 name: technical-writing
-description: "Manual only: layered technical-writing standard — Diátaxis structure, Google developer style sentences, STE instruction rules, Global English syntax. Run when the user asks: /technical-writing, or when they ask for a substantial human-facing document (guide, README, RFC, ADR, report, design doc) to be written or reviewed. Never apply it to ordinary replies on your own."
-disable-model-invocation: true
+description: "Use when the deliverable is a substantial human-facing document to write or review: a guide, README, RFC, ADR, report or design doc. Layered standard: Diátaxis structure, Google developer style sentences, STE instruction rules, Global English syntax. Ordinary replies, commit messages and code comments stay outside it."
 ---
 
 # Technical writing
 
-Manual skill. Apply it when the user asks for it, or when a recipe the user invoked routes its writing step here. If it loads without either, say so and stop instead of restyling prose nobody asked you to touch.
+Apply it when the deliverable is a substantial human-facing document, when the user asks for it, or when a recipe routes its writing step here. It restyles that document only; prose the task did not ask you to touch stays as it is.
 
 Write so a tired engineer understands on the first read. Apply all four layers.
 
-This is the standard for substantial human-facing prose, invoked deliberately. A routine commit message, a one-line comment, or a short status reply does not need it. Agent-facing instructions are a different job with a different skill; write those through `writing-for-agents`.
+This is the standard for substantial human-facing prose. A routine commit message, a one-line comment, or a short status reply does not need it. Agent-facing instructions are a different job with a different skill; write those through `writing-for-agents`.
 
 Three rules sit above the layers:
 
@@ -94,7 +93,7 @@ Don't mix modes: no reference tables inside a tutorial, no tutorial hand-holding
 
 ## Voice and repo specifics
 
-- Run the finished draft through the **unslop** skill as an explicit step. That skill owns the slop-pattern catalog (AI vocabulary, filler, hedging, formatting tells), it is manual, and it does not apply on its own.
+- Run the finished draft through the **unslop** skill as an explicit step. That skill owns the slop-pattern catalog (AI vocabulary, filler, hedging, formatting tells), it is manual, and it does not apply on its own. In Claude Code a manual skill loads only when the user's message names it; without it, apply the rest of this standard and say the cleanup pass did not run.
 - A PR body or a long-form commit message is writing too when a reader is expected to understand the change from it. Every layer except Diátaxis applies. A PR body is a briefing that a reviewer can read in under a minute. Do not paste run logs, SHA lists, or metric tables. Link them. A routine commit message stays out of scope.
 - Product UI strings are not documentation. Use your product's copy guidelines for those.
 - Match the surrounding file's indentation and code-fence conventions instead of imposing new ones. Write real paths. Make every count or tree claim true at the commit that lands it, and include the command that regenerates it.

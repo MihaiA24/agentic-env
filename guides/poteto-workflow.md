@@ -62,9 +62,9 @@ The prompts below write `/name`. Use your harness's form:
 | OMP | `/skill:<name>` | `.agents/skills/` |
 | Claude Code | `/<name>` | `.claude/skills/`; link `.claude/skills/verify-<app>` to `../../.agents/skills/verify-<app>` |
 | Codex | `$<name>` | `.agents/skills/` |
-| Hermes | `/<name>`; `/skill <name>` when a Hermes command has the same name, such as `/skill handoff` | `.agents/skills/`, after you run `hermes skills trust` for the repository yourself |
+| Hermes | `/<name>`; `/skill <name>` when a Hermes command has the same name | `.agents/skills/`, after you run `hermes skills trust` for the repository yourself |
 
-pstack skills are manual-only, and some load others by name: `/teach` loads `/how`, `/why` and `/unslop`; `/recall` loads `/why` and `/unslop`; `/blast-radius` loads `/why` and `/unslop`, plus `/interrogate` for a big change; `/technical-writing` loads `/unslop`. OMP, Codex and Hermes let the skill you invoked load them. [Claude Code loads a manual skill only when your message names it](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), even when another skill asks for it. In Claude Code, name every skill the recipe loads in the same message, each as a separate word with no punctuation attached: `/teach me how sessions expire. Run /how /why and /unslop as needed`.
+pstack skills are manual-only, except `/technical-writing`, which the agent also loads when a document is the deliverable. Some load others by name: `/teach` loads `/how`, `/why` and `/unslop`; `/recall` loads `/unslop`; `/blast-radius` loads `/unslop`, plus `/review-loop` for a big change; `/technical-writing` loads `/unslop`. OMP, Codex and Hermes let the skill you invoked load them. [Claude Code loads a manual skill only when your message names it](https://code.claude.com/docs/en/skills#control-who-invokes-a-skill), even when another skill asks for it. In Claude Code, name every skill the recipe loads in the same message, each as a separate word with no punctuation attached: `/teach me how sessions expire. Run /how /why and /unslop as needed`.
 
 ### 1. Get one user path running
 
@@ -158,7 +158,6 @@ Each prompt states the outcome and asks for proof. The verifier and `AGENTS.md` 
 | Performance | `Run the /verify-<app> performance check for [scenario] against [baseline ref]. Make one targeted fix and run it again.` If no check covers the path, ask the agent to trace it and propose one first. Run `/benchmark-checklist` before you report the number. |
 | Check the agent's reasoning | `/teach me why you implemented it this way and not [alternative].` |
 | Review | `/code-review [paths] in WIP mode against [baseline commit]. Use [ticket or brief] as the spec.` |
-| Hand off | `/handoff for the next agent to [task].` It writes to `$TMPDIR`, not the repository. |
 
 Proof shows the action and its result: screenshots or a recording for a UI; the command, output and exit status for a CLI; requests, responses and stored state for a service.
 

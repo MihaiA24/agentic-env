@@ -32,4 +32,5 @@ artifacts = [
   "agentic_env/acp/*.json",
   "agentic_env/vendored/**",
   "agentic_env/skills/**",
+  "agentic_env/rules/*.md",
 ]

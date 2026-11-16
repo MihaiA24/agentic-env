@@ -33,6 +33,7 @@ from .common import (
     skip,
     split_csv,
     warn,
+    write_atomic_text,
 )
 from .copy_skills import copy_skill_packages
 from .remote_install_contract import validate_remote_contract
@@ -50,6 +51,9 @@ from .stack_metadata import (
 
 _REMOTE_INSTALL_CONTRACT = SKILLS_INSTALL_REMOTE_CONTRACT
 SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
+AGENT_RULES_SOURCE = Path(__file__).with_name("rules") / "AGENTS.md"
+# User-level context file of the stack's managed root; OMP reads it by default.
+AGENT_RULES_PATH = Path.home() / ".agents" / "AGENTS.md"
 _REMOTE_SOURCE_PATTERN = re.compile(r"^(?P<repo>[\w.-]+/[\w.-]+)(?:#(?P<ref>[^#]+))?$")
 _MCP_LABELS = {
     "codebase-memory-mcp": "codebase-memory-mcp (project code graph, checksum-pinned binary)",
@@ -119,6 +123,7 @@ class SkillInstallPlan:
     destination: SkillDestination
     do_codebase: bool
     do_agentmemory: bool
+    do_agent_rules: bool
 
 
 def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | None:
@@ -354,8 +359,10 @@ def _all_skill_agents() -> tuple[str, ...]:
 def _build_install_plan(
     args: argparse.Namespace, manifest: SkillManifest
 ) -> SkillInstallPlan | None:
-    if args.skills_dir is not None and (args.skill_agent or args.mcp or args.all_mcps):
-        warn("--skills-dir cannot be combined with --skill-agent, --mcp or --all-mcps")
+    if args.skills_dir is not None and (
+        args.skill_agent or args.mcp or args.all_mcps or args.agent_rules
+    ):
+        warn("--skills-dir cannot be combined with --skill-agent, --mcp, --all-mcps or --agent-rules")
         return None
 
     pack_selection = _parse_skill_packs(args.skill_pack, manifest)
@@ -421,6 +428,7 @@ def _build_install_plan(
         destination=destination,
         do_codebase=bool(args.all_mcps) or "codebase-memory-mcp" in requested_mcps,
         do_agentmemory=bool(args.all_mcps) or "agentmemory" in requested_mcps,
+        do_agent_rules=bool(args.agent_rules),
     )
 
 
@@ -622,6 +630,7 @@ def _summarize_selection(
     destination: SkillDestination,
     do_codebase: bool,
     do_agentmemory: bool,
+    do_agent_rules: bool = False,
 ) -> None:
     for name, skills in selection.items():
         pack = manifest.packs[name]
@@ -640,6 +649,8 @@ def _summarize_selection(
     for name, wanted in (("codebase-memory-mcp", do_codebase), ("agentmemory", do_agentmemory)):
         if wanted:
             info(f"MCP server: {name}")
+    if do_agent_rules:
+        info(f"Agent rules: {AGENT_RULES_PATH}")
 
 
 def _replay_command(
@@ -648,6 +659,7 @@ def _replay_command(
     destination: SkillDestination,
     do_codebase: bool,
     do_agentmemory: bool,
+    do_agent_rules: bool = False,
 ) -> str | None:
     """The flag-only command that repeats this selection, or None when the flags
     cannot express it because `--skill` would widen a per-pack subset."""
@@ -681,6 +693,8 @@ def _replay_command(
         parts.append("--all-mcps")
     elif mcps:
         parts.append(f"--mcp {','.join(mcps)}")
+    if do_agent_rules:
+        parts.append("--agent-rules")
     parts.append("--yes")
     return " ".join(parts)
 
@@ -819,6 +833,19 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     return True
 
 
+def _install_agent_rules() -> bool:
+    """Write the generic rules to the managed user-level context file. The
+    previous content, if any, stays beside it as `AGENTS.md.agentic-env.bak`."""
+    content = AGENT_RULES_SOURCE.read_text(encoding="utf-8")
+    if AGENT_RULES_PATH.is_file() and AGENT_RULES_PATH.read_text(encoding="utf-8") == content:
+        ok(f"agent rules: already current at {AGENT_RULES_PATH}")
+        return True
+    if not write_atomic_text(AGENT_RULES_PATH, content, dry_run=False):
+        return False
+    ok(f"agent rules: installed at {AGENT_RULES_PATH}")
+    return True
+
+
 def _parse(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -886,6 +913,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
             "Repeat or use commas."
         ),
     )
+    parser.add_argument(
+        "--agent-rules",
+        action="store_true",
+        help=(
+            "Install the recommended generic agent rules to ~/.agents/AGENTS.md "
+            "(the previous file is kept as a backup)."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument(
         "--verbose", action="store_true", help="Show full command output"
@@ -922,8 +957,15 @@ def main(argv: list[str] | None = None) -> int:
     destination = plan.destination
     do_codebase = plan.do_codebase
     do_agentmemory = plan.do_agentmemory
+    do_agent_rules = plan.do_agent_rules
 
-    if not plan.skill_packs and not do_codebase and not do_agentmemory and not non_interactive:
+    if (
+        not plan.skill_packs
+        and not do_codebase
+        and not do_agentmemory
+        and not do_agent_rules
+        and not non_interactive
+    ):
         skill_selection = _pick_skills(manifest, list(plan.skill_names))
         if skill_selection and not args.skill_agent and args.skills_dir is None:
             destination = _pick_skill_destination()
@@ -938,13 +980,18 @@ def main(argv: list[str] | None = None) -> int:
             )
             do_codebase = "codebase-memory-mcp" in selected_mcps
             do_agentmemory = "agentmemory" in selected_mcps
+            do_agent_rules = ask(
+                f"Install the recommended agent rules to {AGENT_RULES_PATH}",
+                default=True,
+                non_interactive=False,
+            )
 
-        if skill_selection or do_codebase or do_agentmemory:
+        if skill_selection or do_codebase or do_agentmemory or do_agent_rules:
             _summarize_selection(
-                manifest, skill_selection, destination, do_codebase, do_agentmemory
+                manifest, skill_selection, destination, do_codebase, do_agentmemory, do_agent_rules
             )
             replay = _replay_command(
-                manifest, skill_selection, destination, do_codebase, do_agentmemory
+                manifest, skill_selection, destination, do_codebase, do_agentmemory, do_agent_rules
             )
             if replay:
                 info(f"Same selection without prompts: {replay}")
@@ -975,6 +1022,11 @@ def main(argv: list[str] | None = None) -> int:
         ok_all = _install_agentmemory(non_interactive) and ok_all
     else:
         skip("agentmemory: skipped")
+
+    if do_agent_rules:
+        ok_all = _install_agent_rules() and ok_all
+    else:
+        skip("agent rules: skipped")
 
     return 0 if ok_all else 1
 

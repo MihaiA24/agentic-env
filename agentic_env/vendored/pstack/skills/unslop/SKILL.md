@@ -10,12 +10,12 @@ Edit text to remove AI patterns. Scan for the patterns below, then rewrite. Pres
 
 ## When to run it
 
-Manual only. If this skill loaded without the user asking for it, stop and say so instead of editing anything; a runtime that ignores `disable-model-invocation` is not an invocation. A user-invoked recipe that composes it by name is a real invocation and proceeds normally.
+Manual only. If this skill loaded without the user asking for it, stop and say so instead of editing anything; a runtime that ignores `disable-model-invocation` is not an invocation. A user-invoked recipe that composes it by name, or `technical-writing` running its cleanup step, is a real invocation and proceeds normally.
 
 There is no "always apply": a rule that fires on every token gets ignored, and blanket rewriting damages text that was fine. Run it when a recipe names it or the user asks:
 
 - A prose deliverable is about to be handed over: a report, a PR body, a design doc, a README, a changelog entry.
-- A skill names it as its cleanup step. `blast-radius` writeups, `why` answers, `show-me-your-work` logs, `reflect` output and documentation work all route their final prose through it.
+- A skill names it as its cleanup step. `blast-radius` writeups, `why` answers, `show-me-your-work` logs and documentation work all route their final prose through it.
 - The user asks for an editing pass on existing text.
 
 Composing it into a recipe means one pass over the finished draft, before it is handed back. Not a running filter on every message, and not a pass over files the task never touched.

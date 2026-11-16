@@ -61,13 +61,34 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) contains 43 skills: the 41-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 40 skills: the 38-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
-The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both.
+The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both. `--agent-rules` installs the optional [agent rules](#agent-rules).
 
 [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) owns routing, invocation, review scope and Hermes limitations. Complete Matt/pstack packages are vendored; their `UPSTREAM.md` files record sources and adaptations.
+
+#### Agent rules
+
+[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, and say "done" only after running the path. It also names the skill for three recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, and `diagnosing-bugs` when the same error comes back. Installing it is optional and recommended:
+
+```bash
+agentic-install-skills-mcps --agent-rules --yes
+```
+
+This writes `~/.agents/AGENTS.md`. A different file already at that path is kept as `AGENTS.md.agentic-env.bak`, and a file with the same content is left alone. The guided installer asks for it after the MCP picker, with yes as the default. A `--yes` run without the flag skips it, and neither bootstrap nor the doctor requires it.
+
+Each harness finds the file differently:
+
+| Harness | What to do |
+|---|---|
+| OMP | Nothing. It loads `~/.agents/AGENTS.md` by default. It keeps only one user-level file, so if you have your own `~/.omp/agent/AGENTS.md`, add the line `@~/.agents/AGENTS.md` to it. |
+| Claude Code | Add the line `@~/.agents/AGENTS.md` to `~/.claude/CLAUDE.md`. |
+| Codex | Copy the rules into `~/.codex/AGENTS.md`. Codex has no import syntax. |
+| Hermes | Not covered. Its only user-level file is `~/.hermes/SOUL.md`, which the installer leaves alone. |
+
+OMP task subagents receive no `AGENTS.md`, so the rules reach the main session only. The rules are instructions, not enforcement; [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) records that tradeoff and when the file is reviewed.
 
 #### Apache Spark: optimize existing jobs
 
@@ -115,7 +136,7 @@ cd /path/to/agentic-env
 # Skip the destination prompts; still choose skills interactively.
 uv run agentic-install-skills-mcps --skills-dir "/path/to/project/.devin/skills"
 
-# Default profile: 41 skills, without prompts.
+# Default profile: 38 skills, without prompts.
 uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/project/.devin/skills" --skill-profile default --yes
 
@@ -124,7 +145,7 @@ uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/custom skills" --skill-pack mattpocock --skill tdd,code-review --yes
 ```
 
-Run **one** of the commands above. The `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes only the given destination: it selects no agent roots, installs no MCPs and registers no global provenance. Combining it with `--skill-agent`, `--mcp`, or `--all-mcps` is an error.
+Run **one** of the commands above. The `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes only the given destination: it selects no agent roots, installs no MCPs and registers no global provenance. Combining it with `--skill-agent`, `--mcp`, `--all-mcps`, or `--agent-rules` is an error.
 
 The result is standalone copies, not links or managed installations. After copying, follow the shared [verification and refresh procedure](#verify-and-refresh-standalone-copies).
 
@@ -204,7 +225,7 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
    agentic-install-skills-mcps
    ```
 
-   Select individual skills or pack rows, choose **Supported harnesses**, keep the targets described above, and **clear every MCP row** for a skills-only refresh. **Other / custom directory** makes standalone copies and does not refresh the managed OMP layout. Review the printed selection and replay command before confirming; declining the final confirmation installs nothing.
+   Select individual skills or pack rows, choose **Supported harnesses**, keep the targets described above, and **clear every MCP row** for a skills-only refresh. The next question offers the [agent rules](#agent-rules). **Other / custom directory** makes standalone copies and does not refresh the managed OMP layout. Review the printed selection and replay command before confirming; declining the final confirmation installs nothing.
 
    Or install the complete curated profile without prompts:
 
@@ -213,6 +234,8 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
    ```
 
    This uses all default skill targets and installs no MCPs.
+
+   Neither path removes a skill that has left the roster. After a roster change, delete the dropped names from `~/.agents/skills` and the links to them under `~/.claude/skills` and `~/.hermes/skills`. [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) lists each drop by date.
 
 4. **Check installation and configuration.**
 

@@ -38,12 +38,12 @@ Out of scope without a separate, explicit authorization: changing production beh
 
 ## Steps
 
-1. Read the change. The diff, the symbols it adds, changes, and deletes, and what it now does differently, including the part the diff doesn't spell out. Use `why` step 2 to pull the PR and commits.
+1. Read the change. The diff, the symbols it adds, changes, and deletes, and what it now does differently, including the part the diff doesn't spell out. Pull the PR and its commits.
 2. Find the one fact it's safe because of. Most changes that look risky are safe because of a single fact, like "this call only drops already-dead cache entries and does nothing else". Find that fact. If it holds, most risky cases are cleared at once. Spend your time here, not on a long list of maybes.
 3. Look where grep stops. Read the source of the library you call, and check its pinned version and any local patch. Work out when things run: microtasks, unmount and teardown, Solid versus React. Follow what a symbol search misses: the JSON an API returns, a DB column, a wire format, another language reading the same bytes, a feature flag, code three hops downstream.
-4. Be honest about each risk. Give it a real chance of happening and a real cost if it does. Keep the risks you confirmed. List the ones you checked and cleared separately. Same rules as `why`. Cite a real `file:line`, a search that finds nothing is still an answer, and never make up a caller or an API.
+4. Be honest about each risk. Give it a real chance of happening and a real cost if it does. Keep the risks you confirmed. List the ones you checked and cleared separately. Cite a real `file:line`, a search that finds nothing is still an answer, and never make up a caller or an API.
 5. Prove the one fact. Write a script or test that runs the real code, run it, and paste what happened.
-6. For a big or wide change, consider one explicit multi-model pass. `interrogate` is the escalation: give it the same snapshot and the same one safety fact, and merge what comes back. Only claim multiple models if the runtime actually returned distinct ones; check what each call reports as its provider and model. If it can't, say multi-model review was unavailable and hand back the single-model result. Never present one model under several agent names as model diversity.
+6. For a big or wide change, consider one explicit multi-model pass. `review-loop` in panel mode is the escalation: give its reviewers the same snapshot and the same one safety fact, and merge what comes back. Only claim multiple models if the runtime actually returned distinct ones; check what each call reports as its provider and model. If it can't, say multi-model review was unavailable and hand back the single-model result. Never present one model under several agent names as model diversity.
 
 ## What to hand back
 
@@ -59,6 +59,6 @@ Write it through `unslop`, cite real code, and strip anything private before it 
 
 ## Runtime notes
 
-- **OMP:** run proof scripts with `bash` or `eval`; fan out only for genuinely independent risk slices, one `task` call with all items. `interrogate` and the sibling skills `how`, `why` and `unslop` resolve by name through `skill://<name>`.
+- **OMP:** run proof scripts with `bash` or `eval`; fan out only for genuinely independent risk slices, one `task` call with all items. `review-loop` and the sibling skills `how`, `why` and `unslop` resolve by name through `skill://<name>`.
 - **Hermes:** `delegate_task` for slices, `skill_view` to load a sibling skill.
 - Model aliases from another harness don't exist here. Use the runtime default unless the user names one you've confirmed.

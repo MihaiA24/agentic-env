@@ -8,7 +8,7 @@ The user has asked for a **retrospective**. You are suggesting improvements to t
 
 Manual only. If this skill loaded without the user asking for it, stop and say so rather than running a retrospective; a runtime that ignores `disable-model-invocation` is not an invocation. A user-invoked recipe that calls `retro` by name is a real invocation and proceeds normally.
 
-A retro reports; it lands nothing. Implementing any candidate, committing, and changing CI, hooks or steering files each need the user's separate authorization. Turning session lessons into skill or instruction edits is pstack `reflect`; building the guard that makes a repeated mistake impossible is pstack `correct`.
+A retro reports; it lands nothing. Implementing any candidate, committing, and changing CI, hooks or steering files each need the user's separate authorization. Building the guard that makes a repeated mistake impossible is pstack `correct`.
 
 ## Steps
 

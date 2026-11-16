@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests.
+description: "Test-driven development. Use when the user asks for test-first work by name: \"TDD\", \"test-first\", \"red-green-refactor\", or a failing test before the code. Ordinary feature work, bug fixes and test writing proceed without it."
 ---
 
 # Test-Driven Development

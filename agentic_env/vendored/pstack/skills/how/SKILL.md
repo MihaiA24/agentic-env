@@ -6,51 +6,26 @@ disable-model-invocation: true
 
 # How
 
-Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
+Explore the codebase to answer "how does X work?" questions.
 
 `how` is read-only by purpose. It reads, runs read-only searches, and explains. It does not edit, commit, or publish anything. If the explanation turns into a change request, stop and start the change as its own task under its own authorization.
 
 Manual only. If this skill loaded without the user asking for it, stop and say so rather than exploring; a runtime that ignores `disable-model-invocation` is not an invocation. A user-invoked recipe that calls `how` by name is a real invocation and proceeds normally.
 
-## 1. Assess complexity
-
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): explain it yourself, inline. Read the code, then write the answer using the structure in `references/explainer-prompt.md`. No subagents. Go to step 4.
-- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview) **and genuinely separable**: the question splits into slices each of which can be traced without waiting on another slice's findings. Go to step 2.
+## 1. Explain
 
-When in doubt, take the simple path. Fan-out that hands back what one read would have found costs more than it explains, and a slice that needs another slice's answer serializes anyway.
+For a narrow question (a single module, a small utility, "how does function X work"), read the code and write the explanation yourself, to the brief below. Otherwise spawn one read-only subagent that explores and explains in one pass. Give it the user's question and this brief:
 
-## 2. Explore (complex only)
-
-Decompose the question into 2 to 4 angles, each a distinct, independent slice of the subsystem. Dispatch them in one batch so they run concurrently, each with `references/explorer-prompt.md` and its angle filled in.
+> You are writing an architectural explanation for a senior engineer. Explore the codebase and write an explanation that a senior engineer unfamiliar with this area could read and walk away with a solid mental model. They should understand the architecture well enough to start working in it confidently. You have read-only access to the codebase.
 
 Runtime:
 
-- **OMP:** one item per angle in a single `task` call, on `scout`. Check the actual tool grant, including inherited MCP and custom tools; when mutation must be impossible, use a restricted grant or tool-less frozen input.
-- **Hermes:** one `delegate_task` per angle, dispatched together, each instructed to investigate only and given no write-capable tools.
+- **OMP:** one `task` item on `scout`. Check the actual tool grant, including inherited MCP and custom tools; when mutation must be impossible, use a restricted grant.
+- **Hermes:** one `delegate_task`, instructed to investigate only and given no write-capable tools. If Hermes cannot enforce a read/query-only grant, explain inline instead of calling a write-capable worker "read-only".
 - **Model:** use the runtime's default unless the user names a model you have confirmed exists here. Do not copy model aliases from another harness.
-- If Hermes cannot enforce a read/query-only grant, investigate inline instead of calling a write-capable worker "read-only".
 
-Explorers return findings, not prose.
-
-## 3. Synthesize (complex only)
-
-Once all explorers have returned, merge their findings into one explanation. Their slices overlap and can contradict; reconcile them and re-read the code yourself wherever they disagree.
-
-Do this inline when the findings are small enough to hold. When they are not, delegate it to a single explainer (OMP `scout` with a checked read/query-only grant or tool-less frozen input, Hermes `delegate_task` without write tools) built from `references/explainer-prompt.md` with every explorer's findings filled in.
-
-## 4. Present
+## 2. Present
 
 Present the explanation. If a subagent wrote it, light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
-
-## Output format
-
-The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.
-
-## Reference files
-
-- `references/explorer-prompt.md`. Prompt template for one exploration angle.
-- `references/explainer-prompt.md`. Prompt template and output structure for the explanation, with or without explorer findings.
-
-Load references through the runtime's own skill lookup (`skill://how/references/<file>` in OMP, `skill_view` in Hermes). Do not hard-code a checkout path.

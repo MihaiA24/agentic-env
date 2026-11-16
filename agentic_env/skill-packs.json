@@ -24,9 +24,8 @@
         { "name": "to-spec", "description": "Turn the current conversation into a spec on the tracker" },
         { "name": "to-tickets", "description": "Split a plan into tracer-bullet tickets with blocking edges" },
         { "name": "codebase-design", "description": "Vocabulary for designing deep modules and placing seams" },
-        { "name": "tdd", "description": "Test-driven development, red-green-refactor, integration tests" },
+        { "name": "tdd", "description": "Test-first development on request: the red-green loop and its rules" },
         { "name": "code-review", "description": "Review changes since a commit against standards and spec" },
-        { "name": "handoff", "description": "Compact the conversation into a handoff document" },
         { "name": "pr", "description": "Draft a PR body: summary visual, before/after evidence, merge danger" },
         { "name": "retro", "description": "Retrospective that reports environment improvements for future runs" },
         { "name": "diagnosing-bugs", "description": "Diagnosis loop for hard bugs and performance regressions" },
@@ -62,25 +61,23 @@
       ],
       "upstream": {
         "repo": "cursor/plugins",
-        "ref": "c742dd61706fbacc1b95f1a20b7b988cf096ce6c",
+        "ref": "bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7",
         "path": "pstack"
       },
       "skills": [
         { "name": "how", "description": "How a subsystem works, walkthroughs, where new code belongs" },
         { "name": "why", "description": "Design rationale from commits, issues, docs, and incidents" },
         { "name": "blast-radius", "description": "Find what a change breaks outside the diff, proven by running it" },
-        { "name": "interrogate", "description": "Adversarial multi-model review that hunts blind spots" },
+        { "name": "review-loop", "description": "Review in rounds with one or more other models until a gate passes" },
         { "name": "teach", "description": "Plain layered explanation of code or a change, via how and why" },
         { "name": "unslop", "description": "Cut AI tells from any writing" },
         { "name": "create-verification-skill", "description": "Generate a project-local skill that drives your app like a user" },
         { "name": "maintain-verification-skill", "description": "Periodic pass that keeps a verification skill and its feature map honest" },
         { "name": "technical-writing", "description": "Diataxis structure and plain-sentence rules for human-facing docs" },
         { "name": "show-me-your-work", "description": "TSV decision log for long or unattended runs" },
-        { "name": "reflect", "description": "Review the transcript and route learnings into skill edits" },
         { "name": "recall", "description": "Rebuild recent working context into a current-state brief" },
         { "name": "benchmark-checklist", "description": "Vet a measured perf number before you report or act on it" },
         { "name": "correct", "description": "Turn mistakes agents repeat into guards that make them impossible" },
-        { "name": "in-your-own-words", "description": "Restate the user's goals and problem before work starts" },
         { "name": "sharpen", "description": "Deepen a task without widening it, then rewrite the prompt" }
       ]
     },

@@ -1,21 +1,23 @@
 # Choose a skill for the job
 
-Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 20 from Matt Pocock, 16 from pstack, three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 14 in the pstack pack (13 pstack skills and the local `review-loop`), three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
 Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies; Claude Code still loads a manual dependency only when your message names it. Reading a skill to check discovery does not invoke it.
 
 The **Starts** column says who starts a skill:
 
 - **Agent**: model-invocable; the agent picks it on its trigger.
-- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). Unlike pstack's `/poteto-mode`, nothing here lets the agent escalate to a manual skill mid-task.
+- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). The agent does not start one on its own. With the [agent rules](../README.md#agent-rules) installed, it offers `/review-loop` and `/wizard` at their moments and you decide.
 
 ## Start without a skill
 
 | Situation | Route |
 |---|---|
 | A small change you already understand | Implement it and exercise the affected user path with the project verifier. Show the evidence; skip the planning document, interview and critique. |
-| A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix; `/in-your-own-words` is the one-line version |
+| A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
 | Proof that a change works | The project verifier, on the affected paths |
+
+The optional [agent rules](../README.md#agent-rules) put these defaults in every session, with the skill to use at three recurring moments: a merge-readiness question, a fix made after a review, and a repeated error.
 
 ## During implementation
 
@@ -37,7 +39,6 @@ While it works, the agent can also pick `codebase-design`, `prototype`, `researc
 
 | Skill | From | Starts | Use it for |
 |---|---|---|---|
-| `in-your-own-words` | pstack | You | Before work on an unclear ask: the agent restates your goals and the problem |
 | `sharpen` | pstack | You | A shallow prompt: name what an expert would do, start from and check, then get the rewritten prompt |
 | `recall` | pstack | You | Resuming earlier work: rebuild the context of earlier sessions |
 | `how` | pstack | You | How the current code works, and where a change should go |
@@ -60,10 +61,10 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 | Skill | From | Starts | Use it for |
 |---|---|---|---|
 | `code-review` | Matt | Agent | Review against the coding standards and against the spec, on a frozen snapshot of the changes |
-| `interrogate` | pstack | You | Review by several models when a costly-to-undo doubt remains after the evidence |
+| `review-loop` | pstack pack (local) | You | Review in rounds by one or more other models until a gate passes: approval, a score, or a round cap |
 | `pr` | Matt | Agent | Drafts the PR body; pushing it needs your approval |
 | `caveman-commit` | caveman | Agent | A Conventional Commits message: why over what; writes the message, doesn't commit |
-| `technical-writing` | pstack | You | Substantial human-facing documentation |
+| `technical-writing` | pstack | Agent | Substantial human-facing documentation; loads when a document is the deliverable |
 | `unslop` | pstack | You | Remove AI-style tells from finished prose |
 | `show-me-your-work` | pstack | You | Decision log for long or unattended runs |
 
@@ -75,9 +76,7 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 | `maintain-verification-skill` | pstack | You | The verifier no longer matches the app: re-check every mapped feature |
 | `writing-for-agents` | Matt | Agent | Editing skills, `AGENTS.md` or `CLAUDE.md` |
 | `wizard` | Matt | You | Script a manual step only you can do, such as credentials or infrastructure |
-| `handoff` | Matt | You | Transfer work to another agent (written to `$TMPDIR`) |
 | `retro` | Matt | You | After a costly session: report problems in the environment; changes nothing |
-| `reflect` | pstack | You | After a costly detour: turn it into reviewed skill edits |
 | `correct` | pstack | You | A mistake made twice becomes a guard: architecture, type, lint or test |
 | `ponytail-audit` | ponytail | Agent | Whole-repo quality report, ranked: bugs, security, load, untested risk, slow paths, and what to delete; changes nothing |
 | `ponytail-debt` | ponytail | Agent | Collect `shortcut:` comments (and older `ponytail:` ones) into a ledger of deliberate shortcuts; changes nothing |
@@ -85,7 +84,7 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 
 ## Not for the implementation loop
 
-- **`interrogate`:** it runs several models and costs a lot. Keep it for contested designs.
+- **`review-loop`:** each round spends other models and waits for them. Run it when the change is ready for review, not while you are still building.
 - **`grilling`, `grill-with-docs`:** they stop to wait for your answers.
 - **`to-spec`, `to-tickets`:** they end by publishing.
 - **`teach`, `how`, `why`:** read-only. They explain; they don't change anything.
@@ -156,9 +155,17 @@ would use [module]. Apply /unslop to it. Use /codebase-design to assess the
 interface and its tradeoffs. Stop before implementation.
 ```
 
-## Reserve interrogate for consequential uncertainty
+## Review in rounds with other models
 
-`/interrogate` runs several models against one frozen snapshot and returns a report. Use it when a mistake would be expensive to undo and specific evidence still leaves doubt. Include that evidence in the prompt. Use `code-review` for routine review; do not interrogate an abstract plan.
+`/review-loop` sends a frozen snapshot of the change to one or more other models, fixes the findings you would also fix, and reviews again until the gate passes. Put the gate in the prompt. Without one, it runs one reviewer from another provider for at most three rounds and stops when no blocker or should-fix finding is open.
+
+```text
+/review-loop this branch with a council of [model], [model] and [model].
+Max 5 rounds, until each gives at least 9/10. Add [model] only once the
+others reach 8.5. Out of scope: [what reviewers must leave alone].
+```
+
+State what is out of scope: every round grades the change against that brief. Fixes stay in the working tree; a commit, a push and PR text are separate requests. It needs the `omp` CLI for its reviewers. Use `code-review` for a routine single review.
 
 ## Plan durable work after the design settles
 
@@ -185,7 +192,6 @@ Run `/benchmark-checklist` before a speedup, regression, or library choice goes 
 Pick by what should change:
 
 - `/retro` reports environment candidates, ranked by severity: navigation pointers, missing or unwired checks, standards rules, expensive tool calls, no-op instructions, missing information. It changes nothing.
-- `/reflect` turns a costly detour in one session into reviewed skill or instruction edits.
 - `/correct` takes a mistake class seen at least twice and makes it impossible, preferring architecture, then types, then a lint whose error names the fix, then a test, and docs last. It proves each guard fails on a real past mistake. It prepares one commit-sized change per class; you approve each commit.
 
 ## Methods this stack does not include

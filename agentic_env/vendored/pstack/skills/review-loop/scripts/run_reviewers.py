@@ -150,12 +150,20 @@ def main() -> int:
     prompt_bytes = prompt.read_bytes()
     outdir = args.output.resolve()
     outdir.mkdir(parents=True)
+    # Reviewers read copies taken now, so a file edited mid-round cannot reach only some of them.
+    frozen = []
+    for index, path in enumerate(attachments, start=1):
+        data = path.read_bytes()
+        copy = outdir / f"attachment-{index}-{path.name}"
+        copy.write_bytes(data)
+        frozen.append({"path": str(path), "copy": copy.name, "sha256": hashlib.sha256(data).hexdigest()})
+    copies = [outdir / item["copy"] for item in frozen]
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(args.models)) as pool:
         records = list(
             pool.map(
                 lambda item: run_one(
-                    omp, item[1], prompt_bytes, attachments, outdir, args.timeout, item[0]
+                    omp, item[1], prompt_bytes, copies, outdir, args.timeout, item[0]
                 ),
                 enumerate(args.models, start=1),
             )
@@ -165,10 +173,7 @@ def main() -> int:
     summary = {
         "prompt": str(prompt),
         "prompt_sha256": hashlib.sha256(prompt_bytes).hexdigest(),
-        "attachments": [
-            {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
-            for path in attachments
-        ],
+        "attachments": frozen,
         "reviewers": records,
         "distinct_models": sorted(distinct),
         "substitutions": [

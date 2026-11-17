@@ -479,6 +479,14 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 self.assertEqual(target.read_text(encoding="utf-8"), source)
                 self.assertEqual(backup.read_text(encoding="utf-8"), "my own rules\n")
 
+                # Updating the managed file must not replace the user's backup.
+                newer = Path(temp) / "newer.md"
+                newer.write_text(source + "\nA newer rule.\n", encoding="utf-8")
+                with patch.object(install_skills_mcps, "AGENT_RULES_SOURCE", newer):
+                    self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
+                self.assertEqual(target.read_text(encoding="utf-8"), source + "\nA newer rule.\n")
+                self.assertEqual(backup.read_text(encoding="utf-8"), "my own rules\n")
+
     def test_directory_install_copies_assets_and_refuses_collisions_before_writing(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
             install_skills_mcps.SKILL_PACK_CONFIG_PATH

@@ -54,6 +54,8 @@ SKILL_PACK_CONFIG_PATH = Path(__file__).with_name("skill-packs.json")
 AGENT_RULES_SOURCE = Path(__file__).with_name("rules") / "AGENTS.md"
 # User-level context file of the stack's managed root; OMP reads it by default.
 AGENT_RULES_PATH = Path.home() / ".agents" / "AGENTS.md"
+# First line of every installed rules file; a file without it is the user's own.
+AGENT_RULES_HEADER = "<!-- Installed by agentic-env"
 _REMOTE_SOURCE_PATTERN = re.compile(r"^(?P<repo>[\w.-]+/[\w.-]+)(?:#(?P<ref>[^#]+))?$")
 _MCP_LABELS = {
     "codebase-memory-mcp": "codebase-memory-mcp (project code graph, checksum-pinned binary)",
@@ -833,14 +835,24 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
     return True
 
 
+def _user_agent_rules() -> bool:
+    """An existing rules file without the managed header: installing replaces it."""
+    return AGENT_RULES_PATH.is_file() and not AGENT_RULES_PATH.read_text(
+        encoding="utf-8"
+    ).startswith(AGENT_RULES_HEADER)
+
+
 def _install_agent_rules() -> bool:
-    """Write the generic rules to the managed user-level context file. The
-    previous content, if any, stays beside it as `AGENTS.md.agentic-env.bak`."""
+    """Write the generic rules to the managed user-level context file. A file the
+    user wrote stays beside it as `AGENTS.md.agentic-env.bak`; replacing a managed
+    file takes no backup, so updates never overwrite the user's copy."""
     content = AGENT_RULES_SOURCE.read_text(encoding="utf-8")
     if AGENT_RULES_PATH.is_file() and AGENT_RULES_PATH.read_text(encoding="utf-8") == content:
         ok(f"agent rules: already current at {AGENT_RULES_PATH}")
         return True
-    if not write_atomic_text(AGENT_RULES_PATH, content, dry_run=False):
+    if not write_atomic_text(
+        AGENT_RULES_PATH, content, dry_run=False, backup=_user_agent_rules()
+    ):
         return False
     ok(f"agent rules: installed at {AGENT_RULES_PATH}")
     return True
@@ -980,11 +992,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             do_codebase = "codebase-memory-mcp" in selected_mcps
             do_agentmemory = "agentmemory" in selected_mcps
-            do_agent_rules = ask(
-                f"Install the recommended agent rules to {AGENT_RULES_PATH}",
-                default=True,
-                non_interactive=False,
-            )
+            question = f"Install the recommended agent rules to {AGENT_RULES_PATH}"
+            if _user_agent_rules():
+                question += f" (replaces your file; it is kept as {AGENT_RULES_PATH.name}.agentic-env.bak)"
+            do_agent_rules = ask(question, default=True, non_interactive=False)
 
         if skill_selection or do_codebase or do_agentmemory or do_agent_rules:
             _summarize_selection(

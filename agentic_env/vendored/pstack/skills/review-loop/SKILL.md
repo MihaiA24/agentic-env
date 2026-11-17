@@ -101,7 +101,7 @@ python3 <this skill's directory>/scripts/run_reviewers.py \
   --model <selector> [--model <selector> ...] [--attach <screenshot.png> ...]
 ```
 
-It writes one `reviewer-N.review.md` per reviewer, and `reviewers.json` with each requested selector, the provider and model that answered, and any substitution. `--attach` sends images to every reviewer, for UI work. Exit 2 means too few models answered (one for a single reviewer, two distinct for a panel); exit 3 means no `omp` CLI. Both block the round: report the failure. A timeout, an error or an empty reply is never an approval.
+It writes one `reviewer-N.review.md` per reviewer, and `reviewers.json` with each requested selector, the provider and model that answered, and any substitution. `--attach` sends images to every reviewer, for UI work; the runner copies them into the output directory before dispatch and records each copy's hash, so every reviewer sees the same bytes. Exit 2 means too few models answered (one for a single reviewer, two distinct for a panel); exit 3 means no `omp` CLI. Both block the round: report the failure. A timeout, an error or an empty reply is never an approval.
 
 ## 5. Answer findings
 

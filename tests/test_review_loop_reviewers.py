@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -20,13 +21,16 @@ class ReviewLoopReviewerTests(unittest.TestCase):
             image = root / "screen.png"
             image.write_bytes(b"fixture image")
             client = root / "omp-fixture"
+            # The reviewer edits the original first: it must still read the bytes frozen at dispatch.
             client.write_text(
                 f"#!{sys.executable}\n"
-                "import json, sys\n"
+                "import json, pathlib, sys\n"
                 "sys.stdin.buffer.read()\n"
-                "files = ' '.join(a for a in sys.argv if a.startswith('@'))\n"
+                f"pathlib.Path({str(image)!r}).write_bytes(b'changed')\n"
+                "files = [pathlib.Path(a[1:]) for a in sys.argv if a.startswith('@')]\n"
+                "seen = ' '.join(f'{f.name}={f.read_text()}' for f in files)\n"
                 "message = {'role': 'assistant', 'provider': 'fixture', 'model': 'one', "
-                "'stopReason': 'stop', 'content': [{'type': 'text', 'text': 'Saw ' + files}]}\n"
+                "'stopReason': 'stop', 'content': [{'type': 'text', 'text': 'Saw ' + seen}]}\n"
                 "print(json.dumps({'type': 'turn_end', 'message': message}))\n"
             )
             client.chmod(0o755)
@@ -41,7 +45,10 @@ class ReviewLoopReviewerTests(unittest.TestCase):
             summary = json.loads((output / "reviewers.json").read_text())
             self.assertEqual(summary["distinct_models"], ["fixture/one"])
             self.assertEqual(summary["substitutions"], [])
-            self.assertIn(f"Saw @{image.resolve()}", (output / "reviewer-1.review.md").read_text())
+            self.assertIn("Saw attachment-1-screen.png=fixture image", (output / "reviewer-1.review.md").read_text())
+            self.assertEqual(
+                summary["attachments"][0]["sha256"], hashlib.sha256(b"fixture image").hexdigest()
+            )
 
     def test_failed_and_aliased_responses_do_not_establish_model_diversity(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

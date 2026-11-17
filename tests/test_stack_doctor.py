@@ -109,6 +109,17 @@ class StackDoctorTests(unittest.TestCase):
         self.assertIn("not in disabledServers", output)
         self.assertIn(stack_doctor.FIX_CONFIGURE, output)
 
+    def test_leftover_excluded_descriptor_fails_except_claude_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            _skill(host.claude_skills, "codebase-memory-mcp")
+            code, output = _run(host)
+            self.assertEqual(code, 0)
+            _skill(host.skill_roots[1], "codebase-memory-mcp")
+            code, output = _run(host)
+        self.assertEqual(code, 1)
+        self.assertIn(f"rm -rf {host.skill_roots[1] / 'codebase-memory-mcp'}", output.replace("\n", ""))
+
     def test_claude_import_interception_prose_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             host = _Host(Path(temp_dir))

@@ -359,7 +359,7 @@ def load_json_object(path: Path) -> dict[str, object] | None:
     return value
 
 
-def write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
+def write_atomic_text(path: Path, content: str, *, dry_run: bool, backup: bool = True) -> bool:
     # A symlinked config (e.g. dotfiles-managed) keeps its link: write the resolved
     # target, with temp file and backup beside the target.
     if path.is_symlink():
@@ -375,7 +375,7 @@ def write_atomic_text(path: Path, content: str, *, dry_run: bool) -> bool:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     backup_path = path.with_suffix(path.suffix + _BACKUP_SUFFIX)
-    if path.exists():
+    if backup and path.exists():
         if backup_path.exists():
             try:
                 backup_path.unlink()

@@ -208,10 +208,17 @@ def _check_skills() -> list[Check]:
                 FIX_CONFIGURE,
             )
         )
-    stale = [root / "lean-ctx" for root in (*cfg.OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT) if (root / "lean-ctx").exists()]
+    # The configurator never writes excluded descriptors on OMP, so any there are leftovers.
+    # OMP also loads ~/.claude/skills, where Claude Code may keep the ones it may import.
+    stale = [
+        root / name
+        for name in cfg.OMP_EXCLUDED_SERVERS
+        for root in (*cfg.OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT)
+        if (root / name).exists() and not (root == CLAUDE_SKILL_ROOT and name in CLAUDE_IMPORT_ALLOWED)
+    ]
     checks.append(
         Check(
-            "no lean-ctx skill in OMP-loaded roots",
+            "no excluded MCP skills in OMP-loaded roots",
             not stale,
             ", ".join(map(str, stale)) if stale else "clean",
             " && ".join(f"rm -rf {path}" for path in stale),

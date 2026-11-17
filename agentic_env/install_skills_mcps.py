@@ -837,9 +837,10 @@ def _install_codebase_memory(with_ui: bool, non_interactive: bool) -> bool:
 
 def _user_agent_rules() -> bool:
     """An existing rules file without the managed header: installing replaces it."""
-    return AGENT_RULES_PATH.is_file() and not AGENT_RULES_PATH.read_text(
-        encoding="utf-8"
-    ).startswith(AGENT_RULES_HEADER)
+    # Bytes: a user's file need not be UTF-8.
+    return AGENT_RULES_PATH.is_file() and not AGENT_RULES_PATH.read_bytes().startswith(
+        AGENT_RULES_HEADER.encode()
+    )
 
 
 def _install_agent_rules() -> bool:
@@ -847,7 +848,7 @@ def _install_agent_rules() -> bool:
     user wrote stays beside it as `AGENTS.md.agentic-env.bak`; replacing a managed
     file takes no backup, so updates never overwrite the user's copy."""
     content = AGENT_RULES_SOURCE.read_text(encoding="utf-8")
-    if AGENT_RULES_PATH.is_file() and AGENT_RULES_PATH.read_text(encoding="utf-8") == content:
+    if AGENT_RULES_PATH.is_file() and AGENT_RULES_PATH.read_bytes() == content.encode("utf-8"):
         ok(f"agent rules: already current at {AGENT_RULES_PATH}")
         return True
     if not write_atomic_text(
@@ -994,7 +995,8 @@ def main(argv: list[str] | None = None) -> int:
             do_agentmemory = "agentmemory" in selected_mcps
             question = f"Install the recommended agent rules to {AGENT_RULES_PATH}"
             if _user_agent_rules():
-                question += f" (replaces your file; it is kept as {AGENT_RULES_PATH.name}.agentic-env.bak)"
+                # The backup sits beside the symlink target, as `write_atomic_text` writes there.
+                question += f" (replaces your file; it is kept as {AGENT_RULES_PATH.resolve()}.agentic-env.bak)"
             do_agent_rules = ask(question, default=True, non_interactive=False)
 
         if skill_selection or do_codebase or do_agentmemory or do_agent_rules:

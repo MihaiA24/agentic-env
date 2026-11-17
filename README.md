@@ -77,7 +77,7 @@ The skills picker lists one row per skill under its pack heading, plus an `All o
 agentic-install-skills-mcps --agent-rules --yes
 ```
 
-This writes `~/.agents/AGENTS.md`. A file you wrote at that path is kept as `AGENTS.md.agentic-env.bak`, and a file with the same content is left alone. Later updates replace only the managed file, whose first line marks it, so that backup keeps your file. The guided installer asks for it after the MCP picker, with yes as the default, and says when it would replace your file. A `--yes` run without the flag skips it, and neither bootstrap nor the doctor requires it.
+This writes `~/.agents/AGENTS.md`. A file you wrote at that path is kept as `AGENTS.md.agentic-env.bak`, beside the link target when the path is a symlink, and a file with the same content is left alone. Later updates replace only the managed file, whose first line marks it, so that backup keeps your file. The guided installer asks for it after the MCP picker, with yes as the default, and says when it would replace your file and where the old one is kept. A `--yes` run without the flag skips it, and neither bootstrap nor the doctor requires it.
 
 Each harness finds the file differently:
 

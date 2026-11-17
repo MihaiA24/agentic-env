@@ -471,13 +471,13 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
                 self.assertFalse(backup.exists())
 
-                target.write_text("my own rules\n", encoding="utf-8")
+                target.write_bytes("my own rules \u00e9\n".encode("latin-1"))
                 self.assertEqual(install_skills_mcps.main(["--yes"]), 0)
-                self.assertEqual(target.read_text(encoding="utf-8"), "my own rules\n")
+                self.assertEqual(target.read_bytes(), "my own rules \u00e9\n".encode("latin-1"))
 
                 self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
                 self.assertEqual(target.read_text(encoding="utf-8"), source)
-                self.assertEqual(backup.read_text(encoding="utf-8"), "my own rules\n")
+                self.assertEqual(backup.read_bytes(), "my own rules \u00e9\n".encode("latin-1"))
 
                 # Updating the managed file must not replace the user's backup.
                 newer = Path(temp) / "newer.md"
@@ -485,7 +485,7 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 with patch.object(install_skills_mcps, "AGENT_RULES_SOURCE", newer):
                     self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
                 self.assertEqual(target.read_text(encoding="utf-8"), source + "\nA newer rule.\n")
-                self.assertEqual(backup.read_text(encoding="utf-8"), "my own rules\n")
+                self.assertEqual(backup.read_bytes(), "my own rules \u00e9\n".encode("latin-1"))
 
     def test_directory_install_copies_assets_and_refuses_collisions_before_writing(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(

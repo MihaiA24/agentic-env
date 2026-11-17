@@ -250,15 +250,16 @@ def validate_hermes_config(
 def _merge_omp_mcp(
     path: Path,
     data: dict[str, object],
-    servers: list[McpServer],
     *,
     remove: tuple[str, ...],
     gate: tuple[str, ...],
 ) -> bool:
-    """Add missing servers, gate and drop names in parsed ``mcp.json`` data; True when changed.
+    """Gate and drop names in parsed ``mcp.json`` data; True when changed.
 
-    Raises ``ValueError`` for drifted entries or malformed blocks, which are never rewritten."""
-    mcp_servers = _check_existing_mcp_entries(data, "mcpServers", servers)
+    Raises ``ValueError`` for malformed blocks, which are never rewritten."""
+    mcp_servers = data.get("mcpServers")
+    if mcp_servers is not None and not isinstance(mcp_servers, dict):
+        raise ValueError("`mcpServers` block must be an object; fix this file manually")
     disabled = data.get("disabledServers")
     if disabled is not None and not isinstance(disabled, list):
         raise ValueError("`disabledServers` block must be a list")
@@ -267,13 +268,6 @@ def _merge_omp_mcp(
     if mcp_servers is None:
         mcp_servers = {}
         data["mcpServers"] = mcp_servers
-        changed = True
-    for server in servers:
-        if server.name in mcp_servers:
-            skip(f"{path}: {server.name} MCP already configured")
-            continue
-        mcp_servers[server.name] = _json_entry(server)
-        ok(f"{path}: {server.name} MCP added")
         changed = True
 
     if gate and disabled is None:
@@ -291,20 +285,6 @@ def _merge_omp_mcp(
             ok(f"{path}: {name} MCP removed (excluded on OMP)")
             changed = True
     return changed
-
-
-def _validate_omp_mcp(data: dict[str, object], servers: list[McpServer]) -> bool:
-    mcp_servers = data.get("mcpServers")
-    return isinstance(mcp_servers, dict) and not any(
-        mcp_entry_drift(mcp_servers.get(server.name), server) for server in servers
-    )
-
-
-def _json_entry(server: McpServer) -> dict[str, object]:
-    entry: dict[str, object] = {"command": server.command}
-    if server.args:
-        entry["args"] = list(server.args)
-    return entry
 
 
 def _converge_config(
@@ -373,13 +353,9 @@ OMP_GATED_BUILTINS = ("node_repl",)
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
-    omp_servers: list[McpServer] = []
+    # OMP registers no stack server: a new MCP_SERVERS entry needs a reason in OMP_EXCLUDED_SERVERS.
     for server in servers:
-        reason = OMP_EXCLUDED_SERVERS.get(server.name)
-        if reason:
-            skip(f"OMP config: {server.name} MCP not written ({reason})")
-        else:
-            omp_servers.append(server)
+        skip(f"OMP config: {server.name} MCP not written ({OMP_EXCLUDED_SERVERS[server.name]})")
 
     excluded = tuple(OMP_EXCLUDED_SERVERS)
     gated = OMP_GATED_BUILTINS + excluded
@@ -388,10 +364,8 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
         ok_all = _converge_config(
             path,
             load=load_json_object,
-            merge=lambda data: _merge_omp_mcp(
-                path, data, omp_servers, remove=excluded, gate=gated
-            ),
-            validate=lambda data: _validate_omp_mcp(data, omp_servers),
+            merge=lambda data: _merge_omp_mcp(path, data, remove=excluded, gate=gated),
+            validate=lambda data: isinstance(data.get("mcpServers"), dict),
             render=lambda data: json.dumps(data, indent=2) + "\n",
             dry_run=dry_run,
         ) and ok_all

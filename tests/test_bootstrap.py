@@ -38,11 +38,11 @@ class BootstrapTests(unittest.TestCase):
         result = bootstrap.main([])
 
         self.assertEqual(result, 0)
-        agents_main.assert_called_once_with(["--all", "--yes"])
+        agents_main.assert_called_once_with(["--all", "--update", "--yes"])
         skills_main.assert_called_once_with(
             [
+                "--converge",
                 "--all-mcps",
-                "--yes",
                 "--skill-profile",
                 "default",
                 "--skill-agent",
@@ -67,13 +67,15 @@ class BootstrapTests(unittest.TestCase):
             ]
         )
 
-    def test_bootstrap_plan_default_has_non_interactive_yes(self) -> None:
-        plan = bootstrap._bootstrap_plan(bootstrap._parse([]))
-        assert plan is not None
+    def test_bootstrap_yes_stops_the_skills_phase_from_offering(self) -> None:
+        default = bootstrap._bootstrap_plan(bootstrap._parse([]))
+        never_prompt = bootstrap._bootstrap_plan(bootstrap._parse(["--yes"]))
+        assert default is not None and never_prompt is not None
 
-        self.assertIn("--yes", plan[0].argv)
-        self.assertIn("--yes", plan[1].argv)
-        self.assertIn("--yes", plan[2].argv)
+        self.assertNotIn("--yes", default[1].argv)
+        self.assertIn("--yes", never_prompt[1].argv)
+        self.assertIn("--yes", never_prompt[0].argv)
+        self.assertIn("--yes", never_prompt[2].argv)
 
     def test_interactive_bootstrap_plan_lets_the_install_phases_prompt(self) -> None:
         plan = bootstrap._bootstrap_plan(bootstrap._parse(["--interactive"]))
@@ -204,7 +206,7 @@ class BootstrapTests(unittest.TestCase):
         self.assertTrue(summary["dry_run"])
         phases = {phase["name"]: phase for phase in summary["phases"]}
         self.assertEqual(list(phases), ["install-agents", "install-skills", "configure", "doctor"])
-        self.assertEqual(phases["install-agents"]["argv"], ["--all", "--yes"])
+        self.assertEqual(phases["install-agents"]["argv"], ["--all", "--update", "--yes"])
         self.assertEqual(
             [(p["requested"], p["executed"], p["skipped"]) for p in summary["phases"]],
             [(True, False, False)] * 3 + [(False, False, True)],

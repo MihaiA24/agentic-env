@@ -314,6 +314,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         "--client", action="append", choices=tuple(_DESKTOP_CLIENTS),
         help="Install a desktop client on macOS via Homebrew; repeat for both. Does not configure ACP",
     )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help=(
+            "Install the latest OMP, Codex and Claude Code releases even when the "
+            "installed ones meet the reviewed floor; Hermes stays pinned"
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument(
         "--verbose", action="store_true", help="Show full command output"
@@ -340,9 +348,9 @@ def main(argv: list[str] | None = None) -> int:
 
     installers = [
         (Option("hermes", "Hermes Agent", True), _install_hermes),
-        (Option("omp", "OMP / Oh My Pi", True), _install_omp),
-        (Option("codex", "OpenAI Codex CLI", True), _install_codex),
-        (Option("claude", "Claude Code", True), _install_claude),
+        (Option("omp", "OMP / Oh My Pi", True), lambda yes: _install_omp(yes, force=args.update)),
+        (Option("codex", "OpenAI Codex CLI", True), lambda yes: _install_codex(yes, force=args.update)),
+        (Option("claude", "Claude Code", True), lambda yes: _install_claude(yes, force=args.update)),
         (Option("t3code", "T3 Code desktop (macOS/Homebrew)"), lambda _: _install_desktop_client("t3code")),
         (Option("pycharm", "PyCharm desktop (macOS/Homebrew)"), lambda _: _install_desktop_client("pycharm")),
     ]

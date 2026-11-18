@@ -309,7 +309,7 @@ class InstallAgentsTests(unittest.TestCase):
                 attempted = []
                 installers = {
                     f"_install_{agent}": (
-                        lambda non_interactive, agent=agent: attempted.append(agent) or agent != failed
+                        lambda non_interactive, agent=agent, **_: attempted.append(agent) or agent != failed
                     )
                     for agent in agents
                 }

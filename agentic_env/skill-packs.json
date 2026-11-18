@@ -112,5 +112,14 @@
     "default": ["mattpocock", "caveman", "ponytail", "pstack"],
     "minimal": ["mattpocock"],
     "agentic-only": ["ponytail"]
-  }
+  },
+  "dropped": [
+    "handoff",
+    "in-your-own-words",
+    "interrogate",
+    "reflect",
+    "ponytail-gain",
+    "ponytail-help",
+    "ponytail-review"
+  ]
 }

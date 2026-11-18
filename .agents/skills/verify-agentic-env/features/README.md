@@ -18,7 +18,7 @@ Every map uses exactly four H2s. IDs in `Sub-features` name the report rows; the
 
 For every applicable branch, record success, cancel/decline, error, intentionally empty selection, and persistence/no-write behavior. Mark each entry point as passed, failed, blocked (attempt + unmet precondition), or N/A (reason). Unsupported wrapper routes are not N/A product features: exercise them in the authorized isolated environment or report the block. Fixtures/tests supplement those paths, not substitute for them.
 
-User-visible installed entry points are `agentic-install-agents`, `agentic-install-skills-mcps`, `agentic-configure-agent-mcps`, `agentic-configure-acp`, `agentic-bootstrap`, `agentic-update-stack`, `agentic-stack-doctor`, and `agentic-skill-drift`. Each also has `uv run --frozen python -m agentic_env.<module>` from the checkout. The standalone copier is `python3 agentic_env/copy_skills.py` or `python3 -m agentic_env.copy_skills`; its Windows route uses `py -3`/`python`.
+User-visible installed entry points are `agentic-install-agents`, `agentic-install-skills-mcps`, `agentic-configure-agent-mcps`, `agentic-configure-acp`, `agentic-bootstrap`, `agentic-stack-doctor`, and `agentic-skill-drift`. Each also has `uv run --frozen python -m agentic_env.<module>` from the checkout. The standalone copier is `python3 agentic_env/copy_skills.py` or `python3 -m agentic_env.copy_skills`; its Windows route uses `py -3`/`python`.
 
 ## Proof and skip reporting
 

@@ -26,7 +26,7 @@ ENTRIES = {
     "bootstrap": "bootstrap", "install-agents": "install_agents",
     "install-skills": "install_skills_mcps", "configure": "configure_agent_mcps",
     "configure-acp": "configure_acp",
-    "stack-doctor": "stack_doctor", "drift": "skill_drift", "update": "update_agentic_stack",
+    "stack-doctor": "stack_doctor", "drift": "skill_drift",
 }
 SUITES = {
     "all": ["tests"], "copy": ["tests/test_copy_skills.py"],
@@ -236,7 +236,7 @@ def run(command: list[str], label: str, timeout: float, *, building: bool = Fals
 def cli(entry: str, style: str) -> list[str]:
     prefix = ["uv", "run", "--frozen"]
     if style == "console":
-        name = {"install-skills": "install-skills-mcps", "configure": "configure-agent-mcps", "update": "update-stack", "drift": "skill-drift"}.get(entry, entry)
+        name = {"install-skills": "install-skills-mcps", "configure": "configure-agent-mcps", "drift": "skill-drift"}.get(entry, entry)
         return prefix + ["agentic-" + name]
     return prefix + ["python", "-m", "agentic_env." + ENTRIES[entry]]
 

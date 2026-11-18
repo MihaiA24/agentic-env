@@ -51,7 +51,7 @@ Steps 0–4 run once per repository. Step 5 is the daily loop and step 6 the upk
 
 ### 0. Prepare the host
 
-Install the skills once per host with the [README runbook](../README.md#refresh-skills-on-an-existing-omp-host), or the [copy route](../README.md#python-only-copy-on-windows) on Windows. The runbook refreshes skills, not agent binaries: if its `agentic-stack-doctor` step flags the agent you use, run `agentic-update-stack`. An older Claude Code can ignore the `AGENTS.md` rules from [step 4](#4-point-every-agent-at-the-verifier). Start your agent in the project's root.
+Set up the host once with the [README runbook](../README.md#refresh-skills-on-an-existing-omp-host), or the [copy route](../README.md#python-only-copy-on-windows) on Windows. The runbook's `agentic-bootstrap` updates the agents and refreshes the skills, and its final doctor flags anything left. An older Claude Code can ignore the `AGENTS.md` rules from [step 4](#4-point-every-agent-at-the-verifier). Start your agent in the project's root.
 
 #### Invoke skills in your harness
 

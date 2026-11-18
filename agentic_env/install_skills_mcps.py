@@ -17,7 +17,7 @@ from tempfile import TemporaryDirectory
 
 import questionary
 
-from . import configure_agent_mcps
+from . import configure_agent_mcps, skill_lock
 from .common import (
     Option,
     ask,
@@ -89,12 +89,14 @@ class SkillPack:
 
 @dataclass(frozen=True)
 class SkillManifest:
-    """Parsed `skill-packs.json`: packs in manifest order, alias → pack name, profile → pack names."""
+    """Parsed `skill-packs.json`: packs in manifest order, alias → pack name,
+    profile → pack names, and skills that have left every roster."""
 
     packs: dict[str, SkillPack]
     aliases: dict[str, str]
     profiles: dict[str, tuple[str, ...]]
     config_path: Path = SKILL_PACK_CONFIG_PATH
+    dropped: tuple[str, ...] = ()
 
     def source(self, pack: str) -> str:
         """Vendored packs use a `./` source relative to the config they came from;
@@ -278,8 +280,20 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
 
         profiles[profile_name.strip()] = tuple(selected)
 
+    dropped_payload = payload.get("dropped", [])
+    if not isinstance(dropped_payload, list) or not all(
+        isinstance(item, str) and item.strip() for item in dropped_payload
+    ):
+        warn(f"Invalid 'dropped' in {path}: expected list of skill names")
+        return None
+    dropped = tuple(dict.fromkeys(item.strip() for item in dropped_payload))
+    rostered = [name for name in dropped if any(name in pack.skills for pack in packs.values())]
+    if rostered:
+        warn(f"Dropped skill(s) still in a pack roster in {path}: {', '.join(rostered)}")
+        return None
+
     return SkillManifest(
-        packs=packs, aliases=alias_lookup, profiles=profiles, config_path=path
+        packs=packs, aliases=alias_lookup, profiles=profiles, config_path=path, dropped=dropped
     )
 
 
@@ -361,6 +375,9 @@ def _all_skill_agents() -> tuple[str, ...]:
 def _build_install_plan(
     args: argparse.Namespace, manifest: SkillManifest
 ) -> SkillInstallPlan | None:
+    if args.converge and (args.skill_pack or args.skill or args.all_skills or args.skills_dir is not None):
+        warn("--converge cannot be combined with --skill-pack, --skill, --all-skills or --skills-dir")
+        return None
     if args.skills_dir is not None and (
         args.skill_agent or args.mcp or args.all_mcps or args.agent_rules
     ):
@@ -744,6 +761,24 @@ def _install_skill_directory(
     return True
 
 
+def _skills_cli() -> list[str] | None:
+    """The command that runs a skills CLI at or above the reviewed floor: the global
+    binary when it qualifies, else the npx package; None when neither does."""
+    if cmd_version_at_least("skills", STACK_VERSION_FLOORS["skills"]):
+        return ["skills"]
+    if not cmd_exists("npm"):
+        warn("The curated skills CLI requires npm")
+        return None
+    if not cmd_version_at_least(
+        "npx",
+        STACK_VERSION_FLOORS["skills"],
+        args=("--yes", SKILLS_CLI_PACKAGE, "--version"),
+    ):
+        warn("skills CLI: could not verify a version at or above the reviewed floor")
+        return None
+    return ["npx", "--yes", SKILLS_CLI_PACKAGE]
+
+
 def _install_skill_package(
     source: str, skills: list[str], destination: SkillDestination
 ) -> bool:
@@ -765,20 +800,9 @@ def _install_skill_package(
     else:
         info(f"Installing skill pack: {source}...")
 
-    if cmd_version_at_least("skills", STACK_VERSION_FLOORS["skills"]):
-        runner = ["skills"]
-    elif not cmd_exists("npm"):
-        warn("The curated skills CLI requires npm")
+    runner = _skills_cli()
+    if runner is None:
         return False
-    elif not cmd_version_at_least(
-        "npx",
-        STACK_VERSION_FLOORS["skills"],
-        args=("--yes", SKILLS_CLI_PACKAGE, "--version"),
-    ):
-        warn("skills CLI: could not verify a version at or above the reviewed floor")
-        return False
-    else:
-        runner = ["npx", "--yes", SKILLS_CLI_PACKAGE]
     try:
         run([*runner, *command], cwd=str(directory) if directory is not None else None)
     except (OSError, subprocess.CalledProcessError) as exc:
@@ -787,8 +811,10 @@ def _install_skill_package(
     return True
 
 
-def _install_agentmemory(non_interactive: bool) -> bool:
-    if not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
+def _install_agentmemory(non_interactive: bool, *, update: bool = False) -> bool:
+    """Install agentmemory and wire it into Hermes; `update` installs the latest
+    release even when an installed one meets the floor."""
+    if not update and not _should_install_mcp("agentmemory", "agentmemory", non_interactive):
         return True
     if not cmd_exists("npm"):
         warn("npm is required to install agentmemory")
@@ -857,6 +883,173 @@ def _install_agent_rules() -> bool:
         return False
     ok(f"agent rules: installed at {AGENT_RULES_PATH}")
     return True
+
+
+def _update_skills_cli() -> bool:
+    """Keep a global `skills` binary at the latest release. Without one, installs
+    run the floor-checked npx package and there is nothing to update."""
+    if not cmd_exists("skills"):
+        return True
+    if not cmd_exists("npm"):
+        warn("skills CLI: npm is required to update it")
+        return False
+    info("Updating the skills CLI...")
+    try:
+        run(["npm", "install", "-g", SKILLS_CLI_PACKAGE])
+    except (OSError, subprocess.CalledProcessError) as exc:
+        warn(f"skills CLI: update failed: {exc}")
+        return False
+    if not cmd_version_at_least("skills", STACK_VERSION_FLOORS["skills"]):
+        warn("skills CLI: installed version is below the reviewed version")
+        return False
+    ok("skills CLI: updated")
+    return True
+
+
+def _converge_selection(
+    manifest: SkillManifest,
+    profile_packs: tuple[str, ...],
+    lock: dict[str, dict],
+    offered: set[str],
+) -> tuple[dict[str, list[str]], list[str]]:
+    """What a converge run installs, and the roster skills to offer for the first time.
+
+    A host holding roster skills refreshes exactly those. A host that holds none
+    and was never offered any is new, and takes the profile packs.
+    """
+    held = {
+        pack.name: [skill for skill in pack.skills if skill in lock]
+        for pack in manifest.packs.values()
+    }
+    selection = {pack: skills for pack, skills in held.items() if skills}
+    if not selection and not offered:
+        selection = _resolve_pack_skills(manifest, list(profile_packs), [])
+    chosen = {skill for skills in selection.values() for skill in skills}
+    offer = [
+        skill
+        for pack in manifest.packs.values()
+        for skill in pack.skills
+        if skill not in chosen and skill not in lock and skill not in offered
+    ]
+    return selection, list(dict.fromkeys(offer))
+
+
+def _pick_offered(manifest: SkillManifest, offer: list[str]) -> dict[str, list[str]]:
+    """Ask about roster skills this host lacks; those of `default` packs start checked."""
+    default_packs = manifest.profiles.get("default", ())
+    rows: list[Option | str] = []
+    for pack in manifest.packs.values():
+        skills = [skill for skill in pack.skills if skill in offer]
+        if skills:
+            rows.append(pack.label)
+            rows.extend(
+                Option(
+                    f"{pack.name}/{skill}",
+                    skill,
+                    pack.name in default_packs,
+                    pack.descriptions.get(skill),
+                )
+                for skill in skills
+            )
+    picked: dict[str, list[str]] = {}
+    for value in choose(
+        "Install skills this host does not have? Asked once: unchecked skills are not offered again",
+        rows,
+    ):
+        pack_name, _, skill = value.partition("/")
+        picked.setdefault(pack_name, []).append(skill)
+    return picked
+
+
+def _from_pack(manifest: SkillManifest, entry: dict) -> bool:
+    """Whether a lock record's source is one of the manifest's packs. A vendored
+    pack is recorded as an absolute path into whichever copy of this package ran."""
+    source = entry.get("source")
+    if not isinstance(source, str):
+        return False
+    for pack in manifest.packs.values():
+        if pack.source.startswith("./"):
+            tail = (manifest.config_path.parent.name, *Path(pack.source).parts)
+            if Path(source).parts[-len(tail):] == tail:
+                return True
+        elif source.lower() == pack.source.partition("#")[0].lower():
+            return True
+    return False
+
+
+def _prune_dropped(manifest: SkillManifest) -> bool:
+    """Uninstall skills that left the roster when one of the packs installed them
+    and the canonical copy is unchanged since; report each one kept instead."""
+    lock = skill_lock.load_lock()
+    removable: list[str] = []
+    for name in manifest.dropped:
+        folder = skill_lock.CANONICAL_SKILL_ROOT / name
+        entry = lock.get(name)
+        if entry is None:
+            if folder.exists() or folder.is_symlink():
+                warn(
+                    f"{name}: left the roster but kept: the skills lock has no record of "
+                    f"{folder}, so local edits cannot be ruled out. Delete it if unused"
+                )
+        elif not _from_pack(manifest, entry):
+            skip(f"{name}: kept; installed from {entry.get('source')}, not from a curated pack")
+        elif skill_lock.matches_record(folder, entry):
+            removable.append(name)
+        else:
+            warn(
+                f"{name}: left the roster but kept: {folder} differs from what the skills CLI "
+                f"installed. Save any edits, then run: npx {SKILLS_CLI_PACKAGE} remove --global {name}"
+            )
+    if not removable:
+        return True
+    runner = _skills_cli()
+    if runner is None:
+        return False
+    info(f"Removing skills that left the roster: {', '.join(removable)}")
+    try:
+        run([*runner, "remove", *removable, "--global", "--yes"])
+    except (OSError, subprocess.CalledProcessError) as exc:
+        warn(f"skills CLI: removal failed: {exc}")
+        return False
+    ok(f"Removed skills that left the roster: {', '.join(removable)}")
+    return True
+
+
+def _converge(manifest: SkillManifest, plan: SkillInstallPlan, prompt: bool) -> int:
+    """Bring this host up to date without asking anything twice (`--converge`)."""
+    ok_all = _update_skills_cli()
+    offered = skill_lock.offered()
+    selection, offer = _converge_selection(
+        manifest, plan.skill_packs, skill_lock.load_lock(), offered
+    )
+    asked = bool(offer) and prompt
+    if asked:
+        for pack, skills in _pick_offered(manifest, offer).items():
+            selection.setdefault(pack, []).extend(skills)
+    elif offer:
+        skip(f"Not offered with --yes or without a terminal: {', '.join(offer)}")
+
+    _summarize_selection(
+        manifest, selection, plan.destination,
+        plan.do_codebase, plan.do_agentmemory, plan.do_agent_rules,
+    )
+    if selection:
+        ok_all = _install_skills(manifest, selection, plan.destination) and ok_all
+    else:
+        skip("skill packs: no roster skill on this host")
+    ok_all = _prune_dropped(manifest) and ok_all
+    # After every skills CLI run: each one rewrites the whole lock.
+    if asked:
+        ok_all = skill_lock.record_offered(offer) and ok_all
+
+    if plan.do_codebase:
+        # Pinned: reinstalls only below the reviewed version.
+        ok_all = _install_codebase_memory(True, True) and ok_all
+    if plan.do_agentmemory:
+        ok_all = _install_agentmemory(True, update=True) and ok_all
+    if plan.do_agent_rules:
+        ok_all = _install_agent_rules() and ok_all
+    return 0 if ok_all else 1
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -934,6 +1127,16 @@ def _parse(argv: list[str]) -> argparse.Namespace:
             "(the previous file is kept as a backup)."
         ),
     )
+    parser.add_argument(
+        "--converge",
+        action="store_true",
+        help=(
+            "Bring this host up to date: refresh the roster skills it has (a host with "
+            "none takes --skill-profile), offer each missing roster skill once on a "
+            "terminal, remove dropped skills unchanged since install, update a global "
+            "skills CLI and the selected MCPs. agentic-bootstrap runs this."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument(
         "--verbose", action="store_true", help="Show full command output"
@@ -965,6 +1168,9 @@ def main(argv: list[str] | None = None) -> int:
     plan = _build_install_plan(args, manifest)
     if plan is None:
         return 1
+
+    if args.converge:
+        return _converge(manifest, plan, prompt=not args.yes and interactive())
 
     skill_selection = _resolve_pack_skills(manifest, list(plan.skill_packs), list(plan.skill_names))
     destination = plan.destination

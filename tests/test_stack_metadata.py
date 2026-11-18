@@ -15,7 +15,6 @@ from agentic_env import (
     install_skills_mcps,
     stack_metadata,
 )
-from agentic_env import update_agentic_stack
 from agentic_env.common import install_pinned_binary_archive
 from agentic_env.remote_install_contract import validate_remote_contract
 
@@ -30,9 +29,6 @@ class StackMetadataTests(unittest.TestCase):
             stack_metadata.SKILLS_INSTALL_REMOTE_CONTRACT,
             scope="agentic-install-skills-mcps",
         )
-        assert validate_remote_contract(
-            stack_metadata.UPDATE_REMOTE_CONTRACT, scope="agentic-update-stack"
-        )
 
     def test_install_modules_reference_canonical_metadata(self) -> None:
         assert (
@@ -42,10 +38,6 @@ class StackMetadataTests(unittest.TestCase):
         assert (
             install_skills_mcps._REMOTE_INSTALL_CONTRACT
             is stack_metadata.SKILLS_INSTALL_REMOTE_CONTRACT
-        )
-        assert (
-            update_agentic_stack._REMOTE_INSTALL_CONTRACT
-            is stack_metadata.UPDATE_REMOTE_CONTRACT
         )
 
         assert install_agents.HERMES_INSTALL_URL == stack_metadata.HERMES_INSTALL_URL
@@ -72,44 +64,24 @@ class StackMetadataTests(unittest.TestCase):
             install_skills_mcps.CODEBASE_MEMORY_ARCHIVES
             is stack_metadata.CODEBASE_MEMORY_ARCHIVES
         )
-        assert (
-            update_agentic_stack.AGENTMEMORY_NPM_PACKAGE
-            == stack_metadata.AGENTMEMORY_NPM_PACKAGE
-        )
-        assert (
-            update_agentic_stack.SKILLS_CLI_PACKAGE == stack_metadata.SKILLS_CLI_PACKAGE
-        )
-        assert (
-            update_agentic_stack.STACK_VERSION_FLOORS
-            is stack_metadata.STACK_VERSION_FLOORS
-        )
 
         assert (
             configure_agent_mcps.AGENT_CHOICES == stack_metadata.CONFIGURE_AGENT_CHOICES
         )
 
-    def test_update_pulls_latest_through_canonical_installers(self) -> None:
-        with (
-            patch("agentic_env.update_agentic_stack.cmd_exists", return_value=True),
-            patch(
-                "agentic_env.update_agentic_stack.cmd_version_at_least",
-                return_value=True,
-            ),
-            patch("agentic_env.update_agentic_stack.run") as run,
-        ):
-            assert update_agentic_stack._update_skills() is True
-            run.assert_called_once_with(
-                ["npm", "install", "-g", stack_metadata.SKILLS_CLI_PACKAGE]
-            )
-
-        with (
-            patch("agentic_env.update_agentic_stack.cmd_exists", return_value=True),
-            patch(
-                "agentic_env.install_agents._install_codex", return_value=True
-            ) as install,
-        ):
-            assert update_agentic_stack._update_codex() is True
-            install.assert_called_once_with(True, force=True)
+    def test_update_forces_latest_agents_but_keeps_hermes_pinned(self) -> None:
+        for argv, force in ((["--all", "--yes"], False), (["--all", "--update", "--yes"], True)):
+            with (
+                patch("agentic_env.install_agents._validate_remote_contract", return_value=True),
+                patch("agentic_env.install_agents._install_hermes", return_value=True) as hermes,
+                patch("agentic_env.install_agents._install_omp", return_value=True) as omp,
+                patch("agentic_env.install_agents._install_codex", return_value=True) as codex,
+                patch("agentic_env.install_agents._install_claude", return_value=True) as claude,
+            ):
+                assert install_agents.main(argv) == 0
+            hermes.assert_called_once_with(True)
+            for install in (omp, codex, claude):
+                install.assert_called_once_with(True, force=force)
 
     def test_agent_installers_fetch_latest_except_pinned_hermes(self) -> None:
         with (

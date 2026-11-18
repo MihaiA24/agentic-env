@@ -166,14 +166,5 @@ SKILLS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
     },
 }
 
-UPDATE_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
-    **AGENTS_INSTALL_REMOTE_CONTRACT,
-    **SKILLS_INSTALL_REMOTE_CONTRACT,
-}
-
-# Update execution deliberately reuses the canonical install paths with
-# force=True, so every run pulls the latest release rather than stopping at the
-# floor; native updater commands cannot satisfy the curated stack contract.
-
 # Agents supported by configure-agent-mcps.
 CONFIGURE_AGENT_CHOICES: Final[tuple[str, ...]] = ("hermes", "omp")

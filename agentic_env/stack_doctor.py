@@ -22,22 +22,15 @@ from .common import cmd_exists, cmd_version_at_least, console, load_json_object
 from .stack_metadata import STACK_VERSION_FLOORS
 
 CLAUDE_USER_CONFIG_PATH = Path.home() / ".claude.json"
-# OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
-# skill store and stays unmounted as a root (skills.enableAgentsUser: false).
-CLAUDE_SKILL_ROOT = Path.home() / ".claude" / "skills"
 SECONDARY_AGENTS = ("hermes", "claude", "codex", "agentmemory")
 
 FIX_CONFIGURE = "agentic-configure-agent-mcps --yes"
-FIX_UPDATE = "agentic-update-stack"
+FIX_BOOTSTRAP = "agentic-bootstrap"
 FIX_CODEBASE_MEMORY = "agentic-install-skills-mcps --mcp codebase-memory-mcp --yes"
 
 # Prose that re-routes native reads through an MCP; forbidden anywhere OMP
 # loads MCP definitions from (ADR-0007, ADR-0009).
 INTERCEPTION_MARKERS = ("ctx_", "shadow mode", "auto-route")
-
-# Excluded from OMP for lack of use, not for a conflict (DECISIONS §5): Claude Code keeps
-# its own entry, which `disabledServers` hides from OMP's claude-import.
-CLAUDE_IMPORT_ALLOWED = ("codebase-memory-mcp",)
 
 
 @dataclass(frozen=True)
@@ -134,7 +127,7 @@ def _check_omp_mcp(path: Path) -> list[Check]:
 
 def _check_claude_import() -> list[Check]:
     """OMP's claude-import mounts ~/.claude.json servers: excluded names (bar
-    `CLAUDE_IMPORT_ALLOWED`) and read-interception prose are forbidden there too."""
+    `cfg.CLAUDE_IMPORT_ALLOWED`) and read-interception prose are forbidden there too."""
     prose = "~/.claude.json: no read-interception prose"
     absent = "~/.claude.json: excluded servers absent"
     if not CLAUDE_USER_CONFIG_PATH.exists():
@@ -144,7 +137,7 @@ def _check_claude_import() -> list[Check]:
         return [Check(prose, False, "unreadable JSON", "fix ~/.claude.json by hand")]
     servers = loaded[0]
     hits = _interception_prose(servers)
-    forbidden = [name for name in cfg.OMP_EXCLUDED_SERVERS if name not in CLAUDE_IMPORT_ALLOWED]
+    forbidden = [name for name in cfg.OMP_EXCLUDED_SERVERS if name not in cfg.CLAUDE_IMPORT_ALLOWED]
     mounted = [name for name in forbidden if name in servers]
     return [
         Check(
@@ -208,20 +201,13 @@ def _check_skills() -> list[Check]:
                 FIX_CONFIGURE,
             )
         )
-    # The configurator never writes excluded descriptors on OMP, so any there are leftovers.
-    # OMP also loads ~/.claude/skills, where Claude Code may keep the ones it may import.
-    stale = [
-        root / name
-        for name in cfg.OMP_EXCLUDED_SERVERS
-        for root in (*cfg.OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT)
-        if (root / name).exists() and not (root == CLAUDE_SKILL_ROOT and name in CLAUDE_IMPORT_ALLOWED)
-    ]
+    stale = cfg.excluded_descriptors()
     checks.append(
         Check(
             "no excluded MCP skills in OMP-loaded roots",
             not stale,
             ", ".join(map(str, stale)) if stale else "clean",
-            " && ".join(f"rm -rf {path}" for path in stale),
+            FIX_CONFIGURE,
         )
     )
     return checks
@@ -297,7 +283,7 @@ def _check_hermes() -> list[Check]:
 
 def run_checks() -> list[Check]:
     checks = [
-        _check_binary("omp", fix=FIX_UPDATE, mandatory=True),
+        _check_binary("omp", fix=FIX_BOOTSTRAP, mandatory=True),
         _check_binary("codebase-memory-mcp", fix=FIX_CODEBASE_MEMORY, mandatory=True),
     ]
     for path in cfg.OMP_MCP_PATHS:
@@ -305,7 +291,7 @@ def run_checks() -> list[Check]:
     checks.extend(_check_claude_import())
     checks.extend(_check_agent_config())
     checks.extend(_check_skills())
-    checks.extend(_check_binary(name, fix=FIX_UPDATE, mandatory=False) for name in SECONDARY_AGENTS)
+    checks.extend(_check_binary(name, fix=FIX_BOOTSTRAP, mandatory=False) for name in SECONDARY_AGENTS)
     checks.extend(_check_hermes())
     return checks
 

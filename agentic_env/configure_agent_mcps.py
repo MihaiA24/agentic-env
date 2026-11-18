@@ -102,6 +102,9 @@ OMP_SKILL_ROOTS = (
 )
 HERMES_CONFIG_PATH = Path.home() / ".hermes" / "config.yaml"
 HERMES_SKILL_ROOT = Path.home() / ".hermes" / "skills"
+# OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
+# skill store and stays unmounted as a root (skills.enableAgentsUser: false).
+CLAUDE_SKILL_ROOT = Path.home() / ".claude" / "skills"
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -351,6 +354,42 @@ OMP_EXCLUDED_SERVERS = {
 # OMP built-ins with no `mcpServers` entry; kept in `disabledServers` (0 calls, DECISIONS "Rejected").
 OMP_GATED_BUILTINS = ("node_repl",)
 
+# Excluded from OMP for lack of use, not for a conflict (DECISIONS §5): Claude Code keeps
+# its own entry, which `disabledServers` hides from OMP's claude-import.
+CLAUDE_IMPORT_ALLOWED = ("codebase-memory-mcp",)
+
+
+def excluded_descriptors() -> list[Path]:
+    """Skill descriptors of OMP-excluded servers in roots OMP loads. The configurator
+    never writes them on OMP, so each is a leftover; Claude Code may keep the ones
+    it may import in its own root."""
+    return [
+        root / name
+        for name in OMP_EXCLUDED_SERVERS
+        for root in (*OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT)
+        if ((root / name).exists() or (root / name).is_symlink())
+        and not (root == CLAUDE_SKILL_ROOT and name in CLAUDE_IMPORT_ALLOWED)
+    ]
+
+
+def remove_excluded_descriptors(*, dry_run: bool) -> bool:
+    ok_all = True
+    for path in excluded_descriptors():
+        if dry_run:
+            skip(f"dry-run: would remove {path}")
+            continue
+        try:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        except OSError as exc:
+            warn(f"{path}: cannot remove this leftover descriptor: {exc}")
+            ok_all = False
+            continue
+        ok(f"{path}: removed; OMP mounts no {path.name} server")
+    return ok_all
+
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
     # OMP registers no stack server: a new MCP_SERVERS entry needs a reason in OMP_EXCLUDED_SERVERS.
@@ -566,6 +605,7 @@ def main(argv: list[str] | None = None) -> int:
     if "omp" in agents:
         ok_all = configure_omp(servers, dry_run=args.dry_run) and ok_all
         ok_all = converge_omp_agent_config(dry_run=args.dry_run) and ok_all
+        ok_all = remove_excluded_descriptors(dry_run=args.dry_run) and ok_all
     if install_matching_skills:
         install_names = list(server_names)
         if server_names and "ponytail" not in install_names:

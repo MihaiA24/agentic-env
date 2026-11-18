@@ -8,6 +8,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
 - [Skill routing](guides/skill-routing.md): choose a skill for the task; every curated skill, when it runs, and who starts it.
 - [OMP in T3 Code and PyCharm](guides/omp-acp.md): install optional desktop clients, register native ACP, and select OpenAI Fast with `/fast`.
+- [Opt-in OMP isolation](guides/omp-isolation.md): same-user Linux sandbox, dedicated OAuth/state, reviewed grants and live acceptance evidence.
 
 ## Quick usage
 
@@ -28,6 +29,7 @@ agentic-stack-doctor
 | `agentic-install-skills-mcps` | Install selected skills and MCP tooling |
 | `agentic-configure-agent-mcps` | Add missing managed entries; report existing drift |
 | `agentic-configure-acp` | Copy ACP JSON or add OMP to PyCharm/T3 Code without replacing existing settings |
+| `agentic-omp-isolated` | Explicit Linux-only nono sandbox for OMP; separate init/run/check, never enabled by bootstrap |
 | `agentic-update-stack` | Refresh components, then run doctor; does not update this package |
 | `agentic-stack-doctor` | Read-only diagnosis; OMP failures exit 1, secondary/Hermes failures warn |
 | `agentic-skill-drift` | Read-only: compare curated skills against their pack sources and upstreams |

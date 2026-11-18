@@ -84,22 +84,31 @@ class StackMetadataTests(unittest.TestCase):
                 install.assert_called_once_with(True, force=force)
 
     def test_agent_installers_fetch_latest_except_pinned_hermes(self) -> None:
-        with (
-            patch(
-                "agentic_env.install_agents.cmd_version_at_least",
-                side_effect=[False, True],
-            ),
-            patch("agentic_env.install_agents.cmd_exists", return_value=False),
-            patch(
-                "agentic_env.install_agents.run_remote_script", return_value=True
-            ) as remote,
+        for checkout_exists, branch in (
+            (False, ["--branch", stack_metadata.HERMES_TAG]),
+            (True, []),
         ):
-            assert install_agents._install_hermes(True) is True
-            assert remote.call_args.kwargs["interpreter_args"] == [
-                "--skip-setup",
-                "--commit",
-                stack_metadata.HERMES_COMMIT,
-            ]
+            with (
+                patch(
+                    "agentic_env.install_agents.cmd_version_at_least",
+                    side_effect=[False, True],
+                ),
+                patch("agentic_env.install_agents.cmd_exists", return_value=False),
+                patch(
+                    "agentic_env.install_agents._hermes_checkout_exists",
+                    return_value=checkout_exists,
+                ),
+                patch(
+                    "agentic_env.install_agents.run_remote_script", return_value=True
+                ) as remote,
+            ):
+                assert install_agents._install_hermes(True) is True
+                assert remote.call_args.kwargs["interpreter_args"] == [
+                    "--skip-setup",
+                    *branch,
+                    "--commit",
+                    stack_metadata.HERMES_COMMIT,
+                ]
 
     def test_release_archive_contract_covers_supported_hosts(self) -> None:
         platforms = {

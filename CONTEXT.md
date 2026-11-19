@@ -128,8 +128,12 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Deployment (unqualified; it can mean either fresh install or curated stack update)
 
 - **Curated stack update**
-  - A non-interactive maintenance run that reinstalls every installed agent-stack component. Floating components move to the current latest release; fixed-identity components stay at the reviewed artifact. The run fails if any result is below its reviewed version floor.
+  - An `agentic-bootstrap` run on a host that already has the stack. It reinstalls the agents and MCP tooling: floating components move to the current latest release and fixed-identity components stay at the reviewed artifact. Its skills phase is a _Skill converge_. The run fails if any result is below its reviewed version floor.
   - _Avoid_: Convergence to exact versions, mixed pinned/latest update, fresh install, deployment (unqualified)
+
+- **Skill converge**
+  - The `--converge` skills phase of `agentic-bootstrap`. It refreshes the roster skills the skills CLI lock records, offers each roster skill the host lacks once on a terminal and records that offer in the lock, and removes unedited _dropped_ skills installed from a curated pack. A host whose lock holds no roster skill and no offer takes the profile packs.
+  - _Avoid_: Sync, reinstall-all
 
 - **Reviewed version floor**
   - The minimum acceptable installed version of a stack binary, declared in `stack_metadata.STACK_VERSION_FLOORS` and set to the latest stable release at review time. A version at or above the floor is compliant; one below it fails install and the doctor. Distinct from _Compatibility floor_, which covers host prerequisites, not stack components.
@@ -158,7 +162,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Line coverage, mocked installer success
 
 - **Stack doctor**
-  - Read-only diagnosis of the primary-harness wiring contract. OMP failures are mandatory; Hermes wiring and secondary-agent binaries only warn. It runs at the end of bootstrap/update, exits non-zero only for mandatory failures, and gives corrective guidance without repairing configurations.
+  - Read-only diagnosis of the primary-harness wiring contract. OMP failures are mandatory; Hermes wiring and secondary-agent binaries only warn. It runs at the end of bootstrap, exits non-zero only for mandatory failures, and gives corrective guidance without repairing configurations.
   - _Avoid_: Smoke test, automatic repair
 
 - **Supported host**
@@ -203,6 +207,10 @@ Skill-specific states, distinct from the component lifecycle states above. A com
 - **Excluded (skill)**
   - A skill deliberately not installed, with the reason and the condition that reopens it.
   - _Avoid_: Rejected (that is the component state), removed, pruned
+
+- **Dropped (skill)**
+  - A skill that left the curated roster, named in the manifest's `dropped` list. Converge removes it only when the lock records it from a curated pack and its folder is unchanged; otherwise it stays and is reported. Distinct from _Excluded_, which was never installed.
+  - _Avoid_: Excluded, deprecated
 
 - **Skill store**
   - `~/.agents/skills`, the canonical copy of every installed skill. `skills add` writes here and symlinks `~/.claude/skills/<name>` and `~/.hermes/skills/<name>` into it; Codex reads it directly. OMP mounts it through `~/.claude/skills` (`enableClaudeUser`), never as its own root (`enableAgentsUser: false`), so each skill loads once.

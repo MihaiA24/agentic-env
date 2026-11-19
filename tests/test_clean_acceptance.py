@@ -69,7 +69,7 @@ class CleanAcceptanceTests(unittest.TestCase):
             host = root / "host"
             host.mkdir()
             isolated = root / "isolated"
-            executable = isolated / ".local" / "bin" / "agentic-update-stack"
+            executable = isolated / ".local" / "bin" / "agentic-bootstrap"
             executable.parent.mkdir(parents=True)
             executable.write_text(
                 '#!/bin/sh\nset -eu\n'
@@ -227,8 +227,8 @@ class ChecksOnlyTests(unittest.TestCase):
             command = (
                 '#!/bin/sh\n'
                 'case "${0##*/}:$*" in\n'
-                '  agentic-update-stack:--help) exit 0 ;;\n'
-                '  agentic-update-stack:*) printf updated > "$HOME/update-marker" ;;\n'
+                '  agentic-bootstrap:--help) exit 0 ;;\n'
+                '  agentic-bootstrap:*) printf updated > "$HOME/update-marker" ;;\n'
                 '  agentic-skill-drift:"--no-upstream --skill-profile default") exit "$DRIFT_EXIT" ;;\n'
                 'esac\n'
                 'exit 0\n'
@@ -237,7 +237,7 @@ class ChecksOnlyTests(unittest.TestCase):
                 "uv node npm npx curl git bash tar gzip xz unzip ps make cc c++ "
                 "hermes omp codex claude codebase-memory-mcp agentmemory "
                 "agentic-bootstrap agentic-install-agents agentic-install-skills-mcps "
-                "agentic-configure-agent-mcps agentic-update-stack agentic-stack-doctor "
+                "agentic-configure-agent-mcps agentic-stack-doctor "
                 "agentic-skill-drift"
             )
             for name in names.split():

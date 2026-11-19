@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import fcntl
 import json
 import os
@@ -16,7 +17,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentic_env import install_skills_mcps
+from agentic_env import install_skills_mcps, skill_lock
 
 
 class InstallSkillsMcpsTests(unittest.TestCase):
@@ -471,13 +472,21 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
                 self.assertFalse(backup.exists())
 
-                target.write_text("my own rules\n", encoding="utf-8")
+                target.write_bytes("my own rules \u00e9\n".encode("latin-1"))
                 self.assertEqual(install_skills_mcps.main(["--yes"]), 0)
-                self.assertEqual(target.read_text(encoding="utf-8"), "my own rules\n")
+                self.assertEqual(target.read_bytes(), "my own rules \u00e9\n".encode("latin-1"))
 
                 self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
                 self.assertEqual(target.read_text(encoding="utf-8"), source)
-                self.assertEqual(backup.read_text(encoding="utf-8"), "my own rules\n")
+                self.assertEqual(backup.read_bytes(), "my own rules \u00e9\n".encode("latin-1"))
+
+                # Updating the managed file must not replace the user's backup.
+                newer = Path(temp) / "newer.md"
+                newer.write_text(source + "\nA newer rule.\n", encoding="utf-8")
+                with patch.object(install_skills_mcps, "AGENT_RULES_SOURCE", newer):
+                    self.assertEqual(install_skills_mcps.main(["--agent-rules", "--yes"]), 0)
+                self.assertEqual(target.read_text(encoding="utf-8"), source + "\nA newer rule.\n")
+                self.assertEqual(backup.read_bytes(), "my own rules \u00e9\n".encode("latin-1"))
 
     def test_directory_install_copies_assets_and_refuses_collisions_before_writing(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
@@ -624,6 +633,180 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             self.assertIn(pack.label, text)
             for skill in pack.skills:
                 self.assertIn(skill, text)
+
+
+# Expected values from skills 1.9.0 `computeSkillFolderHash` and from
+# `git rev-parse <tree>:skill` over the same files (without the CLI-excluded ones).
+_FIXTURE_FOLDER_HASH = "c55cb91c2c55277286295d3b4f543e0fe9aa3f8cc8fdc6734ab1a1f1eb6fb479"
+_FIXTURE_TREE_ID = "195fee8a05f7ddd26d1b8d2440629e1b911eb64f"
+
+
+def _skill_fixture(folder: Path, *, cli_excluded: bool) -> Path:
+    (folder / "refs").mkdir(parents=True)
+    (folder / "empty").mkdir()
+    (folder / "SKILL.md").write_bytes(b"---\r\nname: demo\r\n---\r\nBody\r\n")
+    (folder / "refs" / "guide.md").write_bytes(b"guide\n")
+    script = folder / "run.sh"
+    script.write_bytes(b"#!/bin/sh\necho hi\n")
+    script.chmod(0o755)
+    if cli_excluded:
+        (folder / "metadata.json").write_bytes(b'{"x":1}')
+        (folder / ".git").mkdir()
+        (folder / ".git" / "HEAD").write_bytes(b"ref\n")
+    return folder
+
+
+class ConvergeTests(unittest.TestCase):
+    """`--converge` against a temporary skills lock and canonical store."""
+
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.store = self.root / "skills"
+        for active in (
+            patch.dict(os.environ, {"XDG_STATE_HOME": str(self.root / "state")}),
+            patch.object(skill_lock, "CANONICAL_SKILL_ROOT", self.store),
+            # No global skills binary: nothing to self-update.
+            patch.object(install_skills_mcps, "cmd_exists", lambda name: name != "skills"),
+        ):
+            active.start()
+            self.addCleanup(active.stop)
+        self.manifest = install_skills_mcps.SkillManifest(
+            packs={
+                "local": install_skills_mcps.SkillPack(
+                    "local", "./vendored/local/skills", "local skills", ("tdd", "grilling")
+                ),
+                "remote": install_skills_mcps.SkillPack(
+                    "remote", "Owner/Remote#v1", "remote skills", ("caveman",)
+                ),
+            },
+            aliases={"local": "local", "remote": "remote"},
+            profiles={"default": ("local",)},
+            config_path=self.root / "site-packages" / "agentic_env" / "skill-packs.json",
+        )
+
+    def write_lock(self, skills: dict[str, dict]) -> None:
+        path = skill_lock.lock_path()
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({"version": 3, "skills": skills}), encoding="utf-8")
+
+    def converge(self, *, prompt: bool, picked: list[str] | None = None) -> tuple[int, dict]:
+        """Run the converge flow with stubbed installers; returns (status, selection)."""
+        plan = install_skills_mcps._build_install_plan(
+            install_skills_mcps._parse(
+                ["--converge", "--skill-profile", "default", "--skill-agent", "claude"]
+            ),
+            self.manifest,
+        )
+        assert plan is not None
+        choose = (
+            patch.object(install_skills_mcps, "choose", return_value=picked)
+            if picked is not None
+            else patch.object(install_skills_mcps, "choose", side_effect=AssertionError("prompted"))
+        )
+        with choose, patch.object(install_skills_mcps, "_install_skills", return_value=True) as install:
+            status = install_skills_mcps._converge(self.manifest, plan, prompt=prompt)
+        return status, install.call_args.args[1] if install.called else {}
+
+    def test_manifest_dropped_skills_must_have_left_every_roster(self) -> None:
+        base = {"packs": [{"name": "p", "source": "owner/p#v1", "skills": ["tdd"]}]}
+        for dropped, expected in (
+            (["old", " old "], ("old",)),
+            (["tdd"], None),
+            ([""], None),
+            ("old", None),
+        ):
+            with self.subTest(dropped=dropped):
+                path = self.root / "skill-packs.json"
+                path.write_text(json.dumps({**base, "dropped": dropped}), encoding="utf-8")
+                manifest = install_skills_mcps.load_skill_manifest(path)
+                self.assertEqual(manifest and manifest.dropped, expected)
+
+    def test_existing_host_refreshes_its_skills_and_is_offered_the_rest_once(self) -> None:
+        self.write_lock({"tdd": {"source": "anything"}})
+
+        status, selection = self.converge(prompt=True, picked=["local/grilling"])
+        self.assertEqual(status, 0)
+        self.assertEqual(selection, {"local": ["tdd", "grilling"]})
+        self.assertEqual(skill_lock.offered(), {"grilling", "caveman"})
+        self.assertIn("tdd", skill_lock.load_lock())
+
+        # Declined (caveman) and accepted (grilling) alike are never offered again.
+        status, selection = self.converge(prompt=True)
+        self.assertEqual((status, selection), (0, {"local": ["tdd"]}))
+
+    def test_new_host_takes_the_profile_and_records_no_offer_without_a_prompt(self) -> None:
+        status, selection = self.converge(prompt=False)
+
+        self.assertEqual((status, selection), (0, {"local": ["tdd", "grilling"]}))
+        self.assertFalse(skill_lock.lock_path().exists())
+        # Once offered, a host holding no roster skill is not new: it keeps none.
+        self.assertEqual(
+            install_skills_mcps._converge_selection(self.manifest, ("local",), {}, {"tdd"}),
+            ({}, ["grilling", "caveman"]),
+        )
+
+    def test_interrupted_offer_installs_and_records_nothing(self) -> None:
+        self.write_lock({"tdd": {"source": "anything"}})
+        with (
+            patch.object(install_skills_mcps, "choose", side_effect=SystemExit(130)),
+            patch.object(install_skills_mcps, "_install_skills") as install,
+            self.assertRaises(SystemExit),
+        ):
+            install_skills_mcps._converge(
+                self.manifest,
+                install_skills_mcps._build_install_plan(
+                    install_skills_mcps._parse(["--converge"]), self.manifest
+                ),
+                prompt=True,
+            )
+        install.assert_not_called()
+        self.assertEqual(skill_lock.offered(), set())
+
+    def test_prune_removes_only_unedited_dropped_skills_from_curated_packs(self) -> None:
+        vendored = str(self.root / "other-python" / "agentic_env" / "vendored" / "local" / "skills")
+        records = {}
+        for name, source in (
+            ("old-local", vendored),
+            ("old-remote", "owner/remote"),
+            ("edited", vendored),
+            ("foreign", "someone/else"),
+            ("lookalike", "/elsewhere/vendored/local/skills"),
+        ):
+            _skill_fixture(self.store / name, cli_excluded=False)
+            records[name] = {"source": source, "skillFolderHash": _FIXTURE_FOLDER_HASH}
+        (self.store / "edited" / "SKILL.md").write_text("mine\n", encoding="utf-8")
+        _skill_fixture(self.store / "untracked", cli_excluded=False)
+        self.write_lock(records)
+        manifest = dataclasses.replace(self.manifest, dropped=(*records, "untracked", "absent"))
+
+        with (
+            patch.object(install_skills_mcps, "_skills_cli", return_value=["skills"]),
+            patch.object(install_skills_mcps, "run") as run,
+        ):
+            self.assertTrue(install_skills_mcps._prune_dropped(manifest))
+        run.assert_called_once_with(["skills", "remove", "old-local", "old-remote", "--global", "--yes"])
+
+    def test_lock_hashes_match_what_the_cli_and_git_record(self) -> None:
+        local = _skill_fixture(self.root / "local", cli_excluded=True)
+        remote = _skill_fixture(self.root / "remote", cli_excluded=False)
+        local_record = {"skillFolderHash": _FIXTURE_FOLDER_HASH}
+
+        self.assertTrue(skill_lock.matches_record(local, local_record))
+        self.assertTrue(skill_lock.matches_record(remote, {"skillFolderHash": _FIXTURE_TREE_ID}))
+        (local / "refs" / "guide.md").write_bytes(b"edited\n")
+        self.assertFalse(skill_lock.matches_record(local, local_record))
+        self.assertFalse(skill_lock.matches_record(self.root / "absent", local_record))
+
+    def test_update_skills_cli_installs_the_latest_global_binary(self) -> None:
+        with (
+            patch.object(install_skills_mcps, "cmd_exists", return_value=True),
+            patch.object(install_skills_mcps, "cmd_version_at_least", return_value=True),
+            patch.object(install_skills_mcps, "run") as run,
+        ):
+            self.assertTrue(install_skills_mcps._update_skills_cli())
+        run.assert_called_once_with(["npm", "install", "-g", install_skills_mcps.SKILLS_CLI_PACKAGE])
 
 
 # Runs `main` in a fresh interpreter behind the pty; any install call trips

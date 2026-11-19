@@ -41,10 +41,8 @@ from .install_skills_mcps import (
     SkillUpstream,
     load_skill_manifest,
 )
+from .skill_lock import CANONICAL_SKILL_ROOT, load_lock
 
-# `~/.agents/skills` is the canonical store; Claude and Hermes link into it.
-CANONICAL_SKILL_ROOT = Path.home() / ".agents" / "skills"
-SKILL_LOCK_PATH = Path.home() / ".agents" / ".skill-lock.json"
 BASELINE_PATH = Path(__file__).with_name("skill-fingerprints.json")
 CACHE_ROOT = (
     Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
@@ -251,20 +249,6 @@ def source_root(
     if upstream is None:
         return None
     return _scoped(fetch_tree(upstream.repo, upstream.ref, offline=offline), upstream)
-
-
-def load_lock(path: Path = SKILL_LOCK_PATH) -> dict[str, dict]:
-    """The skills CLI lockfile: skill name -> install record."""
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    skills = payload.get("skills")
-    return {
-        name: entry
-        for name, entry in skills.items()
-        if isinstance(entry, dict)
-    } if isinstance(skills, dict) else {}
 
 
 def _baseline_packs(path: Path) -> dict[str, object] | None:

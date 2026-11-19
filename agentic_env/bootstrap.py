@@ -1,4 +1,4 @@
-"""Run one-shot bootstrap for agentic-env install and configure steps."""
+"""Install the stack on a new host, or bring an existing host up to date."""
 
 from __future__ import annotations
 
@@ -52,8 +52,11 @@ class BootstrapPhaseResult:
 def _parse(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Install all agent CLIs, MCP tooling, and MCP/global skill wiring in one\n"
-            "command with safe ordering and optional split steps."
+            "Install or update the agent CLIs, skills and MCP tooling, wire them, then run\n"
+            "the doctor. A new host gets every CLI and the --skill-profile packs; an\n"
+            "existing host gets the latest CLIs, refreshes the roster skills it has, is\n"
+            "offered each missing roster skill once, and loses dropped skills nobody\n"
+            "edited. Update this package first: git pull && uv tool install --force ."
         )
     )
     parser.add_argument("--skip-install-agents", action="store_true", help="Skip the install-agents phase.")
@@ -97,13 +100,19 @@ def _parse(argv: list[str] | None = None) -> argparse.Namespace:
             f"Defaults to '{_DEFAULT_SKILL_PROFILE}'."
         ),
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--interactive",
         action="store_true",
         help=(
             "Let the two install phases prompt with their checkbox pickers instead of "
-            "installing every CLI and the --skill-profile packs."
+            "installing every CLI and converging the skills."
         ),
+    )
+    mode.add_argument(
+        "--yes",
+        action="store_true",
+        help="Never prompt: roster skills this host lacks are not offered.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Show the commands that would run and exit.")
     parser.add_argument("--verbose", action="store_true", help="Show full command output")
@@ -174,8 +183,10 @@ def _bootstrap_plan(args: argparse.Namespace) -> list[BootstrapPhase] | None:
         for skill_agent in split_csv(args.skill_agent):
             skill_args.extend(["--skill-agent", skill_agent])
     else:
-        install_args = ["--all", "--yes"]
-        skill_args = ["--all-mcps", "--yes", "--skill-profile", args.skill_profile]
+        install_args = ["--all", "--update", "--yes"]
+        skill_args = ["--converge", "--all-mcps", "--skill-profile", args.skill_profile]
+        if args.yes:
+            skill_args.append("--yes")
         for skill_agent in skill_agents:
             skill_args.extend(["--skill-agent", skill_agent])
     if args.verbose:

@@ -18,25 +18,25 @@ git clone https://github.com/MihaiA24/agentic-env.git
 cd agentic-env
 uv tool install --force .
 agentic-bootstrap
-agentic-stack-doctor
 ```
 
 | Command | Purpose |
 |---|---|
-| `agentic-bootstrap` | Install agents, skills/MCPs, configure, then run doctor |
+| `agentic-bootstrap` | Install or update agents, skills/MCPs, configure, then run doctor |
 | `agentic-install-agents` | Install Hermes, OMP, Codex and Claude Code; opt-in T3 Code/PyCharm on macOS |
 | `agentic-install-skills-mcps` | Install selected skills and MCP tooling |
 | `agentic-configure-agent-mcps` | Add missing managed entries; report existing drift |
 | `agentic-configure-acp` | Copy ACP JSON or add OMP to PyCharm/T3 Code without replacing existing settings |
-| `agentic-update-stack` | Refresh components, then run doctor; does not update this package |
 | `agentic-stack-doctor` | Read-only diagnosis; OMP failures exit 1, secondary/Hermes failures warn |
 | `agentic-skill-drift` | Read-only: compare curated skills against their pack sources and upstreams |
 
-Use each command's `--help` for options. Update this package with `uv tool upgrade agentic-env`.
+Use each command's `--help` for options. To update a host, pull the checkout, reinstall this package, then converge: `git pull && uv tool install --force . && agentic-bootstrap`. Bootstrap does not update this package itself.
 
 Run on a terminal without selection flags, `agentic-install-agents` and `agentic-install-skills-mcps` open checkbox pickers. Space toggles a row, `a` toggles all, `i` inverts, enter confirms. The skills run asks for skills, then a destination: supported harnesses or **Other / custom directory**. Supported harnesses lead to the agent and MCP pickers; a custom directory asks for the exact skills-folder path and skips MCP installation. Both paths print the selection and replay command, then ask for confirmation.
 
-`--yes` uses the flags as given without prompting. Without a terminal no picker can open, so pass flags. `agentic-bootstrap` installs every CLI and the `--skill-profile` packs; `agentic-bootstrap --interactive` lets its two install phases prompt instead.
+`--yes` uses the flags as given without prompting. Without a terminal no picker can open, so pass flags.
+
+`agentic-bootstrap` handles a new host and an existing one. It installs the latest OMP, Codex and Claude Code (Hermes stays at its reviewed commit), then converges the skills: it refreshes the roster skills the skills lock records, removes [dropped skills](#refresh-skills-on-an-existing-omp-host) nobody edited, and on a terminal offers each roster skill the host lacks once. A host whose lock holds no roster skill and records no offer counts as new and takes the `--skill-profile` packs. It updates agentmemory and a global `skills` binary, removes leftover descriptors of OMP-excluded servers, and ends with the doctor. `agentic-bootstrap --yes` never prompts, so missing roster skills stay unoffered; `agentic-bootstrap --interactive` lets its two install phases open their pickers instead of converging.
 
 Optional desktop clients: `agentic-install-agents --client t3code --client pycharm --yes` uses existing Homebrew on macOS. Desktop picker rows start unchecked and `--all` alone excludes them. Then run `agentic-configure-acp --client t3code --client pycharm` separately; see the [ACP guide](guides/omp-acp.md) for other platforms and prerequisites.
 
@@ -77,7 +77,7 @@ The skills picker lists one row per skill under its pack heading, plus an `All o
 agentic-install-skills-mcps --agent-rules --yes
 ```
 
-This writes `~/.agents/AGENTS.md`. A different file already at that path is kept as `AGENTS.md.agentic-env.bak`, and a file with the same content is left alone. The guided installer asks for it after the MCP picker, with yes as the default. A `--yes` run without the flag skips it, and neither bootstrap nor the doctor requires it.
+This writes `~/.agents/AGENTS.md`. A file you wrote at that path is kept as `AGENTS.md.agentic-env.bak`, beside the link target when the path is a symlink, and a file with the same content is left alone. Later updates replace only the managed file, whose first line marks it, so that backup keeps your file. The guided installer asks for it after the MCP picker, with yes as the default, and says when it would replace your file and where the old one is kept. A `--yes` run without the flag skips it, and neither bootstrap nor the doctor requires it.
 
 Each harness finds the file differently:
 
@@ -191,19 +191,20 @@ This procedure covers both custom-directory routes, not the managed-agent refres
 
 1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. A default Python-only copy leaves out the six remote-only skills by design; an explicitly requested unavailable skill fails before copying.
 2. **Check harness discovery separately.** Confirm the destination is the harness's documented skills folder, then load one selected skill by name without executing its recipe. Copying files proves neither discovery nor workflow compatibility. Doctor and `agentic-skill-drift` inspect the managed stack, not an arbitrary destination.
-3. **Refresh into a new directory.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Rerun the same route with a new destination. Compare whole package directories, and preserve local edits and back up the existing selected packages before you replace them. `uv tool upgrade agentic-env` and `agentic-update-stack` do not refresh standalone copies.
+3. **Refresh into a new directory.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Rerun the same route with a new destination. Compare whole package directories, and preserve local edits and back up the existing selected packages before you replace them. Reinstalling `agentic-env` and `agentic-bootstrap` do not refresh standalone copies.
 4. **Handle errors without overwriting.** Both routes refuse existing skill names, including dangling symlinks, before copying any package, and leave unrelated files alone. Choose a fresh destination instead of deleting local work. A filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry into a new one.
 
 There is no force-overwrite, automatic merge, uninstall or rollback command for standalone copies. To remove one, preserve local changes, then delete only the package directories you copied.
 
 #### Refresh skills on an existing OMP host
 
-Use this runbook when OMP already runs on the host. It refreshes the management CLI and selected skills, not agent binaries or MCP configuration, so full bootstrap is unnecessary. Before replacing installed skills, review and preserve intentional edits to them.
+Use this runbook when OMP already runs on the host. `agentic-bootstrap` converges the whole stack: agents, skills, MCP tooling and configuration. Refreshing reinstalls each held roster skill from its pack and overwrites local edits to it, so review and preserve intentional edits first.
 
-1. **Refresh the management CLI from the checkout.** This picks up the checkout's manifest, vendored adaptations and guided installer; an older installed CLI may not have the current picker.
+1. **Refresh the management CLI from the checkout.** This picks up the checkout's manifest, vendored adaptations and converge logic; bootstrap does not update itself.
 
    ```bash
    cd /path/to/agentic-env
+   git pull --ff-only
    uv tool install --force .
    ```
 
@@ -217,30 +218,21 @@ Use this runbook when OMP already runs on the host. It refreshes the management 
 
    OMP reads `~/.claude/skills`, whose links point into the canonical `~/.agents/skills` store. There is no `--skill-agent omp`. Keep the default `hermes,claude,codex` targets, or select both Claude and Codex: Claude provides OMP's discovery path and Codex populates the canonical store. A Claude-only install writes copies instead and does not create this layout on a fresh store. Claude Code does not need to run.
 
-3. **Choose one installation path.**
-
-   Guided selection on a terminal:
+3. **Converge the host.**
 
    ```bash
-   agentic-install-skills-mcps
+   agentic-bootstrap
    ```
 
-   Select individual skills or pack rows, choose **Supported harnesses**, keep the targets described above, and **clear every MCP row** for a skills-only refresh. The next question offers the [agent rules](#agent-rules). **Other / custom directory** makes standalone copies and does not refresh the managed OMP layout. Review the printed selection and replay command before confirming; declining the final confirmation installs nothing.
+   The skills lock is `$XDG_STATE_HOME/skills/.skill-lock.json`, else `~/.agents/.skill-lock.json`. Bootstrap refreshes the roster skills it records, then opens one picker for the roster skills this host lacks; skills of `default` packs start checked. The lock records every name that picker showed, so a later run asks about none of them again, whatever you picked. With `--yes` or without a terminal nothing is offered or recorded. A host whose lock holds no roster skill and records no offer takes the `--skill-profile` packs (`default` unless you pass another).
 
-   Or install the complete curated profile without prompts:
+   Skills that left the roster are listed under `dropped` in [the manifest](agentic_env/skill-packs.json); [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) gives each drop's date and reason. Bootstrap removes one with `skills remove --global` when the lock records it from a curated pack and its folder still matches the recorded hash. It keeps and reports an edited, foreign or untracked one; save any edits, then run `npx skills@latest remove --global NAME`.
 
-   ```bash
-   agentic-install-skills-mcps --skill-profile default --yes
-   ```
+   To pick skills by hand instead, run `agentic-install-skills-mcps` on a terminal. Select skills or pack rows, choose **Supported harnesses**, keep the targets described above, and **clear every MCP row** for a skills-only refresh. The next question offers the [agent rules](#agent-rules). **Other / custom directory** makes standalone copies and does not refresh the managed OMP layout. Review the printed selection and replay command before confirming; declining the final confirmation installs nothing. This path removes no dropped skill.
 
-   This uses all default skill targets and installs no MCPs.
-
-   Neither path removes a skill that has left the roster. After a roster change, delete the dropped names from `~/.agents/skills` and the links to them under `~/.claude/skills` and `~/.hermes/skills`. [Decisions §6](DECISIONS_AI_TOOLING.md#6-skills) lists each drop by date.
-
-4. **Check installation and configuration.**
+4. **Check installation and configuration.** Bootstrap ends with the doctor; check the skills against their sources:
 
    ```bash
-   agentic-stack-doctor
    agentic-skill-drift
    ```
 
@@ -362,7 +354,7 @@ sh ./clean-acceptance.sh --update  # Explicitly update only this acceptance HOME
 SKIP_INSTALL=1 sh ./clean-acceptance.sh
 ```
 
-Checks-only requires the same provisioned HOME; a newly recreated container is not valid checks-only evidence. Exiting the `--rm` container discards it. `SKIP_INSTALL=1` does not install or update stack components, but verification can populate uv/npm/source-download caches. `clean-acceptance.sh --update` explicitly runs the updater under the same isolation and requires an existing acceptance HOME. On your daily host, prefer the read-only `agentic-stack-doctor`.
+Checks-only requires the same provisioned HOME; a newly recreated container is not valid checks-only evidence. Exiting the `--rm` container discards it. `SKIP_INSTALL=1` does not install or update stack components, but verification can populate uv/npm/source-download caches. `clean-acceptance.sh --update` explicitly reruns `agentic-bootstrap` under the same isolation and requires an existing acceptance HOME. On your daily host, prefer the read-only `agentic-stack-doctor`.
 
 `VERBOSE=1` streams each command's output instead of capturing it. Without it, `run_cmd` prints output only when a command fails, so use it to watch the skills phase.
 

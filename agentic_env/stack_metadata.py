@@ -20,6 +20,11 @@ from .remote_install_contract import (
 # Reviewed 2026-10-26: Claude 2.1.308.
 # Other floors last reviewed 2026-09-02: Hermes v2026.8.31 and agentmemory 0.9.29.
 HERMES_COMMIT: Final[str] = "29112bef099274229cadff79cdff7bf7b99c4b77"
+# Release tag of HERMES_COMMIT; moves with it. A fresh install clones the tag at
+# depth 1, so the installer never runs `git fetch origin <commit>`: in its depth-1
+# clone of main that fetch downloads the commit's whole history (the repository is
+# ~1.5 GB) as one pack, which GitHub drops mid-transfer.
+HERMES_TAG: Final[str] = "v2026.8.31"
 OMP_VERSION: Final[str] = "18.1.14"
 OPENAI_CODEX_PACKAGE: Final[str] = "@openai/codex@latest"
 CODEBASE_MEMORY_VERSION: Final[str] = "0.9.0"
@@ -165,15 +170,6 @@ SKILLS_INSTALL_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
         "(STACK_VERSION_FLOORS) is verified after install.",
     },
 }
-
-UPDATE_REMOTE_CONTRACT: Final[dict[str, dict[str, object]]] = {
-    **AGENTS_INSTALL_REMOTE_CONTRACT,
-    **SKILLS_INSTALL_REMOTE_CONTRACT,
-}
-
-# Update execution deliberately reuses the canonical install paths with
-# force=True, so every run pulls the latest release rather than stopping at the
-# floor; native updater commands cannot satisfy the curated stack contract.
 
 # Agents supported by configure-agent-mcps.
 CONFIGURE_AGENT_CHOICES: Final[tuple[str, ...]] = ("hermes", "omp")

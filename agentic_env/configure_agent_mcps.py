@@ -102,6 +102,9 @@ OMP_SKILL_ROOTS = (
 )
 HERMES_CONFIG_PATH = Path.home() / ".hermes" / "config.yaml"
 HERMES_SKILL_ROOT = Path.home() / ".hermes" / "skills"
+# OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
+# skill store and stays unmounted as a root (skills.enableAgentsUser: false).
+CLAUDE_SKILL_ROOT = Path.home() / ".claude" / "skills"
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -250,15 +253,16 @@ def validate_hermes_config(
 def _merge_omp_mcp(
     path: Path,
     data: dict[str, object],
-    servers: list[McpServer],
     *,
     remove: tuple[str, ...],
     gate: tuple[str, ...],
 ) -> bool:
-    """Add missing servers, gate and drop names in parsed ``mcp.json`` data; True when changed.
+    """Gate and drop names in parsed ``mcp.json`` data; True when changed.
 
-    Raises ``ValueError`` for drifted entries or malformed blocks, which are never rewritten."""
-    mcp_servers = _check_existing_mcp_entries(data, "mcpServers", servers)
+    Raises ``ValueError`` for malformed blocks, which are never rewritten."""
+    mcp_servers = data.get("mcpServers")
+    if mcp_servers is not None and not isinstance(mcp_servers, dict):
+        raise ValueError("`mcpServers` block must be an object; fix this file manually")
     disabled = data.get("disabledServers")
     if disabled is not None and not isinstance(disabled, list):
         raise ValueError("`disabledServers` block must be a list")
@@ -267,13 +271,6 @@ def _merge_omp_mcp(
     if mcp_servers is None:
         mcp_servers = {}
         data["mcpServers"] = mcp_servers
-        changed = True
-    for server in servers:
-        if server.name in mcp_servers:
-            skip(f"{path}: {server.name} MCP already configured")
-            continue
-        mcp_servers[server.name] = _json_entry(server)
-        ok(f"{path}: {server.name} MCP added")
         changed = True
 
     if gate and disabled is None:
@@ -291,20 +288,6 @@ def _merge_omp_mcp(
             ok(f"{path}: {name} MCP removed (excluded on OMP)")
             changed = True
     return changed
-
-
-def _validate_omp_mcp(data: dict[str, object], servers: list[McpServer]) -> bool:
-    mcp_servers = data.get("mcpServers")
-    return isinstance(mcp_servers, dict) and not any(
-        mcp_entry_drift(mcp_servers.get(server.name), server) for server in servers
-    )
-
-
-def _json_entry(server: McpServer) -> dict[str, object]:
-    entry: dict[str, object] = {"command": server.command}
-    if server.args:
-        entry["args"] = list(server.args)
-    return entry
 
 
 def _converge_config(
@@ -371,15 +354,47 @@ OMP_EXCLUDED_SERVERS = {
 # OMP built-ins with no `mcpServers` entry; kept in `disabledServers` (0 calls, DECISIONS "Rejected").
 OMP_GATED_BUILTINS = ("node_repl",)
 
+# Excluded from OMP for lack of use, not for a conflict (DECISIONS §5): Claude Code keeps
+# its own entry, which `disabledServers` hides from OMP's claude-import.
+CLAUDE_IMPORT_ALLOWED = ("codebase-memory-mcp",)
+
+
+def excluded_descriptors() -> list[Path]:
+    """Skill descriptors of OMP-excluded servers in roots OMP loads. The configurator
+    never writes them on OMP, so each is a leftover; Claude Code may keep the ones
+    it may import in its own root."""
+    return [
+        root / name
+        for name in OMP_EXCLUDED_SERVERS
+        for root in (*OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT)
+        if ((root / name).exists() or (root / name).is_symlink())
+        and not (root == CLAUDE_SKILL_ROOT and name in CLAUDE_IMPORT_ALLOWED)
+    ]
+
+
+def remove_excluded_descriptors(*, dry_run: bool) -> bool:
+    ok_all = True
+    for path in excluded_descriptors():
+        if dry_run:
+            skip(f"dry-run: would remove {path}")
+            continue
+        try:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        except OSError as exc:
+            warn(f"{path}: cannot remove this leftover descriptor: {exc}")
+            ok_all = False
+            continue
+        ok(f"{path}: removed; OMP mounts no {path.name} server")
+    return ok_all
+
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
-    omp_servers: list[McpServer] = []
+    # OMP registers no stack server: a new MCP_SERVERS entry needs a reason in OMP_EXCLUDED_SERVERS.
     for server in servers:
-        reason = OMP_EXCLUDED_SERVERS.get(server.name)
-        if reason:
-            skip(f"OMP config: {server.name} MCP not written ({reason})")
-        else:
-            omp_servers.append(server)
+        skip(f"OMP config: {server.name} MCP not written ({OMP_EXCLUDED_SERVERS[server.name]})")
 
     excluded = tuple(OMP_EXCLUDED_SERVERS)
     gated = OMP_GATED_BUILTINS + excluded
@@ -388,10 +403,8 @@ def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
         ok_all = _converge_config(
             path,
             load=load_json_object,
-            merge=lambda data: _merge_omp_mcp(
-                path, data, omp_servers, remove=excluded, gate=gated
-            ),
-            validate=lambda data: _validate_omp_mcp(data, omp_servers),
+            merge=lambda data: _merge_omp_mcp(path, data, remove=excluded, gate=gated),
+            validate=lambda data: isinstance(data.get("mcpServers"), dict),
             render=lambda data: json.dumps(data, indent=2) + "\n",
             dry_run=dry_run,
         ) and ok_all
@@ -592,6 +605,7 @@ def main(argv: list[str] | None = None) -> int:
     if "omp" in agents:
         ok_all = configure_omp(servers, dry_run=args.dry_run) and ok_all
         ok_all = converge_omp_agent_config(dry_run=args.dry_run) and ok_all
+        ok_all = remove_excluded_descriptors(dry_run=args.dry_run) and ok_all
     if install_matching_skills:
         install_names = list(server_names)
         if server_names and "ponytail" not in install_names:

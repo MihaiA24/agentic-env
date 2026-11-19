@@ -38,6 +38,7 @@ from .stack_metadata import (
     CLAUDE_INSTALL_SHA256,
     CLAUDE_INSTALL_URL,
     HERMES_COMMIT,
+    HERMES_TAG,
     HERMES_INSTALL_SHA256,
     HERMES_INSTALL_URL,
     OMP_RELEASES_URL,
@@ -59,6 +60,22 @@ def _validate_remote_contract() -> bool:
     )
 
 
+def _hermes_checkout_exists() -> bool:
+    """Whether the Hermes installer would update a checkout instead of cloning.
+
+    `$HERMES_INSTALL_DIR` when set, else any directory its layout may pick:
+    `$HERMES_HOME/hermes-agent` or, for root on Linux, `/usr/local/lib/hermes-agent`.
+    """
+    explicit = os.environ.get("HERMES_INSTALL_DIR")
+    if explicit:
+        return Path(explicit).exists()
+    home = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
+    return any(
+        path.exists()
+        for path in (home / "hermes-agent", Path("/usr/local/lib/hermes-agent"))
+    )
+
+
 def _install_hermes(non_interactive: bool) -> bool:
     # Hermes is the one agent still fetched at a fixed identity: the installer
     # runs from a pinned commit (#39) and refuses to roll an existing checkout
@@ -73,12 +90,16 @@ def _install_hermes(non_interactive: bool) -> bool:
         warn("Hermes Agent: below the reviewed version; converging")
 
     info("Installing Hermes...")
+    # Only a fresh clone takes the tag (HERMES_TAG). On an existing checkout the
+    # installer runs `git checkout <branch>`, which fails for a tag the checkout
+    # has never fetched, so that path keeps the default branch.
+    branch = [] if _hermes_checkout_exists() else ["--branch", HERMES_TAG]
     if not run_remote_script(
         label="Hermes installer",
         url=HERMES_INSTALL_URL,
         expected_sha256=HERMES_INSTALL_SHA256,
         interpreter="bash",
-        interpreter_args=["--skip-setup", "--commit", HERMES_COMMIT],
+        interpreter_args=["--skip-setup", *branch, "--commit", HERMES_COMMIT],
         immutable=True,
     ):
         return False
@@ -314,6 +335,14 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         "--client", action="append", choices=tuple(_DESKTOP_CLIENTS),
         help="Install a desktop client on macOS via Homebrew; repeat for both. Does not configure ACP",
     )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help=(
+            "Install the latest OMP, Codex and Claude Code releases even when the "
+            "installed ones meet the reviewed floor; Hermes stays pinned"
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Assume defaults in prompts")
     parser.add_argument(
         "--verbose", action="store_true", help="Show full command output"
@@ -340,9 +369,9 @@ def main(argv: list[str] | None = None) -> int:
 
     installers = [
         (Option("hermes", "Hermes Agent", True), _install_hermes),
-        (Option("omp", "OMP / Oh My Pi", True), _install_omp),
-        (Option("codex", "OpenAI Codex CLI", True), _install_codex),
-        (Option("claude", "Claude Code", True), _install_claude),
+        (Option("omp", "OMP / Oh My Pi", True), lambda yes: _install_omp(yes, force=args.update)),
+        (Option("codex", "OpenAI Codex CLI", True), lambda yes: _install_codex(yes, force=args.update)),
+        (Option("claude", "Claude Code", True), lambda yes: _install_claude(yes, force=args.update)),
         (Option("t3code", "T3 Code desktop (macOS/Homebrew)"), lambda _: _install_desktop_client("t3code")),
         (Option("pycharm", "PyCharm desktop (macOS/Homebrew)"), lambda _: _install_desktop_client("pycharm")),
     ]

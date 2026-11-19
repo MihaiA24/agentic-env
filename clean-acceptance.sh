@@ -13,7 +13,7 @@ if [ "$#" -eq 0 ]; then
   set -- /bin/sh ./docker-smoke-test.sh
 elif [ "$#" -eq 1 ] && [ "$1" = --update ]; then
   _skip_install=1
-  set -- agentic-update-stack
+  set -- agentic-bootstrap
 else
   echo "Usage: $0 [--update]" >&2
   exit 1

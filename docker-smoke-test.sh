@@ -28,7 +28,7 @@ curl --version
 if [ "$SKIP_INSTALL" != "1" ]; then
   for command in hermes omp codex claude codebase-memory-mcp agentmemory skills \
     agentic-bootstrap agentic-install-agents agentic-install-skills-mcps \
-    agentic-configure-agent-mcps agentic-update-stack agentic-stack-doctor \
+    agentic-configure-agent-mcps agentic-stack-doctor \
     agentic-skill-drift; do
     if command -v "$command" >/dev/null 2>&1; then
       echo "Clean-host precondition failed: $command is already on PATH" >&2
@@ -97,7 +97,7 @@ fi
 
 echo "[4/5] Verifying package module entry points and installed binaries"
 for module in bootstrap install_agents install_skills_mcps configure_agent_mcps \
-  update_agentic_stack stack_doctor skill_drift; do
+  stack_doctor skill_drift; do
   run_cmd "uv run --frozen --python \"$_python\" python -m agentic_env.$module --help"
 done
 
@@ -120,7 +120,7 @@ require_command() {
 }
 
 for command in agentic-bootstrap agentic-install-agents agentic-install-skills-mcps \
-  agentic-configure-agent-mcps agentic-update-stack agentic-stack-doctor \
+  agentic-configure-agent-mcps agentic-stack-doctor \
   agentic-skill-drift hermes omp codex claude codebase-memory-mcp agentmemory; do
   require_command "$command"
 done

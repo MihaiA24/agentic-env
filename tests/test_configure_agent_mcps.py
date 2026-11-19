@@ -126,51 +126,34 @@ memory:
             )
             self.assertEqual(parsed["memory"]["provider"], "agentmemory")
 
-    def test_stale_selected_entries_fail_without_partial_writes(self) -> None:
+    def test_stale_selected_hermes_entries_fail_without_partial_writes(self) -> None:
         server = configure_agent_mcps.McpServer("selected", "selected-mcp")
         missing = configure_agent_mcps.McpServer("missing", "missing-mcp")
-        for agent, key in (
-            ("hermes", "mcp_servers"),
-            ("omp", "mcpServers"),
+        for entry in (
+            "not-a-mapping",
+            {"command": "stale-command", "env": {"USER_OPTION": "keep"}},
+            {"command": server.command, "args": ["--stale"]},
+            {"command": server.command, "args": None},
         ):
-            for entry in (
-                "not-a-mapping",
-                {"command": "stale-command", "env": {"USER_OPTION": "keep"}},
-                {"command": server.command, "args": ["--stale"]},
-                {"command": server.command, "args": None},
-            ):
-                with self.subTest(agent=agent, entry=entry), tempfile.TemporaryDirectory() as temp_dir:
-                    path = Path(temp_dir) / "config"
-                    data = {key: {server.name: entry}, "user_option": "keep"}
-                    original = (
-                        yaml.safe_dump(data, sort_keys=False)
-                        if agent == "hermes" else json.dumps(data, indent=4) + "\n"
-                    ).encode()
-                    path.write_bytes(original)
-                    config_patch = (
-                        patch("agentic_env.configure_agent_mcps.HERMES_CONFIG_PATH", path)
-                        if agent == "hermes"
-                        else patch(
-                            "agentic_env.configure_agent_mcps.OMP_MCP_PATHS",
-                            (path,),
+            with self.subTest(entry=entry), tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir) / "config"
+                original = yaml.safe_dump(
+                    {"mcp_servers": {server.name: entry}, "user_option": "keep"}, sort_keys=False
+                ).encode()
+                path.write_bytes(original)
+                with (
+                    patch("agentic_env.configure_agent_mcps.HERMES_CONFIG_PATH", path),
+                    patch("agentic_env.configure_agent_mcps.warn") as warn,
+                ):
+                    for dry_run in (False, True):
+                        self.assertFalse(
+                            configure_agent_mcps.configure_hermes([missing, server], dry_run=dry_run)
                         )
-                    )
-                    with (
-                        config_patch,
-                        patch("agentic_env.configure_agent_mcps.warn") as warn,
-                    ):
-                        configure = (
-                            configure_agent_mcps.configure_hermes
-                            if agent == "hermes"
-                            else configure_agent_mcps.configure_omp
-                        )
-                        for dry_run in (False, True):
-                            self.assertFalse(configure([missing, server], dry_run=dry_run))
-                            self.assertEqual(path.read_bytes(), original)
-                        diagnostic = " ".join(call.args[0] for call in warn.call_args_list)
-                        self.assertIn(str(path), diagnostic)
-                        self.assertIn(f"{key}.{server.name}", diagnostic)
-                    self.assertFalse(path.with_suffix(path.suffix + ".agentic-env.bak").exists())
+                        self.assertEqual(path.read_bytes(), original)
+                    diagnostic = " ".join(call.args[0] for call in warn.call_args_list)
+                    self.assertIn(str(path), diagnostic)
+                    self.assertIn(f"mcp_servers.{server.name}", diagnostic)
+                self.assertFalse(path.with_suffix(path.suffix + ".agentic-env.bak").exists())
 
     def test_stale_hermes_args_fail_cli_without_adding_missing_server(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

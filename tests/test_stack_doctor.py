@@ -75,7 +75,7 @@ class _Host:
             ("agentic_env.configure_agent_mcps.HERMES_CONFIG_PATH", self.hermes_config),
             ("agentic_env.configure_agent_mcps.HERMES_SKILL_ROOT", self.hermes_skills),
             ("agentic_env.stack_doctor.CLAUDE_USER_CONFIG_PATH", self.claude_json),
-            ("agentic_env.stack_doctor.CLAUDE_SKILL_ROOT", self.claude_skills),
+            ("agentic_env.configure_agent_mcps.CLAUDE_SKILL_ROOT", self.claude_skills),
         ):
             stack.enter_context(patch(target, value))
         stack.enter_context(
@@ -108,6 +108,27 @@ class StackDoctorTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("not in disabledServers", output)
         self.assertIn(stack_doctor.FIX_CONFIGURE, output)
+
+    def test_leftover_excluded_descriptor_fails_until_configure_removes_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir))
+            allowed = host.claude_skills / "codebase-memory-mcp"
+            leftover = host.skill_roots[1] / "codebase-memory-mcp"
+            _skill(host.claude_skills, "codebase-memory-mcp")
+            code, output = _run(host)
+            self.assertEqual(code, 0)
+            _skill(host.skill_roots[1], "codebase-memory-mcp")
+            code, output = _run(host)
+            self.assertEqual(code, 1)
+            self.assertIn(str(leftover), output.replace("\n", ""))
+            self.assertIn(stack_doctor.FIX_CONFIGURE, " ".join(output.split()))
+
+            with host.patched():
+                self.assertTrue(configure_agent_mcps.remove_excluded_descriptors(dry_run=False))
+            code, output = _run(host)
+            self.assertEqual(code, 0)
+            self.assertFalse(leftover.exists())
+            self.assertTrue(allowed.exists())
 
     def test_claude_import_interception_prose_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -35,6 +35,24 @@ class InstallHermesTests(unittest.TestCase):
         self.assertIn("--commit", remote_script.call_args.kwargs["interpreter_args"])
 
 
+class HermesCheckoutExistsTests(unittest.TestCase):
+    def test_detects_the_directory_the_installer_uses(self) -> None:
+        # Passing the tag to an existing checkout aborts the installer's update
+        # path, so detection must check the directory the installer will use.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "hermes-home"
+            (home / "hermes-agent").mkdir(parents=True)
+            explicit = root / "explicit"
+            with patch.dict(os.environ, {"HERMES_HOME": str(home)}):
+                os.environ.pop("HERMES_INSTALL_DIR", None)
+                self.assertTrue(install_agents._hermes_checkout_exists())
+                os.environ["HERMES_INSTALL_DIR"] = str(explicit)
+                self.assertFalse(install_agents._hermes_checkout_exists())
+                explicit.mkdir()
+                self.assertTrue(install_agents._hermes_checkout_exists())
+
+
 @patch("agentic_env.install_agents._validate_remote_contract", return_value=True)
 @patch("agentic_env.install_agents._install_hermes", return_value=True)
 @patch("agentic_env.install_agents._install_omp", return_value=True)
@@ -309,7 +327,7 @@ class InstallAgentsTests(unittest.TestCase):
                 attempted = []
                 installers = {
                     f"_install_{agent}": (
-                        lambda non_interactive, agent=agent: attempted.append(agent) or agent != failed
+                        lambda non_interactive, agent=agent, **_: attempted.append(agent) or agent != failed
                     )
                     for agent in agents
                 }

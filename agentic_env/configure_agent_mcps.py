@@ -61,7 +61,7 @@ MCP_SERVERS: dict[str, McpServer] = {
 
 
 _SKILL_BODY_DIR = Path(__file__).with_name("skill_bodies")
-_SKILL_NAMES = ("codebase-memory-mcp", "agentmemory", "ponytail")
+_SKILL_NAMES = ("codebase-memory-mcp", "agentmemory")
 
 
 def _load_skill_body(name: str) -> str | None:
@@ -359,7 +359,7 @@ OMP_GATED_BUILTINS = ("node_repl",)
 # its own entry, which `disabledServers` hides from OMP's claude-import.
 CLAUDE_IMPORT_ALLOWED = ("codebase-memory-mcp",)
 
-# Exact bytes written by older configurators, including the retired lean-ctx body.
+# Exact bytes written by older configurators, including the retired lean-ctx and ponytail bodies.
 _LEGACY_DESCRIPTOR_HASHES = {
     "codebase-memory-mcp": {
         "f18fcacd95fa9cba0c4dda1792932415b29812f30bbe9f83a6ccc1f0ccd45bbb",
@@ -370,7 +370,13 @@ _LEGACY_DESCRIPTOR_HASHES = {
         "5f5649ac7b86c141d149818fb69fad401e79e04ee8816f37526bb6306b87c2fe",
         "5fb6d01468f2fc06de42edfb4cd542587ff172749fb768d5e6b86eaed661a1bf",
     },
+    "ponytail": {"95bde9709ddc12a9385b4335552f565587c11debc9a489223f2e796e03ca8ff5"},
 }
+
+# Descriptors no longer written (2026-11-20). The ponytail stub sat in OMP's native skill
+# root, which outranks the installed ponytail pack, so it took the `ponytail` name. A
+# same-named skill is legitimate here, so only unmodified descriptors count as leftovers.
+RETIRED_DESCRIPTORS = ("ponytail",)
 
 
 def _is_claude_root(root: Path) -> bool:
@@ -396,7 +402,7 @@ def excluded_descriptors() -> list[Path]:
     return paths
 
 
-def _owned_excluded_descriptor(path: Path) -> bool:
+def _owned_descriptor(path: Path) -> bool:
     """The old configurator wrote a single regular file in a real directory."""
     if path.parent.resolve() != path.parent or path.is_symlink():
         return False
@@ -411,11 +417,24 @@ def _owned_excluded_descriptor(path: Path) -> bool:
     )
 
 
-def remove_excluded_descriptors(*, dry_run: bool) -> bool:
+def retired_descriptors(roots: list[Path] | tuple[Path, ...]) -> list[Path]:
+    """Unmodified retired descriptors in `roots`; anything else of that name is the user's."""
+    found = []
+    for root in dict.fromkeys(roots):
+        for name in RETIRED_DESCRIPTORS:
+            try:
+                if _owned_descriptor(root / name):
+                    found.append(root / name)
+            except (OSError, RuntimeError):
+                continue
+    return found
+
+
+def _remove_descriptors(paths: list[Path], *, dry_run: bool) -> bool:
     ok_all = True
-    for path in excluded_descriptors():
+    for path in paths:
         try:
-            if not _owned_excluded_descriptor(path):
+            if not _owned_descriptor(path):
                 warn(f"{path}: kept; not an unmodified agentic-env descriptor. Review it manually")
                 continue
             if dry_run:
@@ -429,6 +448,14 @@ def remove_excluded_descriptors(*, dry_run: bool) -> bool:
             continue
         ok(f"{path}: removed obsolete agentic-env descriptor")
     return ok_all
+
+
+def remove_excluded_descriptors(*, dry_run: bool) -> bool:
+    return _remove_descriptors(excluded_descriptors(), dry_run=dry_run)
+
+
+def remove_retired_descriptors(agents: list[str], *, dry_run: bool) -> bool:
+    return _remove_descriptors(retired_descriptors(_skill_roots(agents)), dry_run=dry_run)
 
 
 def configure_omp(servers: list[McpServer], *, dry_run: bool) -> bool:
@@ -576,15 +603,18 @@ def _install_skill(root: Path, skill: Skill, *, dry_run: bool) -> bool:
     return True
 
 
-def install_skills(agents: list[str], server_names: list[str], *, dry_run: bool) -> bool:
+def _skill_roots(agents: list[str]) -> list[Path]:
     roots: list[Path] = []
     if "hermes" in agents:
         roots.append(HERMES_SKILL_ROOT)
     if "omp" in agents:
         roots.extend(OMP_SKILL_ROOTS)
+    return roots
 
+
+def install_skills(agents: list[str], server_names: list[str], *, dry_run: bool) -> bool:
     ok_all = True
-    for root in roots:
+    for root in _skill_roots(agents):
         for server_name in server_names:
             reason = OMP_EXCLUDED_SERVERS.get(server_name)
             if root in OMP_SKILL_ROOTS and reason:
@@ -648,10 +678,8 @@ def main(argv: list[str] | None = None) -> int:
         if install_matching_skills:
             ok_all = remove_excluded_descriptors(dry_run=args.dry_run) and ok_all
     if install_matching_skills:
-        install_names = list(server_names)
-        if server_names and "ponytail" not in install_names:
-            install_names.append("ponytail")
-        ok_all = install_skills(agents, install_names, dry_run=args.dry_run) and ok_all
+        ok_all = remove_retired_descriptors(agents, dry_run=args.dry_run) and ok_all
+        ok_all = install_skills(agents, server_names, dry_run=args.dry_run) and ok_all
     else:
         skip("global skills: skipped")
 

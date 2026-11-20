@@ -17,13 +17,13 @@ The **Starts** column says who starts a skill:
 | A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
 | Proof that a change works | The project verifier, on the affected paths |
 
-The optional [agent rules](../README.md#agent-rules) put these defaults in every session, with the skill to use at three recurring moments: a merge-readiness question, a fix made after a review, and a repeated error.
+The [agent rules](../README.md#agent-rules), installed by `agentic-bootstrap`, put these defaults in every session, with the skill to use at three recurring moments: a merge-readiness question, a fix made after a review, and a repeated error.
 
 ## During implementation
 
 | Skill | From | Starts | When | Why |
 |---|---|---|---|---|
-| `ponytail` | ponytail | Always on, injected | Every change | Smallest complete change: reuse what exists, fix the root cause, say what was skipped. A small diff is cheap to verify. |
+| `ponytail` | ponytail | Agent | Writing, fixing, refactoring or reviewing code | Smallest complete change: reuse what exists, fix the root cause, say what was skipped. A small diff is cheap to verify. |
 | `/verify-<app>` checks | Generated per repository | Always on, through `AGENTS.md` | Every user-visible change | Proof on the real path. Approved checks stop the agent re-verifying in loops. |
 | `diagnosing-bugs` | Matt | Agent | Something fails, throws or is slow | Builds a reproducible feedback loop before guessing a fix. |
 | `resolving-merge-conflicts` | Matt | Agent | A merge or rebase stops on conflicts | Rebuilds each side's intent from history before resolving. Stages only what it resolved or fixed, and finishes the merge or rebase only when you asked for that. |

@@ -7,8 +7,24 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agentic_env import configure_agent_mcps, stack_doctor
+from agentic_env import configure_agent_mcps, install_skills_mcps, stack_doctor
 from agentic_env.common import console
+
+
+# Bytes every configurator before 2026-11-20 wrote to ~/.omp/agent/skills/ponytail.
+_PONYTAIL_STUB = """---
+name: ponytail
+description: Use for prompt composition, review framing, and concise implementation habits across languages.
+---
+
+# ponytail
+
+Use `ponytail` as a language-agnostic code-quality and prompting companion.
+
+- Apply for reviews, refactors, and implementation guidance with stable heuristics.
+- Keep prompts short, concrete, and test-grounded.
+- Pair with project-specific conventions in `CONTEXT.md` and ADRs.
+"""
 
 
 def _skill(root: Path, name: str) -> None:
@@ -28,6 +44,9 @@ class _Host:
         self.claude_skills = root / "claude" / "skills"
         self.hermes_config = root / "hermes" / "config.yaml"
         self.hermes_skills = root / "hermes" / "skills"
+        self.agent_rules = root / "agents" / "AGENTS.md"
+        self.agent_rules.parent.mkdir()
+        self.agent_rules.write_bytes(install_skills_mcps.AGENT_RULES_SOURCE.read_bytes())
         hooks = root / "hooks"
         hooks.mkdir()
         for name in configure_agent_mcps.OMP_HOOK_FILES:
@@ -40,9 +59,6 @@ class _Host:
             encoding="utf-8",
         )
         self.claude_json.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
-        # No curated skills: they are opt-in, so a compliant host may have none.
-        for skills_root in self.skill_roots:
-            _skill(skills_root, "ponytail")
         self.hermes_config.parent.mkdir(parents=True)
         self.hermes_config.write_text(
             "mcp_servers:\n  codebase-memory-mcp:\n    command: codebase-memory-mcp\n"
@@ -76,6 +92,7 @@ class _Host:
             ("agentic_env.configure_agent_mcps.HERMES_SKILL_ROOT", self.hermes_skills),
             ("agentic_env.stack_doctor.CLAUDE_USER_CONFIG_PATH", self.claude_json),
             ("agentic_env.configure_agent_mcps.CLAUDE_SKILL_ROOT", self.claude_skills),
+            ("agentic_env.install_skills_mcps.AGENT_RULES_PATH", self.agent_rules),
         ):
             stack.enter_context(patch(target, value))
         stack.enter_context(
@@ -140,6 +157,46 @@ class StackDoctorTests(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertFalse(leftover.exists())
             self.assertTrue(allowed.exists())
+
+    def test_retired_ponytail_stub_fails_until_configure_removes_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            host = _Host(Path(temp_dir).resolve())
+            stub, pack = (root / "ponytail" for root in host.skill_roots)
+            stub.mkdir(parents=True)
+            (stub / "SKILL.md").write_text(_PONYTAIL_STUB, encoding="utf-8")
+            _skill(host.skill_roots[1], "ponytail")
+            code, output = _run(host)
+            self.assertEqual(code, 1)
+            self.assertIn(str(stub), output.replace("\n", ""))
+            self.assertNotIn(str(pack), output.replace("\n", ""))
+
+            with host.patched():
+                self.assertTrue(configure_agent_mcps.remove_retired_descriptors(["omp"], dry_run=False))
+            code, output = _run(host)
+            self.assertEqual(code, 0)
+            self.assertFalse(stub.exists())
+            self.assertEqual((pack / "SKILL.md").read_text(encoding="utf-8"), "# ponytail\n")
+
+    def test_agent_rules_must_be_current_and_reach_omp(self) -> None:
+        source = install_skills_mcps.AGENT_RULES_SOURCE.read_text(encoding="utf-8")
+        for case, rules, native, want in (
+            ("missing", None, "", "missing"),
+            ("stale", "# old rules\n", "", "differs from the shipped rules"),
+            ("hidden", source, "# mine\n", "hidden by"),
+            ("imported", source, "# mine\n@~/.agents/AGENTS.md\n", None),
+        ):
+            with self.subTest(case), tempfile.TemporaryDirectory() as temp_dir:
+                host = _Host(Path(temp_dir))
+                if rules is None:
+                    host.agent_rules.unlink()
+                else:
+                    host.agent_rules.write_text(rules, encoding="utf-8")
+                if native:
+                    host.agent_config.with_name("AGENTS.md").write_text(native, encoding="utf-8")
+                code, output = _run(host)
+                self.assertEqual(code, 1 if want else 0)
+                if want:
+                    self.assertIn(want, " ".join(output.split()))
 
     def test_claude_import_interception_prose_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

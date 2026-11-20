@@ -184,7 +184,7 @@ def _bootstrap_plan(args: argparse.Namespace) -> list[BootstrapPhase] | None:
             skill_args.extend(["--skill-agent", skill_agent])
     else:
         install_args = ["--all", "--update", "--yes"]
-        skill_args = ["--converge", "--all-mcps", "--skill-profile", args.skill_profile]
+        skill_args = ["--converge", "--all-mcps", "--agent-rules", "--skill-profile", args.skill_profile]
         if args.yes:
             skill_args.append("--yes")
         for skill_agent in skill_agents:

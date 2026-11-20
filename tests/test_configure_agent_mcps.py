@@ -541,13 +541,11 @@ known_plugin_toolsets:
             ):
                 assert configure_agent_mcps.install_skills(
                     ["omp"],
-                    ["codebase-memory-mcp", "agentmemory", "ponytail"],
+                    ["codebase-memory-mcp", "agentmemory"],
                     dry_run=False,
                 )
 
-            self.assertFalse((root / "agentmemory").exists())
-            self.assertFalse((root / "codebase-memory-mcp").exists())
-            self.assertTrue((root / "ponytail" / "SKILL.md").is_file())
+            self.assertFalse(root.exists())
 
     def test_configure_omp_rejects_non_object_root_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

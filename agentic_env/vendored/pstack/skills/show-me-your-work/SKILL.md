@@ -78,13 +78,15 @@ Before handing back, have a genuinely different model review the trail. Self-rev
 
 Resolve a real model id first: `omp models --json` lists what this install actually exposes, so pick an exact selector from a family other than the working model. Never invent an alias or assume a vendor label implies a different model.
 
-Run the reviewer as its own snapshot-only process, with the trail and the relevant transcript excerpts inlined in the prompt (the flags leave it no tools, so it reads only what the prompt carries):
+Run the reviewer as its own snapshot-only process, with the trail and the relevant transcript excerpts inlined in the prompt (it runs without tools, so it reads only what the prompt carries). In OMP, write the prompt (the trail, the excerpts, and the four questions below) to `$run_dir/review-prompt.md` and run the reviewer runner that ships with `review-loop`, resolved inside that skill's installed directory (`skill://review-loop/scripts/run_reviewers.py`):
 
 ```bash
-omp --model <exact-selector> -p --mode json --no-tools --no-skills --no-rules --no-extensions --no-session "<the trail, the excerpts, and the four questions below>"
+python3 <review-loop's directory>/scripts/run_reviewers.py --prompt "$run_dir/review-prompt.md" --output "$run_dir/review" --model <exact-selector>
 ```
 
-In Hermes the equivalent is `hermes -z "<prompt>" --provider <provider> -m <model> -t '' --ignore-rules --usage-file <path>`. Either way, read the provider and model back out of the run's own output (the JSON response metadata, or the usage file) instead of trusting the selector you passed: fuzzy matching and fallbacks can land on the model you were trying to avoid.
+It sends the prompt on stdin with tools, skills, rules, context files, extensions and session storage disabled, and writes `review/reviewer-1.review.md` and `review/reviewers.json`. Exit 2 means no model answered and exit 3 means no `omp` CLI; either one, or `review-loop` not being installed, is a `reviewed by: blocked` reason.
+
+In Hermes the equivalent is `hermes -z "<prompt>" --provider <provider> -m <model> -t '' --ignore-rules --usage-file <path>`. Either way, read the provider and model back out of the run's own record (`reviewers.json`, or the usage file) instead of trusting the selector you passed: fuzzy matching and fallbacks can land on the model you were trying to avoid.
 
 The reviewer reads the audit trail and the run's transcript excerpts, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
 

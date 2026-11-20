@@ -18,6 +18,7 @@ from pathlib import Path
 from rich.table import Table
 
 from . import configure_agent_mcps as cfg
+from . import install_skills_mcps
 from .common import cmd_exists, cmd_version_at_least, console, load_json_object
 from .stack_metadata import STACK_VERSION_FLOORS
 
@@ -27,6 +28,7 @@ SECONDARY_AGENTS = ("hermes", "claude", "codex", "agentmemory")
 FIX_CONFIGURE = "agentic-configure-agent-mcps --yes"
 FIX_BOOTSTRAP = "agentic-bootstrap"
 FIX_CODEBASE_MEMORY = "agentic-install-skills-mcps --mcp codebase-memory-mcp --yes"
+FIX_AGENT_RULES = "agentic-install-skills-mcps --agent-rules --yes"
 
 # Prose that re-routes native reads through an MCP; forbidden anywhere OMP
 # loads MCP definitions from (ADR-0007, ADR-0009).
@@ -184,33 +186,34 @@ def _check_agent_config() -> list[Check]:
     return checks
 
 
+def _check_agent_rules() -> list[Check]:
+    # Bootstrap installs the managed rules on every host. OMP keeps one user context file,
+    # and a non-empty ~/.omp/agent/AGENTS.md outranks ~/.agents/AGENTS.md unless it imports it.
+    path = install_skills_mcps.AGENT_RULES_PATH
+    native = cfg.OMP_AGENT_CONFIG_PATH.with_name("AGENTS.md")
+    name = f"agent rules {_short(path)} loaded by OMP"
+    if not path.is_file():
+        return [Check(name, False, "missing", FIX_AGENT_RULES)]
+    if path.read_bytes() != install_skills_mcps.AGENT_RULES_SOURCE.read_bytes():
+        return [Check(name, False, "differs from the shipped rules", FIX_AGENT_RULES)]
+    text = native.read_text(encoding="utf-8") if native.is_file() else ""
+    if text and not any(f"@{ref}" in text for ref in ("~/.agents/AGENTS.md", path)):
+        return [Check(name, False, f"hidden by {_short(native)}", f"add @~/.agents/AGENTS.md to {_short(native)}")]
+    return [Check(name, True, "current")]
+
+
 def _check_skills() -> list[Check]:
     # Curated skills are opt-in per skill: the installed set is the selection, so none
     # is required here. agentic-skill-drift checks the installed ones.
-    checks: list[Check] = []
-    for root in cfg.OMP_SKILL_ROOTS:
-        absent = [
-            name for name in cfg.SKILLS
-            if name not in cfg.OMP_EXCLUDED_SERVERS and not (root / name / "SKILL.md").is_file()
-        ]
-        checks.append(
-            Check(
-                f"built-in descriptors in {_short(root)}",
-                not absent,
-                ", ".join(absent) if absent else "present",
-                FIX_CONFIGURE,
-            )
-        )
-    stale = cfg.excluded_descriptors()
-    checks.append(
+    stale = [*cfg.excluded_descriptors(), *cfg.retired_descriptors(cfg.OMP_SKILL_ROOTS)]
+    return [
         Check(
-            "no excluded MCP skills in OMP-loaded roots",
+            "no obsolete descriptors in OMP-loaded roots",
             not stale,
             ", ".join(map(str, stale)) if stale else "clean",
             f"{FIX_CONFIGURE}; review any descriptor it keeps manually",
         )
-    )
-    return checks
+    ]
 
 
 def _check_hermes() -> list[Check]:
@@ -290,6 +293,7 @@ def run_checks() -> list[Check]:
         checks.extend(_check_omp_mcp(path))
     checks.extend(_check_claude_import())
     checks.extend(_check_agent_config())
+    checks.extend(_check_agent_rules())
     checks.extend(_check_skills())
     checks.extend(_check_binary(name, fix=FIX_BOOTSTRAP, mandatory=False) for name in SECONDARY_AGENTS)
     checks.extend(_check_hermes())

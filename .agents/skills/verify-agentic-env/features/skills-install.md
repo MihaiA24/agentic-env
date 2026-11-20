@@ -5,7 +5,7 @@ Choose skills, install complete packages through the native skills CLI into a cu
 ## Sub-features
 
 - `install-custom`: an exact custom skills folder receives selected complete packages, without managed agent roots, MCP installation or global provenance.
-- `install-managed`: selected canonical/agent destinations, local or remote packs, optional MCP tooling, the optional agent rules file and persisted discovery layout.
+- `install-managed`: selected canonical/agent destinations, local or remote packs, optional MCP tooling, the agent rules file (opt-in here, passed by bootstrap) and persisted discovery layout.
 - `install-select`: profile/pack/name/custom-manifest selectors, repeated/comma forms and all-skills/all-MCP modes.
 - `install-picker`: skills, destination, custom-path/agent, MCP and agent-rules prompts; descriptions, replay summary, confirmation, cancellation and intentionally empty choices.
 - `install-reject`: unknown/partially invalid/empty selections, incompatible options, collisions and native dependency/network/install failure.

@@ -27,6 +27,6 @@ Package the implementation as the `agentic-env` distribution, with import packag
 ## Consequences
 
 - The README should present `uv tool install` and the prefixed commands as the primary workflow.
-- Smoke verification should run the full fresh-install flow through the six installed tool commands, and module `--help` checks through direct checkout execution, not root-script wrappers.
-- Removing the six root-script wrappers changes only how the checkout is invoked. The six installed `agentic-*` entry points remain the user-facing command contract; do not rename them casually.
-- `agentic-update-stack` should not self-update `agentic-env`; users upgrade the tool with `uv tool upgrade agentic-env`.
+- Smoke verification should run the full fresh-install flow through the five primary installed tool commands, and module `--help` checks through direct checkout execution, not root-script wrappers.
+- Removing the six root-script wrappers changes only how the checkout is invoked. The five primary installed `agentic-*` entry points remain the user-facing command contract; do not rename them casually.
+- `agentic-bootstrap` does not self-update `agentic-env`; users update the tool from the checkout with `git pull && uv tool install --force .`.

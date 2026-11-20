@@ -110,6 +110,13 @@ Both prompts must include:
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
+If a dispatch fails (an error, a quota or rate limit, a timeout, or an axis that returns no report), stop. Don't review the failed axis yourself in this context, and don't present one axis as the whole review. Keep the snapshot and any report that did return. Tell the user which axis failed and the error as returned, then ask how to continue, offering these and recommending one:
+
+- **Retry** the failed axis, once the cause has cleared or with another model or agent.
+- **Tool-less one-shot**: send the frozen material inline, as above.
+- **Review here**: run the failed axis in this context. It loses the fresh context window, so the report says so.
+- **Stop** with what returned; the report marks the failed axis "not reviewed" with the reason.
+
 ### 5. Aggregate
 
 Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings, because the two axes are deliberately separate (see _Why two axes_).

@@ -43,6 +43,7 @@ class BootstrapTests(unittest.TestCase):
             [
                 "--converge",
                 "--all-mcps",
+                "--agent-rules",
                 "--skill-profile",
                 "default",
                 "--skill-agent",

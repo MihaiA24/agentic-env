@@ -36,7 +36,7 @@ Run on a terminal without selection flags, `agentic-install-agents` and `agentic
 
 `--yes` uses the flags as given without prompting. Without a terminal no picker can open, so pass flags.
 
-`agentic-bootstrap` handles a new host and an existing one. It installs the latest OMP, Codex and Claude Code (Hermes stays at its reviewed commit), then converges the skills using the [skills lock](#refresh-skills-on-an-existing-omp-host). It updates agentmemory and a global `skills` binary, removes unchanged OMP-excluded descriptors that `agentic-env` installed, and ends with the doctor. Use `--configure-no-skills` to skip both adding and removing descriptors. `agentic-bootstrap --yes` never prompts, so missing roster skills stay unoffered. `agentic-bootstrap --interactive` lets its two install phases open their pickers instead of converging.
+`agentic-bootstrap` handles a new host and an existing one. It installs the latest OMP, Codex and Claude Code (Hermes stays at its reviewed commit), then converges the skills using the [skills lock](#refresh-skills-on-an-existing-omp-host). It updates agentmemory, a global `skills` binary and the [agent rules](#agent-rules), removes unchanged OMP-excluded and retired descriptors that `agentic-env` installed (the old `ponytail` stub that shadowed the pack skill), and ends with the doctor. Use `--configure-no-skills` to skip both adding and removing descriptors. `agentic-bootstrap --yes` never prompts, so missing roster skills stay unoffered. `agentic-bootstrap --interactive` lets its two install phases open their pickers instead of converging.
 
 Optional desktop clients: `agentic-install-agents --client t3code --client pycharm --yes` uses existing Homebrew on macOS. Desktop picker rows start unchecked and `--all` alone excludes them. Then run `agentic-configure-acp --client t3code --client pycharm` separately; see the [ACP guide](guides/omp-acp.md) for other platforms and prerequisites.
 
@@ -71,13 +71,13 @@ The skills picker lists one row per skill under its pack heading, plus an `All o
 
 #### Agent rules
 
-[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, and say "done" only after running the path. It also names the skill for three recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, and `diagnosing-bugs` when the same error comes back. Installing it is optional and recommended:
+[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, and say "done" only after running the path. It also names the skill for three recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, and `diagnosing-bugs` when the same error comes back. It is standard on every host: `agentic-bootstrap` installs it. To install or refresh it alone:
 
 ```bash
 agentic-install-skills-mcps --agent-rules --yes
 ```
 
-This writes `~/.agents/AGENTS.md`. A file you wrote at that path is kept as `AGENTS.md.agentic-env.bak`, beside the link target when the path is a symlink, and a file with the same content is left alone. Later updates replace only the managed file, whose first line marks it, so that backup keeps your file. The guided installer asks for it after the MCP picker, with yes as the default, and says when it would replace your file and where the old one is kept. A `--yes` run without the flag skips it, and neither bootstrap nor the doctor requires it.
+This writes `~/.agents/AGENTS.md`. A file you wrote at that path is kept as `AGENTS.md.agentic-env.bak`, beside the link target when the path is a symlink, and a file with the same content is left alone. Later updates replace only the managed file, whose first line marks it, so that backup keeps your file. The guided installer asks for it after the MCP picker, with yes as the default, and says when it would replace your file and where the old one is kept. The doctor fails while the file is missing, differs from the shipped one, or is hidden from OMP by your own `~/.omp/agent/AGENTS.md` (see the table).
 
 Each harness finds the file differently:
 

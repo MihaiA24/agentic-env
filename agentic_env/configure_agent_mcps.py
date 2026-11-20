@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
-import shutil
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -91,20 +91,21 @@ def _load_builtin_skills() -> dict[str, Skill]:
 SKILLS = _load_builtin_skills()
 
 AGENT_CHOICES = CONFIGURE_AGENT_CHOICES
+_HOME = Path.home().resolve()
 OMP_MCP_PATHS = (
     Path.home() / ".omp" / "agent" / "mcp.json",
     Path.home() / ".pi" / "agent" / "mcp.json",
 )
 OMP_AGENT_CONFIG_PATH = Path.home() / ".omp" / "agent" / "config.yml"
 OMP_SKILL_ROOTS = (
-    Path.home() / ".omp" / "agent" / "skills",
-    Path.home() / ".pi" / "agent" / "skills",
+    _HOME / ".omp" / "agent" / "skills",
+    _HOME / ".pi" / "agent" / "skills",
 )
 HERMES_CONFIG_PATH = Path.home() / ".hermes" / "config.yaml"
 HERMES_SKILL_ROOT = Path.home() / ".hermes" / "skills"
 # OMP loads ~/.claude/skills (skills.enableClaudeUser); ~/.agents/skills is the
 # skill store and stays unmounted as a root (skills.enableAgentsUser: false).
-CLAUDE_SKILL_ROOT = Path.home() / ".claude" / "skills"
+CLAUDE_SKILL_ROOT = _HOME / ".claude" / "skills"
 
 
 def _parse(argv: list[str]) -> argparse.Namespace:
@@ -124,7 +125,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         help="Agent to configure; repeatable. Default: interactive checkbox, or all with --yes.",
     )
     parser.add_argument("--yes", action="store_true", help="Select defaults without prompts")
-    parser.add_argument("--no-skills", action="store_true", help="Do not add global skills")
+    parser.add_argument("--no-skills", action="store_true", help="Do not add or remove global skill descriptors")
     parser.add_argument(
         "--dry-run", action="store_true", help="Print actions without writing files"
     )
@@ -358,36 +359,75 @@ OMP_GATED_BUILTINS = ("node_repl",)
 # its own entry, which `disabledServers` hides from OMP's claude-import.
 CLAUDE_IMPORT_ALLOWED = ("codebase-memory-mcp",)
 
+# Exact bytes written by older configurators, including the retired lean-ctx body.
+_LEGACY_DESCRIPTOR_HASHES = {
+    "codebase-memory-mcp": {
+        "f18fcacd95fa9cba0c4dda1792932415b29812f30bbe9f83a6ccc1f0ccd45bbb",
+        "6ab32f62066cae7f2be62719f81d8a72c78053baae2a30b3884c16644c2efe50",
+    },
+    "lean-ctx": {
+        "104f9f6a1bda181129bc6af927c47584e084d59f3d3147c966afdd21b3903b5c",
+        "5f5649ac7b86c141d149818fb69fad401e79e04ee8816f37526bb6306b87c2fe",
+        "5fb6d01468f2fc06de42edfb4cd542587ff172749fb768d5e6b86eaed661a1bf",
+    },
+}
+
+
+def _is_claude_root(root: Path) -> bool:
+    if root == CLAUDE_SKILL_ROOT:
+        return True
+    try:
+        return root.samefile(CLAUDE_SKILL_ROOT)
+    except OSError:
+        return False
+
 
 def excluded_descriptors() -> list[Path]:
-    """Skill descriptors of OMP-excluded servers in roots OMP loads. The configurator
-    never writes them on OMP, so each is a leftover; Claude Code may keep the ones
-    it may import in its own root."""
-    return [
-        root / name
-        for name in OMP_EXCLUDED_SERVERS
-        for root in (*OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT)
-        if ((root / name).exists() or (root / name).is_symlink())
-        and not (root == CLAUDE_SKILL_ROOT and name in CLAUDE_IMPORT_ALLOWED)
-    ]
+    """Excluded descriptors in OMP-loaded roots, including unowned ones for diagnosis."""
+    paths = []
+    for root in dict.fromkeys((*OMP_SKILL_ROOTS, CLAUDE_SKILL_ROOT)):
+        claude_root = _is_claude_root(root)
+        for name in OMP_EXCLUDED_SERVERS:
+            if claude_root and name in CLAUDE_IMPORT_ALLOWED:
+                continue
+            path = root / name
+            if (path / "SKILL.md").is_file():
+                paths.append(path)
+    return paths
+
+
+def _owned_excluded_descriptor(path: Path) -> bool:
+    """The old configurator wrote a single regular file in a real directory."""
+    if path.parent.resolve() != path.parent or path.is_symlink():
+        return False
+    descriptor = path / "SKILL.md"
+    if descriptor.is_symlink() or not descriptor.is_file() or set(path.iterdir()) != {descriptor}:
+        return False
+    content = descriptor.read_bytes()
+    skill = SKILLS.get(path.name)
+    return (
+        skill is not None and content == (skill.body.rstrip() + "\n").encode()
+        or hashlib.sha256(content).hexdigest() in _LEGACY_DESCRIPTOR_HASHES.get(path.name, ())
+    )
 
 
 def remove_excluded_descriptors(*, dry_run: bool) -> bool:
     ok_all = True
     for path in excluded_descriptors():
-        if dry_run:
-            skip(f"dry-run: would remove {path}")
-            continue
         try:
-            if path.is_dir() and not path.is_symlink():
-                shutil.rmtree(path)
-            else:
-                path.unlink()
-        except OSError as exc:
+            if not _owned_excluded_descriptor(path):
+                warn(f"{path}: kept; not an unmodified agentic-env descriptor. Review it manually")
+                continue
+            if dry_run:
+                skip(f"dry-run: would remove {path}")
+                continue
+            (path / "SKILL.md").unlink()
+            path.rmdir()
+        except (OSError, RuntimeError) as exc:
             warn(f"{path}: cannot remove this leftover descriptor: {exc}")
             ok_all = False
             continue
-        ok(f"{path}: removed; OMP mounts no {path.name} server")
+        ok(f"{path}: removed obsolete agentic-env descriptor")
     return ok_all
 
 
@@ -591,7 +631,7 @@ def main(argv: list[str] | None = None) -> int:
     install_matching_skills = not args.no_skills
     if not non_interactive and install_matching_skills:
         install_matching_skills = ask(
-            "Add matching global skills if missing",
+            "Add missing global skill descriptors and remove obsolete agentic-env descriptors",
             default=True,
             non_interactive=non_interactive,
         )
@@ -605,7 +645,8 @@ def main(argv: list[str] | None = None) -> int:
     if "omp" in agents:
         ok_all = configure_omp(servers, dry_run=args.dry_run) and ok_all
         ok_all = converge_omp_agent_config(dry_run=args.dry_run) and ok_all
-        ok_all = remove_excluded_descriptors(dry_run=args.dry_run) and ok_all
+        if install_matching_skills:
+            ok_all = remove_excluded_descriptors(dry_run=args.dry_run) and ok_all
     if install_matching_skills:
         install_names = list(server_names)
         if server_names and "ponytail" not in install_names:

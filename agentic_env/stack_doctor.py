@@ -207,7 +207,7 @@ def _check_skills() -> list[Check]:
             "no excluded MCP skills in OMP-loaded roots",
             not stale,
             ", ".join(map(str, stale)) if stale else "clean",
-            FIX_CONFIGURE,
+            f"{FIX_CONFIGURE}; review any descriptor it keeps manually",
         )
     )
     return checks

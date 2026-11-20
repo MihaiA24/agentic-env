@@ -485,6 +485,53 @@ known_plugin_toolsets:
             self.assertFalse(config_path.with_suffix(".yml.agentic-env.bak").exists())
             self.assertIn("codebase-memory-mcp", json.loads(mcp_path.read_text(encoding="utf-8"))["disabledServers"])
 
+    def test_omp_descriptor_cleanup_respects_scope_ownership_and_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir).resolve()
+            omp, pi, claude = (root / name for name in ("omp", "pi", "claude"))
+            claude.mkdir()
+            omp.symlink_to(claude, target_is_directory=True)
+            pi.mkdir()
+            graph = (configure_agent_mcps.SKILLS["codebase-memory-mcp"].body.rstrip() + "\n").encode()
+            managed, allowed, custom, linked, with_extra = (
+                pi / "codebase-memory-mcp", claude / "codebase-memory-mcp",
+                pi / "lean-ctx", pi / "agentmemory", claude / "agentmemory",
+            )
+            memory = (configure_agent_mcps.SKILLS["agentmemory"].body.rstrip() + "\n").encode()
+            external = root / "external"
+            kept = {
+                allowed / "SKILL.md": graph,
+                custom / "SKILL.md": b"# my skill\n",
+                external / "SKILL.md": memory,
+                with_extra / "SKILL.md": memory,
+                with_extra / "preferences.json": b'{"user":true}',
+                claude / "lean-ctx" / "notes.md": b"# my notes\n",
+            }
+            for path, content in {managed / "SKILL.md": graph, **kept}.items():
+                path.parent.mkdir(exist_ok=True)
+                path.write_bytes(content)
+            linked.symlink_to(external, target_is_directory=True)
+            args = ["--agent", "omp", "--server", "codebase-memory-mcp"]
+            with (
+                patch.object(configure_agent_mcps, "OMP_SKILL_ROOTS", (omp, pi)),
+                patch.object(configure_agent_mcps, "CLAUDE_SKILL_ROOT", claude),
+                patch.object(configure_agent_mcps, "OMP_MCP_PATHS", (root / "mcp.json",)),
+                patch.object(configure_agent_mcps, "OMP_AGENT_CONFIG_PATH", root / "config.yml"),
+            ):
+                for flags in (["--yes", "--no-skills"], ["--yes", "--dry-run"], []):
+                    with (
+                        self.subTest(flags=flags),
+                        patch.object(configure_agent_mcps, "interactive", return_value=True),
+                        patch.object(configure_agent_mcps, "ask", return_value=False),
+                    ):
+                        self.assertEqual(configure_agent_mcps.main([*args, *flags]), 0)
+                        self.assertEqual((managed / "SKILL.md").read_bytes(), graph)
+                self.assertEqual(configure_agent_mcps.main([*args, "--yes"]), 0)
+            self.assertFalse(managed.exists())
+            self.assertEqual(linked.readlink(), external)
+            for path, content in kept.items():
+                self.assertEqual(path.read_bytes(), content)
+
     def test_install_skills_omits_excluded_servers_on_omp(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir) / "skills"

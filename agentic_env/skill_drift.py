@@ -41,7 +41,7 @@ from .install_skills_mcps import (
     SkillUpstream,
     load_skill_manifest,
 )
-from .skill_lock import CANONICAL_SKILL_ROOT, load_lock
+from .skill_lock import CANONICAL_SKILL_ROOT, InvalidLock, load_lock
 
 BASELINE_PATH = Path(__file__).with_name("skill-fingerprints.json")
 CACHE_ROOT = (
@@ -597,7 +597,11 @@ def main(argv: list[str] | None = None) -> int:
             packs = list(manifest.packs)
 
         baseline = load_baseline(BASELINE_PATH)
-        lock = {} if args.no_installed else load_lock()
+        try:
+            lock = {} if args.no_installed else load_lock().skills
+        except InvalidLock as exc:
+            warn(str(exc))
+            return 2
         rows: list[SkillStatus] = []
         for pack in packs:
             rows.extend(

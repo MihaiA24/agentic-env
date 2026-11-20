@@ -132,7 +132,7 @@ Every tracked tool or process is in exactly one state; the state names the bar f
   - _Avoid_: Convergence to exact versions, mixed pinned/latest update, fresh install, deployment (unqualified)
 
 - **Skill converge**
-  - The `--converge` skills phase of `agentic-bootstrap`. It refreshes the roster skills the skills CLI lock records, offers each roster skill the host lacks once on a terminal and records that offer in the lock, and removes unedited _dropped_ skills installed from a curated pack. A host whose lock holds no roster skill and no offer takes the profile packs.
+  - The `--converge` skills phase of `agentic-bootstrap`. It refreshes the roster skills the skills CLI lock records, offers each missing roster skill once on a terminal, and removes verified _dropped_ installations. A missing lock or a valid lock with no roster skills and no offers takes the profile packs. An invalid lock stops the skills phase.
   - _Avoid_: Sync, reinstall-all
 
 - **Reviewed version floor**
@@ -209,7 +209,7 @@ Skill-specific states, distinct from the component lifecycle states above. A com
   - _Avoid_: Rejected (that is the component state), removed, pruned
 
 - **Dropped (skill)**
-  - A skill that left the curated roster, named in the manifest's `dropped` list. Converge removes it only when the lock records it from a curated pack and its folder is unchanged; otherwise it stays and is reported. Distinct from _Excluded_, which was never installed.
+  - A skill that left the curated roster, named in the manifest's `dropped` list. Converge removes only a verified, unchanged installation from a configured curated source. If ownership is unclear, it keeps the installation and reports why. Distinct from _Excluded_, which was never installed.
   - _Avoid_: Excluded, deprecated
 
 - **Skill store**

@@ -111,13 +111,24 @@ class StackDoctorTests(unittest.TestCase):
 
     def test_leftover_excluded_descriptor_fails_until_configure_removes_it(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            host = _Host(Path(temp_dir))
+            host = _Host(Path(temp_dir).resolve())
             allowed = host.claude_skills / "codebase-memory-mcp"
             leftover = host.skill_roots[1] / "codebase-memory-mcp"
             _skill(host.claude_skills, "codebase-memory-mcp")
             code, output = _run(host)
             self.assertEqual(code, 0)
             _skill(host.skill_roots[1], "codebase-memory-mcp")
+            original = (leftover / "SKILL.md").read_bytes()
+            with host.patched():
+                self.assertTrue(configure_agent_mcps.remove_excluded_descriptors(dry_run=False))
+            self.assertEqual((leftover / "SKILL.md").read_bytes(), original)
+            code, output = _run(host)
+            self.assertEqual(code, 1)
+            self.assertIn("review any descriptor it keeps manually", " ".join(output.split()))
+
+            descriptor = leftover / "SKILL.md"
+            body = configure_agent_mcps.SKILLS["codebase-memory-mcp"].body
+            descriptor.write_text(body.rstrip() + "\n", encoding="utf-8")
             code, output = _run(host)
             self.assertEqual(code, 1)
             self.assertIn(str(leftover), output.replace("\n", ""))

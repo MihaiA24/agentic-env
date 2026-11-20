@@ -282,9 +282,10 @@ def _parse_skill_pack_config(payload: object, path: Path) -> SkillManifest | Non
 
     dropped_payload = payload.get("dropped", [])
     if not isinstance(dropped_payload, list) or not all(
-        isinstance(item, str) and item.strip() for item in dropped_payload
+        isinstance(item, str) and re.fullmatch(r"[a-z0-9][a-z0-9_-]*", item.strip())
+        for item in dropped_payload
     ):
-        warn(f"Invalid 'dropped' in {path}: expected list of skill names")
+        warn(f"Invalid 'dropped' in {path}: expected list of skill slugs")
         return None
     dropped = tuple(dict.fromkeys(item.strip() for item in dropped_payload))
     rostered = [name for name in dropped if any(name in pack.skills for pack in packs.values())]
@@ -962,66 +963,100 @@ def _pick_offered(manifest: SkillManifest, offer: list[str]) -> dict[str, list[s
 
 
 def _from_pack(manifest: SkillManifest, entry: dict) -> bool:
-    """Whether a lock record's source is one of the manifest's packs. A vendored
-    pack is recorded as an absolute path into whichever copy of this package ran."""
+    """Require the exact local pack path or a configured remote repository."""
     source = entry.get("source")
     if not isinstance(source, str):
         return False
-    for pack in manifest.packs.values():
-        if pack.source.startswith("./"):
-            tail = (manifest.config_path.parent.name, *Path(pack.source).parts)
-            if Path(source).parts[-len(tail):] == tail:
-                return True
-        elif source.lower() == pack.source.partition("#")[0].lower():
-            return True
-    return False
+    return any(
+        source == manifest.source(pack.name)
+        if pack.source.startswith("./")
+        else source.lower() == pack.source.partition("#")[0].lower()
+        for pack in manifest.packs.values()
+    )
 
 
-def _prune_dropped(manifest: SkillManifest) -> bool:
-    """Uninstall skills that left the roster when one of the packs installed them
-    and the canonical copy is unchanged since; report each one kept instead."""
-    lock = skill_lock.load_lock()
-    removable: list[str] = []
+def _installed_paths(name: str) -> list[Path]:
+    """The canonical store and the agent roots this installer can target."""
+    home = Path.home().resolve()
+    roots = [skill_lock.CANONICAL_SKILL_ROOT]
+    for variable, default in (("CLAUDE_CONFIG_DIR", ".claude"), ("HERMES_HOME", ".hermes")):
+        roots.append(home / default / "skills")
+        if override := os.environ.get(variable, "").strip():
+            roots.append(Path(override) / "skills")
+    paths = []
+    for root in dict.fromkeys(roots):
+        path = root / name
+        try:
+            path.lstat()
+        except FileNotFoundError:
+            continue
+        paths.append(path)
+    return paths
+
+
+def _managed_links(folder: Path, paths: list[Path]) -> list[Path] | None:
+    """The links to the canonical installation, or None for independent copies."""
+    links = []
+    for path in paths:
+        # A root may itself be an alias of the canonical store. Do not modify
+        # entries beneath any other aliased root.
+        root = path.parent.resolve()
+        if root == folder.parent:
+            continue
+        if root != path.parent.absolute() or not path.is_symlink() or path.resolve(strict=True) != folder:
+            return None
+        links.append(path)
+    return list(dict.fromkeys(links))
+
+
+def _prune_dropped(manifest: SkillManifest, lock: skill_lock.SkillLock) -> tuple[bool, list[str]]:
+    """Delete only a verified canonical folder and the known aliases into it."""
+    removed: list[str] = []
+    ok_all = True
     for name in manifest.dropped:
         folder = skill_lock.CANONICAL_SKILL_ROOT / name
-        entry = lock.get(name)
-        if entry is None:
-            if folder.exists() or folder.is_symlink():
-                warn(
-                    f"{name}: left the roster but kept: the skills lock has no record of "
-                    f"{folder}, so local edits cannot be ruled out. Delete it if unused"
-                )
-        elif not _from_pack(manifest, entry):
-            skip(f"{name}: kept; installed from {entry.get('source')}, not from a curated pack")
-        elif skill_lock.matches_record(folder, entry):
-            removable.append(name)
-        else:
-            warn(
-                f"{name}: left the roster but kept: {folder} differs from what the skills CLI "
-                f"installed. Save any edits, then run: npx {SKILLS_CLI_PACKAGE} remove --global {name}"
-            )
-    if not removable:
-        return True
-    runner = _skills_cli()
-    if runner is None:
-        return False
-    info(f"Removing skills that left the roster: {', '.join(removable)}")
-    try:
-        run([*runner, "remove", *removable, "--global", "--yes"])
-    except (OSError, subprocess.CalledProcessError) as exc:
-        warn(f"skills CLI: removal failed: {exc}")
-        return False
-    ok(f"Removed skills that left the roster: {', '.join(removable)}")
-    return True
+        entry = lock.skills.get(name)
+        try:
+            paths = _installed_paths(name)
+            if not paths and entry is None:
+                continue
+            reason = None
+            if entry is None:
+                reason = "no skills lock record"
+            elif not _from_pack(manifest, entry):
+                reason = f"source {entry.get('source')} does not match a curated pack"
+            elif folder.parent.resolve() != folder.parent or not skill_lock.matches_record(folder, entry):
+                reason = f"cannot verify unchanged canonical folder {folder}"
+            elif (links := _managed_links(folder, paths)) is None:
+                reason = "an independent copy or link is installed"
+            if reason is not None:
+                warn(f"{name}: left the roster but kept: {reason}. Review the installed paths manually")
+                continue
+        except (OSError, RuntimeError, UnicodeError) as exc:
+            warn(f"{name}: left the roster but kept: cannot verify installation ({exc})")
+            continue
+
+        try:
+            for link in links:
+                link.unlink()
+            shutil.rmtree(folder)
+        except OSError as exc:
+            warn(f"{name}: could not remove the obsolete installation: {exc}")
+            ok_all = False
+            continue
+        removed.append(name)
+        ok(f"{name}: removed unchanged skill that left the roster")
+    return ok_all, removed
 
 
 def _converge(manifest: SkillManifest, plan: SkillInstallPlan, prompt: bool) -> int:
     """Bring this host up to date without asking anything twice (`--converge`)."""
-    ok_all = _update_skills_cli()
-    offered = skill_lock.offered()
-    selection, offer = _converge_selection(
-        manifest, plan.skill_packs, skill_lock.load_lock(), offered
-    )
+    try:
+        lock = skill_lock.load_lock()
+    except skill_lock.InvalidLock as exc:
+        warn(str(exc))
+        return 1
+    selection, offer = _converge_selection(manifest, plan.skill_packs, lock.skills, lock.offered)
     asked = bool(offer) and prompt
     if asked:
         for pack, skills in _pick_offered(manifest, offer).items():
@@ -1029,6 +1064,7 @@ def _converge(manifest: SkillManifest, plan: SkillInstallPlan, prompt: bool) -> 
     elif offer:
         skip(f"Not offered with --yes or without a terminal: {', '.join(offer)}")
 
+    ok_all = _update_skills_cli()
     _summarize_selection(
         manifest, selection, plan.destination,
         plan.do_codebase, plan.do_agentmemory, plan.do_agent_rules,
@@ -1037,10 +1073,16 @@ def _converge(manifest: SkillManifest, plan: SkillInstallPlan, prompt: bool) -> 
         ok_all = _install_skills(manifest, selection, plan.destination) and ok_all
     else:
         skip("skill packs: no roster skill on this host")
-    ok_all = _prune_dropped(manifest) and ok_all
-    # After every skills CLI run: each one rewrites the whole lock.
-    if asked:
-        ok_all = skill_lock.record_offered(offer) and ok_all
+    # Native installs may have changed the lock since we planned the selection.
+    try:
+        lock = skill_lock.load_lock()
+    except skill_lock.InvalidLock as exc:
+        warn(str(exc))
+        return 1
+    pruned, removed = _prune_dropped(manifest, lock)
+    ok_all = pruned and ok_all
+    if removed or asked:
+        ok_all = lock.record_changes(removed=removed, offered=offer if asked else []) and ok_all
 
     if plan.do_codebase:
         # Pinned: reinstalls only below the reviewed version.

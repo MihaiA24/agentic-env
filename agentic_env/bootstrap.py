@@ -66,7 +66,7 @@ def _parse(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--configure-no-skills",
         action="store_true",
-        help="During configure phase, skip writing matching global skills.",
+        help="During configure phase, skip adding or removing global skill descriptors.",
     )
     parser.add_argument(
         "--server",

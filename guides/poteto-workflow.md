@@ -4,7 +4,7 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles and a ta
 
 - [Part 1: Verification is all you need](https://x.com/poteto/status/2094457600259842065) ([local copy](../poteto/pstack-part-1.md))
 - [Part 2: The art of supervising someone smarter than you](https://x.com/poteto/article/2097732320606507506) ([local copy](../poteto/pstack-part-2.md))
-- [All Code Is Slop (Except Mine)](https://www.youtube.com/watch?v=O_zcc6Xl12g), a talk ([local transcript](../poteto/pstack-talk.md))
+- [All Code Is Slop (Except Mine)](https://www.youtube.com/watch?v=O_zcc6Xl12g), a talk
 
 [What the articles say](#what-the-articles-say) and [what the talk adds](#what-the-talk-adds) summarise each idea and link the step that applies it. [Apply it to a repository](#apply-it-to-a-repository) sets up one repository with this stack's skills. Her example verifier for a fictional app is [poteto/verification-skill-example](https://github.com/poteto/verification-skill-example). Steps 2, 5 and 6 adopt its checkout isolation, proof rules, cross-feature journeys and map layout. It has no licence and omits its driver script, so this repository links to it instead of copying it.
 

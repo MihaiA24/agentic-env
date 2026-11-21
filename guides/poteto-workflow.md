@@ -34,7 +34,7 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles and a ta
 
 ## What the talk adds
 
-The talk reports the results on her team's agent app: 11,000 pull requests shipped last month, about 227 contributors in October, a stable release about once a day, and a revert rate steady at about 0.5%. She credits a pyramid of guardrails, from most to least deterministic:
+The talk reports the results on her team's agent app: 11,000 pull requests shipped last month, about 227 contributors in October, a stable release about once a day, and a revert rate steady at about 0.5%. Her pyramid orders where to spend time on the agent's environment, starting at the base. Only the first two layers are deterministic:
 
 1. The code itself: API design, architecture, refactoring.
 2. Lint rules, type systems, compilers and tests.
@@ -48,7 +48,7 @@ The talk reports the results on her team's agent app: 11,000 pull requests shipp
 - **Review the artifacts.** Code review has shrunk to verification artifacts: videos, screenshots, diagrams and formal verification. Most of her tokens go to verification. The feature map gives you and the agent shared words, so "the thingy in the left sidebar" means one feature. → [Steps 2](#2-create-the-verifier-and-its-cli) and [5](#5-build-with-the-verifier)
 - **Verify flows formally.** TLA+ model-checks user flows such as notifications across devices, and Lean proves an algorithm in a virtualization library. `/statechart` draws a flow as a state machine from the user's point of view, which she reviews next to videos and screenshots. Formal verification has already found bugs, but she is still experimenting with it and treats it as one more layer, not a guarantee. This stack does not install it.
 - **Test UI properties.** [Bombadil](https://github.com/antithesishq/bombadil) runs property-based tests on UIs and has caught UI bugs for her team. This stack does not install it.
-- **Foundations before factories.** Automating a loop that produces slop produces more slop. On each release her team runs an agent that fuzzes the app like a user and opens fix pull requests that merge automatically. That works because the codebase makes most pull requests good by default. This stack stops at the foundations.
+- **Foundations before factories.** Automating a loop that produces slop produces more slop. On each release her team runs an agent that fuzzes the app like a user and opens fix pull requests that merge automatically. That works because the codebase makes most pull requests good by default. This stack does not install that release agent.
 
 ## What this stack uses instead
 
@@ -113,14 +113,14 @@ adding a dev dependency. Show me each check failing on a scratch
 violation, then passing after the revert.
 ```
 
-Then run `/correct` for each pattern you already know agents misuse here. It is in the `default` profile.
+Then run `/correct` for each misuse you have already corrected agents on here. It is in the `default` profile, and it proves each ban fails on that past mistake.
 
 ```text
-/correct Agents misuse [pattern] here; use [replacement] instead. Ban
-it in [directories].
+/correct I have corrected agents for [pattern] here, as in [commit or
+file]; use [replacement] instead. Ban it in [directories].
 ```
 
-`/correct` fixes the class at the highest level that works, from architecture down to a lint whose error names the replacement. No disable comment can turn a ban off; an exception goes in the lint configuration, and only after you approve it.
+`/correct` fixes the class at the highest level that works, from architecture down to a lint whose error names the replacement. No disable comment can turn a ban off. The agent may propose an exception, scoped to one file in the lint configuration, but adds it only when you tell it to.
 
 ### 2. Create the verifier and its CLI
 
@@ -214,7 +214,7 @@ As the map grows, keep it sweepable. Group the README index by area and order it
 
 Treat the verifier as product code. When the CLI breaks or slows agents down, fix it before other work.
 
-Garden the codebase. When agents make the same class of mistake twice, run `/correct`. It turns the class into an architecture change, a type, a lint or a test that fails on the old mistake, and documentation comes last. Prefer this to another `AGENTS.md` line. A new lint first blocks only new occurrences. Then clean up the old ones in their own commits and delete deprecated code, because the next agent copies whatever it finds.
+Garden the codebase. When agents make the same class of mistake twice, run `/correct`. It turns the class into an architecture change, a type, a lint or a test that fails on the old mistake, and documentation comes last. Prefer this to another `AGENTS.md` line. When the pattern is already common, a new lint first blocks only new occurrences. Then clean up the old ones in their own commits and delete deprecated code, because the next agent copies whatever it finds.
 
 ### 7. Resolve unclear problems and designs
 

@@ -185,7 +185,7 @@ Invoke `/maintain-verification-skill` separately. It checks the feature map agai
 
 ## Add static guardrails once
 
-Before agents write much code, turn on the compiler's strict mode and the repository's linter as errors, with one command that runs locally and in CI. Then run `/correct` for each pattern you already know agents misuse, naming the replacement; a ban takes no disable comment. [Add static guardrails](poteto-workflow.md#add-static-guardrails) has both prompts.
+Before agents write much code, turn on the compiler's strict mode and the repository's linter as errors, with one command that runs locally and in CI. Then run `/correct` for each misuse you have already corrected agents on, naming the replacement; a ban takes no disable comment. [Add static guardrails](poteto-workflow.md#add-static-guardrails) has both prompts.
 
 ## Vet performance numbers before you use them
 
@@ -196,7 +196,7 @@ Run `/benchmark-checklist` before a speedup, regression, or library choice goes 
 Pick by what should change:
 
 - `/retro` reports environment candidates, ranked by severity: navigation pointers, missing or unwired checks, standards rules, expensive tool calls, no-op instructions, missing information. It changes nothing.
-- `/correct` takes a mistake class seen at least twice, or a pattern you name, and makes it impossible, preferring architecture, then types, then a lint whose error names the fix, then a test, and docs last. It proves each guard fails on a real past mistake. It prepares one commit-sized change per class; you approve each commit.
+- `/correct` takes a mistake class seen at least twice, or one you just corrected, and makes it impossible, preferring architecture, then types, then a lint whose error names the fix, then a test, and docs last. It proves each guard fails on a real past mistake. It prepares one commit-sized change per class; you approve each commit.
 
 ## Methods this stack does not include
 

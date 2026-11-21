@@ -27,7 +27,7 @@ First, read recent commits, reverts, review comments, agent instruction files, a
 
 ## Fix and prove
 
-Then fix the most frequent classes now, one commit each: prepare each class as one commit-sized change, say what would be committed (files and message), and commit it only when the user approves that commit. Prove each new check fails on a real past mistake. Run the same command locally and in CI; the CI step goes in the working tree with its check, and pushing it is a separate ask. Exceptions go on the offending line with a reason, an expiry date, and a human's approval. Propose each exception and ask for that approval; never record it yourself.
+Then fix the most frequent classes now, one commit each: prepare each class as one commit-sized change, say what would be committed (files and message), and commit it only when the user approves that commit. Prove each new check fails on a real past mistake. Run the same command locally and in CI; the CI step goes in the working tree with its check, and pushing it is a separate ask. An exception to a rule that bans a pattern goes in the check's configuration, scoped to its file; block disable comments for that rule, so no comment in the code can argue past it. Other exceptions go on the offending line. Each exception carries a reason, an expiry date, and a human's approval. Propose each exception and ask for that approval; never record it yourself.
 
 ## Keep the rule table
 

@@ -1,6 +1,6 @@
 # Choose a skill for the job
 
-Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 17 in the pstack pack (16 pstack skills and the local `review-loop`), three from ponytail, two from caveman, and three opt-in first-party skills: two for Spark and `static-guardrails`. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 17 in the pstack pack (16 pstack skills and the local `review-loop`), three from ponytail, two from caveman, and four opt-in first-party skills: two for Spark, `static-guardrails` and `delete-comments`. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
 Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies; Claude Code still loads a manual dependency only when your message names it. Reading a skill to check discovery does not invoke it.
 
@@ -77,7 +77,8 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 | `create-formal-verification-skill` | pstack | You | A promise that must hold however events interleave: a project skill that checks it formally on each change |
 | `maintain-formal-verification-skill` | pstack | You | Verified code changed: bring the model back in line with the code and rerun it |
 | `statechart` | pstack | You | Check a TLA+ model with TLC: a chart of the flow, or the path that breaks a rule. A formal verification skill usually loads it |
-| `static-guardrails` | This repository (opt-in) | You | Once per repository, before agents write much code: compiler, lint, import boundaries and dead code, with a baseline so only new violations fail |
+| `static-guardrails` | This repository (opt-in) | You | Once per repository, before agents write much code: compiler, lint, import boundaries and dead code; existing violations fixed or kept in a baseline outside the code, so only new ones fail |
+| `delete-comments` | This repository (opt-in) | You | Clear a scope's comments into deletions, short ADRs and issue drafts, then ban new comments with a ratchet |
 | `writing-for-agents` | Matt | Agent | Editing skills, `AGENTS.md` or `CLAUDE.md` |
 | `wizard` | Matt | You | Script a manual step only you can do, such as credentials or infrastructure |
 | `retro` | Matt | You | After a costly session: report problems in the environment; changes nothing |
@@ -193,7 +194,11 @@ Run `/create-formal-verification-skill` once for code whose promise must hold ho
 
 ## Add static guardrails once
 
-`/static-guardrails` sets up compiler strictness, lint bans whose errors name the fix, import boundaries and dead-code checks. Each rule starts with a baseline of existing violations, so only new ones fail. Run it once, before agents write much code. Later, `/correct` handles a mistake made twice. The skill is opt-in. [Add static guardrails](poteto-workflow.md#add-static-guardrails) has the install command and the prompt.
+`/static-guardrails` sets up compiler strictness, lint bans whose errors name the fix, import boundaries and dead-code checks. It fixes existing violations or lists them in a baseline outside the code, so only new ones fail, and no comment in the code can disable a ban. Run it once, before agents write much code. Later, `/correct` handles a mistake made twice. The skill is opt-in. [Add static guardrails](poteto-workflow.md#add-static-guardrails) has the install command and the prompt.
+
+## Clear comments, then ban them
+
+`/delete-comments` sorts every comment in the scope you name as a tautology, excuse, stale comment or decision record, adapted from Matt Pocock's prompt. It deletes the comment, drafts an issue for the hack an excuse hides, or moves the decision into a short ADR. Then an ast-grep rule bans new comments, and the files it did not clean stay in a ratchet list until a later run cleans them. Tool directives and `shortcut:` markers stay. The skill is opt-in; [Add static guardrails](poteto-workflow.md#add-static-guardrails) has the prompt.
 
 ## Vet performance numbers before you use them
 
@@ -208,4 +213,4 @@ Pick by what should change:
 
 ## Methods this stack does not include
 
-This stack excludes `/poteto-mode`, `/architect`, `/swarm` and `/no-comments`. For planning, use the routes above rather than the articles' `/poteto-mode`. Local subagents do not replace `swarm` coverage. For a comment ban, use `/static-guardrails`.
+This stack excludes `/poteto-mode`, `/architect`, `/swarm` and `/no-comments`. For planning, use the routes above rather than the articles' `/poteto-mode`. Local subagents do not replace `swarm` coverage. Instead of `/no-comments`, the installed agent rules say to write no comments, `/delete-comments` clears a scope and bans new ones, and `/static-guardrails` blocks disable comments on bans.

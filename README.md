@@ -61,7 +61,7 @@ To install the complete curated selection into the managed skill store:
 agentic-install-skills-mcps --skill-profile default --yes
 ```
 
-[The manifest](agentic_env/skill-packs.json) contains 44 skills: the 41-skill `default` profile plus three opt-in first-party skills, two for Apache Spark and `static-guardrails`. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
+[The manifest](agentic_env/skill-packs.json) contains 45 skills: the 41-skill `default` profile plus four opt-in first-party skills, two for Apache Spark, `static-guardrails` and `delete-comments`. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
 In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
@@ -71,7 +71,7 @@ The skills picker lists one row per skill under its pack heading, plus an `All o
 
 #### Agent rules
 
-[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, and say "done" only after running the path. It also names the skill for four recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, `diagnosing-bugs` when the same error comes back, and an offer of `/correct` when you correct a mistake a second time. It is standard on every host: `agentic-bootstrap` installs it. To install or refresh it alone:
+[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, say "done" only after running the path, write no comments and keep a decision in a short ADR and a hack in a proposed issue, propose and never apply anything that weakens a check, and record a correction as a rule only when asked. It also names the skill for four recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, `diagnosing-bugs` when the same error comes back, and an offer of `/correct` when you correct a mistake a second time. It is standard on every host: `agentic-bootstrap` installs it. To install or refresh it alone:
 
 ```bash
 agentic-install-skills-mcps --agent-rules --yes
@@ -124,21 +124,22 @@ Each skill is a single `SKILL.md`; detailed Apache findings and version-pinned c
 
 #### Static guardrails: set up lint and types for agents
 
-A first-party, manual-only skill in the opt-in `agentic-env` pack sets up the checks that fail a bad change before anyone reviews it:
+Two first-party, manual-only skills in the opt-in `agentic-env` pack set up the checks that fail a bad change before anyone reviews it:
 
-- [`static-guardrails`](agentic_env/skills/static-guardrails/SKILL.md): compiler strictness, lint bans whose errors name the replacement, import boundaries and dead-code checks. Each rule starts with a baseline of existing violations, so only new ones fail, and is proven on a seeded violation. It ships TypeScript and Python setups, and a comment ban you opt into.
+- [`static-guardrails`](agentic_env/skills/static-guardrails/SKILL.md): compiler strictness, lint bans whose errors name the replacement, import boundaries and dead-code checks. Existing violations are fixed, or listed in a baseline outside the code so only new ones fail. No comment in the code can disable a ban, and each rule is proven on a seeded violation. It ships TypeScript and Python setups, and searches for each framework's rule sets.
+- [`delete-comments`](agentic_env/skills/delete-comments/SKILL.md), adapted from [Matt Pocock's prompt](https://x.com/mattpocockuk/status/2123798388227403983): sorts each comment in a scope as a tautology, excuse, stale comment or decision record. It deletes the comment, drafts an issue for the hack it excuses, or moves the decision into a short ADR. Then it bans new comments with ast-grep, keeps the files it did not clean in a ratchet, and reports the lines removed.
 
 From this directory, select one installation route:
 
 ```bash
 # Managed harness targets; this does not change the default profile.
-uv run agentic-install-skills-mcps --skill-pack agentic-env --skill static-guardrails --yes
+uv run agentic-install-skills-mcps --skill-pack agentic-env --skill static-guardrails --skill delete-comments --yes
 
 # Or Python-only copy into a fresh exact skills directory.
-python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.agents/skills" --skill static-guardrails
+python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.agents/skills" --skill static-guardrails --skill delete-comments
 ```
 
-Run it once per repository, before agents write much code. [Add static guardrails](guides/poteto-workflow.md#add-static-guardrails) has the prompt. For a mistake class agents repeat later, use `/correct`.
+Run `/static-guardrails` once per repository, before agents write much code, and `/delete-comments` on a scope whose comments should go. [Add static guardrails](guides/poteto-workflow.md#add-static-guardrails) has the prompts. For a mistake class agents repeat later, use `/correct`.
 
 #### Install into another harness's directory
 
@@ -197,7 +198,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **39 locally packaged skills** (36 vendored Matt/pstack skills plus the three first-party skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies the **40 locally packaged skills** (36 vendored Matt/pstack skills plus the four first-party skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 

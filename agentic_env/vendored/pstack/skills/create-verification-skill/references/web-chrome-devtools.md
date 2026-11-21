@@ -10,8 +10,6 @@ Add `chrome-devtools-mcp` as a dev dependency with the repo's package manager, s
 
 Every `chrome-devtools` command talks to one background daemon, and that daemon owns one browser. The CLI finds the daemon through a socket in `$XDG_RUNTIME_DIR/chrome-devtools-mcp/`, and `chrome-devtools start` restarts whichever daemon owns that socket. Set `XDG_RUNTIME_DIR` on every call to a directory derived from the checkout and created with mode 700. Socket paths are limited to about 100 bytes, so keep it short, for example `/tmp/verify-<app>-<first 8 hex characters of a hash of the checkout path>`.
 
-On native Windows the daemon is a named pipe for each user, so two checkouts share it. There, `doctor` reads `chrome-devtools status` and fails when the running daemon's `--user-data-dir` or `--browser-url` belongs to another checkout.
-
 ## Start it with the privacy flags
 
 By default the daemon sends usage statistics to Google, and its performance tools send trace URLs to Google's CrUX API. Any command sent to a stopped daemon starts one without flags. So `launch` always starts the daemon first:

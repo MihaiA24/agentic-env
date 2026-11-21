@@ -40,9 +40,9 @@
       "skills": {
         "benchmark-checklist": "d503ad5dc9cc45742428595d36cabd187e93bee9169a9b1c5b166fcdd9c6f7b0",
         "blast-radius": "a0add4213bb98378d4a5c04e4bdbfc8e539003e16fc2f8d24e36d18504aa84e2",
-        "correct": "dee7fcd28ed3f78de179eea011881e0b43432a14ca407b1080a178d51e4bce0e",
+        "correct": "5642651cf9facbde2ba106c06c171933b79499bcd02ba6be3772fa30e2a19b65",
         "create-formal-verification-skill": "0546aa382e68e6d7b7e6e3939a52b9bdbee9916df2cc3e09e26a8b679c58234c",
-        "create-verification-skill": "ce7077a1298f51cb96037f0060732e1993062d7232f91aa6f6ed14dd4c04fbb0",
+        "create-verification-skill": "bd07d684d7da745e37f7035ec9d75a0aae4ef5c0d2d5e4ee8c2fa0280782d3f9",
         "how": "1e9f7bbbc6cbe4f16fb44fce8f70c4d14aa2e52429fec0f3938cbf2d3314d264",
         "maintain-formal-verification-skill": "090135bbc50349eeff44e2cd8a4b1101b7d076776d9b6a2725fe971ed2a9a3e9",
         "maintain-verification-skill": "f709d39b9b9b61b210f2053f242ddafc3d945059f1c662479045c0fcfc5fb03e",
@@ -72,7 +72,8 @@
       "skills": {
         "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8",
         "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
-        "static-guardrails": "376f0c6ca824ec641ed1fd383c87103c83685240f423615ef322558b8b3970eb"
+        "delete-comments": "ae7df5b80b810e7b5c0d72f7577fbf4a5d7158f8757afa89aff1c0199160f8e8",
+        "static-guardrails": "2ab3b39a83159d5033049de3a88b2231cfe78406ba4cde8a9fba49b2ad6532cc"
       }
     }
   }

@@ -108,7 +108,8 @@
       "skills": [
         { "name": "apache-spark-static", "description": "Review Spark code and initial plans without runtime evidence; input volume may be unknown" },
         { "name": "apache-spark-runtime", "description": "Diagnose live or completed Spark jobs from execution evidence and verify targeted optimizations" },
-        { "name": "static-guardrails", "description": "Set up compiler, lint, boundary and dead-code guardrails with a ratchet, proven on a seeded violation" }
+        { "name": "static-guardrails", "description": "Set up compiler, lint, boundary and dead-code guardrails with a ratchet, proven on a seeded violation" },
+        { "name": "delete-comments", "description": "Sort comments, delete them or move them to ADRs and issues, then ban new ones with a ratchet" }
       ]
     }
   ],

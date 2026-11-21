@@ -20,11 +20,6 @@ These rules apply in every repository. A repository's own `AGENTS.md` wins where
 
 - Say "fixed", "working" or "done" after running the path the user will run. Otherwise name what is unverified.
 
-## Comments
-
-- Write no comments. Record a decision in an ADR and a hack you can't fix now in an issue you propose. The only comments allowed are tool directives with a reason, `shortcut:` markers and licence headers.
-- Keep an ADR to a few lines: the decision and its reason. Add a section only when a rejected option or a consequence would surprise a reader.
-
 ## Checks
 
 - When a check fails, fix the code. Propose, and never apply yourself, anything that weakens a check: a lint exception, a baseline or suppression entry, a disabled or skipped rule or test. Recording existing violations in the baseline of a new check, as part of a setup the user asked for, does not weaken it; list those entries in the reply.

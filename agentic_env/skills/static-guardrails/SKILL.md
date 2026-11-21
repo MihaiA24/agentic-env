@@ -1,6 +1,6 @@
 ---
 name: static-guardrails
-description: "Manual only: set up a repository's deterministic guardrails before agents write code there: compiler strictness, lint bans whose errors name the replacement and that no comment can disable, import boundaries, dead code and suppression rules, with existing violations fixed or listed in a baseline outside the code so only new occurrences fail, proven on a seeded violation, and run by one command locally and in CI. TypeScript and Python baselines included. Run when the user asks: /static-guardrails, \"set up lint and types for agents\", \"tighten the guardrails\". Never start this on your own."
+description: "Manual only: set up a repository's deterministic guardrails before agents write code there: compiler strictness, lint bans whose errors name the replacement and that no comment can disable, import boundaries, dead code and suppression rules, built from the tools the repo already runs, with existing violations fixed or listed in a baseline outside the code, proven on a seeded violation, and run by one command locally and in CI. Run when the user asks: /static-guardrails, \"set up lint and types for agents\", \"tighten the guardrails\". Never start this on your own."
 disable-model-invocation: true
 ---
 
@@ -12,12 +12,15 @@ Agents copy what the repo already does and take the shortest path that compiles.
 
 Invocation authorizes working-tree edits to compiler, lint and boundary configuration, rule files, suppression baselines and the check command. Each new dev dependency, each commit, each push of a CI change and each exception approval needs its own go-ahead from the user.
 
-Per-language baselines and exact configuration:
+Exact configuration depends on the repo's tools and their versions, so read the installed tool's docs or `--help` before writing any. Most tools honour an inline disable comment, so a ban needs a guard against it. Examples, to confirm against the installed version:
 
-- TypeScript and web: `references/web-typescript.md`
-- Python: `references/python.md`
+- ruff: run the ban codes a second time with `--ignore-noqa`. Never run `ruff check --add-noqa`.
+- ESLint: list every ban rule in `@eslint-community/eslint-comments/no-restricted-disable`.
+- Semgrep: run it with `--disable-nosem`.
+- ast-grep: an `ast-grep-ignore` comment cannot be turned off, so the check command fails on any: `if git grep --untracked -nE '(#|//|/\*) *ast-grep-ignore'; then exit 1; fi`.
+- Type checkers: prefer a setting that reports errors under ignore comments, such as pyrefly's `enabled-ignores = []`. Never run a command that writes ignore comments, such as `pyrefly suppress`.
 
-Read them as `skill://static-guardrails/references/<file>` in OMP, or through `skill_view` in Hermes. For any other language, or a pattern the reference's linter cannot express, write ast-grep or Semgrep rules whose `message` names the fix. Both honour suppression comments. Run Semgrep with `--disable-nosem`. ast-grep has no such flag, and an `ast-grep-ignore` comment hides its own line, the next line, or on line 1 the whole file, so the check command also fails on any of them: `if git grep --untracked -nE '(#|//|/\*) *ast-grep-ignore'; then exit 1; fi`.
+For a pattern the repo's linter cannot express, write an ast-grep or Semgrep rule whose `message` names the fix.
 
 ## 1. Inventory the deterministic layer
 
@@ -32,11 +35,11 @@ Read the repo's configuration and CI workflows. Run nothing that writes. Record,
 - **Local equals CI:** the command a developer runs, the command CI runs, and every difference between them.
 - **Repeated mistakes:** the patterns the agent instruction file, review comments and reverts warn about, and code comments that justify breaking a project rule, such as "a timer is fine here because…". Each such comment marks a missing rule or a missing replacement.
 
-This step is done when every item has a value or "none", each with its evidence.
+Then show the user the stack and tools you found, in a few lines, and ask whether any part is missing, such as a framework, service or CI step the repo doesn't declare. This step is done when every item has a value or "none", each with its evidence, and the user has answered.
 
 ## 2. Choose the rules
 
-Keep the tools the repo already runs. Express the language baseline's rules in those tools, and take a new tool from the reference only to fill a gap the inventory found. Then add a rule for each repeated mistake from step 1. For each rule, write down:
+Keep the tools the repo already runs. For each gap the inventory found, such as a missing strict mode, disable comments without a reason, or no boundary or dead-code check, propose the setting or tool that closes it. Then add a rule for each repeated mistake from step 1. For each rule, write down:
 
 - the pattern it bans and the directories it covers;
 - the error message, naming the function, hook, module or type to use instead;
@@ -52,15 +55,15 @@ For each framework in the inventory, look for checks in this order:
 
 Propose each check with its source link and occurrence count. A new plugin or tool is a dev dependency, so it waits for the user's approval.
 
-When two layers or processes share a directory, so the boundary between them shows in no path, propose moving each into its own top-level directory and then banning imports between them. Moving code is design work: report the proposal for the user's approval instead of moving anything.
+When two layers or processes share a directory, so the boundary between them shows in no path, propose separating them into directories a boundary rule can name, then banning imports between them. Moving code is design work: report the proposal for the user's approval instead of moving anything.
 
 This step is done when each proposed rule has all three entries, and the user has seen the list.
 
 ## 3. Add each rule with a ratchet
 
-A new rule fails only on occurrences a change adds. When a rule has few existing violations, fix them in the same change. When it has too many, record them in a baseline the tool keeps outside the code: ESLint bulk suppressions, a dependency-cruiser known-violations file, a pyrefly or basedpyright baseline, import-linter `ignore_imports`, or ruff `per-file-ignores`. Never write the baseline as suppression comments in the code, as `ruff check --add-noqa` does: agents copy those comments as the established pattern. A tool without a baseline gets the rule only on directories that are already clean; widen the list as each directory is cleaned.
+Existing violations must not block a new rule. When a rule has few, fix them in the same change. When it has too many, record them in a baseline the tool keeps outside the code, such as ESLint bulk suppressions, a dependency-cruiser known-violations file, a pyrefly or basedpyright baseline, import-linter `ignore_imports`, or ruff `per-file-ignores`. A baseline that lists whole files, as ruff's does, also lets those files take new violations: say so in the reply and clean those files first. Never write the baseline as suppression comments in the code: agents copy those comments as the established pattern. A tool without a baseline gets the rule only on directories that are already clean; widen the list as each directory is cleaned.
 
-No comment in the code can disable a ban. Block disable comments for every ban rule, as the references show. An exception to a ban goes in the lint configuration, scoped to its file, with its reason, and only after the user approves it. Other rules may keep a disable comment on the line, with its reason.
+No comment in the code can disable a ban. Block disable comments for every ban rule, as the examples above show. An exception to a ban goes in the lint configuration, scoped to its file, with its reason, and only after the user approves it. Other rules may keep a disable comment on the line, with its reason.
 
 Plan the cleanup of old occurrences as separate commits, one rule each, and say what each would change. Each cleanup commit also deletes the baseline entries it makes obsolete, because some tools, ruff among them, do not report an entry that no longer matches. Delete deprecated code and dead exports in those commits too, since agents copy whatever they find.
 
@@ -86,7 +89,7 @@ This step is done when each rule from step 3 has a row naming the check that enf
 
 ## Comments
 
-The agent rules file says to write no comments: a decision goes in an ADR, a hack in an issue. This skill enforces only what a tool checks without judgment: commented-out code where the linter has a rule for it, such as ruff `ERA001`, a reason on every disable comment, and no disable comment on a ban. A ban on comments needs each existing comment sorted first; `/delete-comments` sorts them and adds the ban.
+This skill enforces only what a tool checks without judgment: commented-out code where the linter has a rule for it, such as ruff `ERA001`, a reason on every disable comment, and no disable comment on a ban.
 
 ## Reply
 

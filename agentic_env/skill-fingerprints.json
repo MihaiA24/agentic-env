@@ -41,16 +41,13 @@
         "benchmark-checklist": "d503ad5dc9cc45742428595d36cabd187e93bee9169a9b1c5b166fcdd9c6f7b0",
         "blast-radius": "a0add4213bb98378d4a5c04e4bdbfc8e539003e16fc2f8d24e36d18504aa84e2",
         "correct": "5642651cf9facbde2ba106c06c171933b79499bcd02ba6be3772fa30e2a19b65",
-        "create-formal-verification-skill": "0546aa382e68e6d7b7e6e3939a52b9bdbee9916df2cc3e09e26a8b679c58234c",
-        "create-verification-skill": "bd07d684d7da745e37f7035ec9d75a0aae4ef5c0d2d5e4ee8c2fa0280782d3f9",
+        "create-verification-skill": "a67250ba2f61a7aa7305c3ec6b19816203891d27919538c3e1ff22ac8462085f",
         "how": "1e9f7bbbc6cbe4f16fb44fce8f70c4d14aa2e52429fec0f3938cbf2d3314d264",
-        "maintain-formal-verification-skill": "090135bbc50349eeff44e2cd8a4b1101b7d076776d9b6a2725fe971ed2a9a3e9",
         "maintain-verification-skill": "f709d39b9b9b61b210f2053f242ddafc3d945059f1c662479045c0fcfc5fb03e",
         "recall": "86e9ac4c0fd330b59f83c91bfb7547c29c8228c750b421d594f5a29ab8342c7f",
         "review-loop": "599544ddf48206242d5e0188e50dd1e73a77c7b3a90e491b7f7f0b1f9e5b5b9a",
         "sharpen": "4eb226ea5a4a7d2dc16cf04e78d0e94df90a916a651cdc264c779d72036d966f",
         "show-me-your-work": "99a96d83e7b7af062c9f6b6cb264d314152a35e98711f9ee7dba98ddae0e6295",
-        "statechart": "7cb99b0e8110055a0ce0de319757a260a131a7df81d783a38ed961298f2a507a",
         "teach": "b093a24704a48aca97943632c3d556f745bbd0c55cfd4ccde240508ee6e73f0b",
         "technical-writing": "7fa8d71648ab74c7f17ac731206beaf301003a700866cdc9671c3fa17fe2d1f4",
         "unslop": "d3d239b05422c8dece51156528cd44aaf4e8a8f77dc959d11b9911894ba8436b",
@@ -72,8 +69,7 @@
       "skills": {
         "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8",
         "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
-        "delete-comments": "ae7df5b80b810e7b5c0d72f7577fbf4a5d7158f8757afa89aff1c0199160f8e8",
-        "static-guardrails": "2ab3b39a83159d5033049de3a88b2231cfe78406ba4cde8a9fba49b2ad6532cc"
+        "static-guardrails": "00008ce3a05b437e90ab5ddb1a6a611a60313c2a612a51486f411ddd0f1a1c26"
       }
     }
   }

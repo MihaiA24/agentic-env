@@ -7,7 +7,7 @@ Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skil
 The **Starts** column says who starts a skill:
 
 - **Agent**: model-invocable; the agent picks it on its trigger.
-- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). The agent does not start one on its own. With the [agent rules](../README.md#agent-rules) installed, it offers `/review-loop` and `/wizard` at their moments and you decide.
+- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). The agent does not start one on its own. With the [agent rules](../README.md#agent-rules) installed, it offers `/review-loop`, `/wizard` and `/correct` at their moments and you decide.
 
 ## Start without a skill
 
@@ -17,7 +17,7 @@ The **Starts** column says who starts a skill:
 | A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
 | Proof that a change works | The project verifier, on the affected paths |
 
-The [agent rules](../README.md#agent-rules), installed by `agentic-bootstrap`, put these defaults in every session, with the skill to use at three recurring moments: a merge-readiness question, a fix made after a review, and a repeated error.
+The [agent rules](../README.md#agent-rules), installed by `agentic-bootstrap`, put these defaults in every session, with the skill to use at recurring moments: a merge-readiness question, a fix made after a review, a repeated error, and a mistake you correct a second time.
 
 ## During implementation
 
@@ -72,8 +72,8 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 
 | Skill | From | Starts | Use it for |
 |---|---|---|---|
-| `create-verification-skill` | pstack | You | Once per repository: verifier, CLI and feature map |
-| `maintain-verification-skill` | pstack | You | The verifier no longer matches the app: re-check every mapped feature |
+| `create-verification-skill` | pstack | You | Once per repository: verifier, driver CLI, smoke test and feature map |
+| `maintain-verification-skill` | pstack | You | The verifier no longer matches the app: rerun the smoke test and re-check every mapped feature |
 | `writing-for-agents` | Matt | Agent | Editing skills, `AGENTS.md` or `CLAUDE.md` |
 | `wizard` | Matt | You | Script a manual step only you can do, such as credentials or infrastructure |
 | `retro` | Matt | You | After a costly session: report problems in the environment; changes nothing |
@@ -183,6 +183,10 @@ For an ordinary change, verify the affected paths. Do not run full maintenance f
 
 Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier sharp](poteto-workflow.md#6-keep-the-verifier-sharp) for the prompt.
 
+## Add static guardrails once
+
+Before agents write much code, turn on the compiler's strict mode and the repository's linter as errors, with one command that runs locally and in CI. Then run `/correct` for each misuse you have already corrected agents on, naming the replacement; a ban takes no disable comment. [Add static guardrails](poteto-workflow.md#add-static-guardrails) has both prompts.
+
 ## Vet performance numbers before you use them
 
 Run `/benchmark-checklist` before a speedup, regression, or library choice goes into a report, PR, or decision. It names what limits the number, checks errors and that the work really ran, and alternates at least five runs per side. A single ballpark run is allowed when you ask for one, and the report says so.
@@ -192,8 +196,8 @@ Run `/benchmark-checklist` before a speedup, regression, or library choice goes 
 Pick by what should change:
 
 - `/retro` reports environment candidates, ranked by severity: navigation pointers, missing or unwired checks, standards rules, expensive tool calls, no-op instructions, missing information. It changes nothing.
-- `/correct` takes a mistake class seen at least twice and makes it impossible, preferring architecture, then types, then a lint whose error names the fix, then a test, and docs last. It proves each guard fails on a real past mistake. It prepares one commit-sized change per class; you approve each commit.
+- `/correct` takes a mistake class seen at least twice, or one you just corrected, and makes it impossible, preferring architecture, then types, then a lint whose error names the fix, then a test, and docs last. It proves each guard fails on a real past mistake. It prepares one commit-sized change per class; you approve each commit.
 
 ## Methods this stack does not include
 
-This stack excludes `/poteto-mode`, `/architect`, and `/swarm`. For planning, use the routes above rather than the articles' `/poteto-mode`. Local subagents do not replace `swarm` coverage.
+This stack excludes `/poteto-mode`, `/architect`, `/swarm` and `/no-comments`. For planning, use the routes above rather than the articles' `/poteto-mode`. Local subagents do not replace `swarm` coverage. `/no-comments` needs Cursor-only agents; `/correct` blocks disable comments on bans.

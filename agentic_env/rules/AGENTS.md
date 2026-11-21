@@ -20,6 +20,14 @@ These rules apply in every repository. A repository's own `AGENTS.md` wins where
 
 - Say "fixed", "working" or "done" after running the path the user will run. Otherwise name what is unverified.
 
+## Checks
+
+- When a check fails, fix the code. Propose, and never apply yourself, anything that weakens a check: a lint exception, a baseline or suppression entry, a disabled or skipped rule or test. Recording existing violations in the baseline of a new check, as part of a setup the user asked for, does not weaken it; list those entries in the reply.
+
+## Corrections
+
+- A correction applies to the current task. Write it into `AGENTS.md`, a skill or memory as a rule only when the user asks.
+
 ## Skills at recurring moments
 
 Use each skill when it is installed; otherwise do the step by hand.
@@ -31,3 +39,4 @@ Use each skill when it is installed; otherwise do the step by hand.
 - The deliverable is a document (guide, README, RFC, ADR, report) → `technical-writing`.
 - A library-or-custom decision, or a fact about an external API → `research` before recommending.
 - A manual procedure with three or more credential or dashboard steps → offer `/wizard`.
+- The user corrects a mistake they already corrected in this repository → fix it, then offer `/correct` so a check catches it next time.

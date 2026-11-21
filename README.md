@@ -71,7 +71,7 @@ The skills picker lists one row per skill under its pack heading, plus an `All o
 
 #### Agent rules
 
-[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, and say "done" only after running the path. It also names the skill for three recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, and `diagnosing-bugs` when the same error comes back. It is standard on every host: `agentic-bootstrap` installs it. To install or refresh it alone:
+[`agentic_env/rules/AGENTS.md`](agentic_env/rules/AGENTS.md) is a short rules file that applies in every repository. It holds what we kept typing by hand: answer a question before building anything, give options and wait when the choice is the user's, run only the outward steps (commit, push, merge) that the current message names, say "done" only after running the path, propose and never apply anything that weakens a check, and record a correction as a rule only when asked. It also names the skill for four recurring moments: `code-review` before answering "ready to merge?", a second review after fixing review findings, `diagnosing-bugs` when the same error comes back, and an offer of `/correct` when you correct a mistake a second time. It is standard on every host: `agentic-bootstrap` installs it. To install or refresh it alone:
 
 ```bash
 agentic-install-skills-mcps --agent-rules --yes
@@ -179,7 +179,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **38 locally packaged skills** (36 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 
@@ -189,7 +189,7 @@ The copier only copies files. It does not convert Bash assets or OMP/Hermes-spec
 
 This procedure covers both custom-directory routes, not the managed-agent refresh below.
 
-1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. A default Python-only copy leaves out the six remote-only skills by design; an explicitly requested unavailable skill fails before copying.
+1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. A default Python-only copy leaves out the five remote-only skills by design; an explicitly requested unavailable skill fails before copying.
 2. **Check harness discovery separately.** Confirm the destination is the harness's documented skills folder, then load one selected skill by name without executing its recipe. Copying files proves neither discovery nor workflow compatibility. Doctor and `agentic-skill-drift` inspect the managed stack, not an arbitrary destination.
 3. **Refresh into a new directory.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Rerun the same route with a new destination. Compare whole package directories, and preserve local edits and back up the existing selected packages before you replace them. Reinstalling `agentic-env` and `agentic-bootstrap` do not refresh standalone copies.
 4. **Handle errors without overwriting.** Both routes refuse existing skill names, including dangling symlinks, before copying any package, and leave unrelated files alone. Choose a fresh destination instead of deleting local work. A filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry into a new one.

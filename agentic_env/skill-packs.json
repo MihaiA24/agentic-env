@@ -99,13 +99,12 @@
     {
       "name": "agentic-env",
       "source": "./skills",
-      "note": "first-party skills; opt-in while reviewed independently of default profiles",
+      "note": "first-party domain skills; opt-in while reviewed independently of default profiles",
       "label": "agentic-env skills",
       "aliases": ["agentic-env"],
       "skills": [
         { "name": "apache-spark-static", "description": "Review Spark code and initial plans without runtime evidence; input volume may be unknown" },
-        { "name": "apache-spark-runtime", "description": "Diagnose live or completed Spark jobs from execution evidence and verify targeted optimizations" },
-        { "name": "static-guardrails", "description": "Set up compiler, lint, boundary and dead-code guardrails from the repo's own tools, proven on a seeded violation" }
+        { "name": "apache-spark-runtime", "description": "Diagnose live or completed Spark jobs from execution evidence and verify targeted optimizations" }
       ]
     }
   ],

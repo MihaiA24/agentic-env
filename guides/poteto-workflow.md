@@ -63,8 +63,8 @@ The talk reports the results on her team's agent app: 11,000 pull requests shipp
 | Multi-phase plan playbook | `/to-spec` or `/to-tickets` |
 | Dr Eggbot, routines and automations | Not included; schedule runs yourself (step 6) |
 | Gardening by hand | `/correct` turns a mistake made twice into a lint, type or check |
-| Lint bans and a dependency graph analyzer | `/static-guardrails` sets up the bans and import boundaries with the repository's own tools. It fixes existing violations or lists them in a baseline outside the code, so they don't block the new rules (step 1). It is opt-in. |
-| A ban on about 99% of comments | Not adopted. `/static-guardrails` blocks disable comments on bans and turns comments that justify breaking a rule into rule candidates. pstack's `/no-comments` needs Cursor-only agents. |
+| Lint bans and a dependency graph analyzer | `/correct` adds each ban and import boundary with the repository's own tools. Name the patterns you already know agents misuse (step 1); later it turns each mistake made twice into a check (step 6). |
+| A ban on about 99% of comments | Not adopted. `/correct` blocks disable comments on bans and proves the block, and it reads comments that justify a workaround as evidence of a mistake class. pstack's `/no-comments` needs Cursor-only agents. |
 
 ## Apply it to a repository
 
@@ -103,20 +103,24 @@ API, and document the launch command and prerequisites.
 
 Lint rules, types and import boundaries fail a bad change on every run, before you or the verifier look at it. Set them up before agents write much code in the repository. The verifier in step 2 then covers what they cannot express.
 
-`/static-guardrails` inventories the compiler, lint, boundary and dead-code setup and the frameworks the repository uses, shows you what it found and asks what is missing. It adds each rule as an error and fixes today's violations, or lists them in a baseline the tool keeps outside the code, so they don't block the rule. Each error names the code to use instead, and no comment in the code can disable a ban. It proves every rule on a seeded violation, then makes one command run the checks locally and in CI. The skill is not in the `default` profile, so install it once per host from your agentic-env checkout:
-
-```bash
-uv run agentic-install-skills-mcps --skill-pack agentic-env --skill static-guardrails --yes
-```
-
-Then, in the project:
+First turn on what the stack already ships, with a prompt:
 
 ```text
-/static-guardrails for this repository. Ban [patterns agents misuse
-here], each with the replacement to use instead.
+Turn on [compiler]'s strict mode and [linter] for this repository, as
+errors. Fix the violations if there are few; otherwise fail only on new
+ones. Make one command run every check, and point CI at it. Ask before
+adding a dev dependency. Show me each check failing on a scratch
+violation, then passing after the revert.
 ```
 
-Without a list, it proposes rules from the repository's reverts, review comments, agent instruction file, and comments that justify breaking a rule. It asks before it adds a dev dependency, asks what to do when a rule has no replacement yet, and prepares each commit for your approval.
+Then run `/correct` for each pattern you already know agents misuse here. It is in the `default` profile.
+
+```text
+/correct Agents misuse [pattern] here; use [replacement] instead. Ban
+it in [directories].
+```
+
+`/correct` fixes the class at the highest level that works, from architecture down to a lint whose error names the replacement. No disable comment can turn a ban off; an exception goes in the lint configuration, and only after you approve it.
 
 ### 2. Create the verifier and its CLI
 

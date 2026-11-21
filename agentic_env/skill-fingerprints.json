@@ -40,7 +40,7 @@
       "skills": {
         "benchmark-checklist": "d503ad5dc9cc45742428595d36cabd187e93bee9169a9b1c5b166fcdd9c6f7b0",
         "blast-radius": "a0add4213bb98378d4a5c04e4bdbfc8e539003e16fc2f8d24e36d18504aa84e2",
-        "correct": "5642651cf9facbde2ba106c06c171933b79499bcd02ba6be3772fa30e2a19b65",
+        "correct": "4416a04be13ac307635a61e61753cc8ce337a765583a2def661176c293aa1aea",
         "create-verification-skill": "a67250ba2f61a7aa7305c3ec6b19816203891d27919538c3e1ff22ac8462085f",
         "how": "1e9f7bbbc6cbe4f16fb44fce8f70c4d14aa2e52429fec0f3938cbf2d3314d264",
         "maintain-verification-skill": "f709d39b9b9b61b210f2053f242ddafc3d945059f1c662479045c0fcfc5fb03e",
@@ -68,8 +68,7 @@
       "upstream": null,
       "skills": {
         "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8",
-        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
-        "static-guardrails": "00008ce3a05b437e90ab5ddb1a6a611a60313c2a612a51486f411ddd0f1a1c26"
+        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3"
       }
     }
   }

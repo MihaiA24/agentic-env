@@ -32,11 +32,11 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 ## Feature entry contract
 
-Each feature file starts with an H1 title and one paragraph describing the user-visible behavior. It then uses exactly four H2 sections in this order.
+Each feature file starts with an H1 title and one paragraph describing the user-visible behavior. It then uses exactly four H2 sections in this order, with these English headings whatever language the rest of the map uses.
 
-1. `Sub-features` lists short IDs with one line for each behavior.
+1. `Sub-features` lists short IDs with one line for each behavior, covering every variant the user docs promise for the feature (each documented shortcut, option, mode or command form). The recipe drives each one; a variant it leaves out is named in `Not yet mapped`.
 2. `How to get to it (user POV)` lists every user entry point.
-3. `Driving it with <harness>` starts with `Preconditions:` and uses labeled bullets that pair each user action with an exact command and observable result.
+3. `Driving it with <harness>` starts with `Preconditions:` and uses labeled bullets that pair each user action with an exact command and observable result. Each command targets exactly one element or endpoint, so it runs as written.
 4. `Gotchas` lists traps that can waste or invalidate a verification run.
 
 Keep implementation details out of the map. Name only user paths, stable handles, required state, commands, and observable proof.
@@ -47,3 +47,10 @@ Each entry gives, in quotes, the words users call the feature, so a request in t
 
 - [Create a note](./create-note.md) ("new note", "add a note") covers browser and CLI creation, cancellation, persistence, and cleanup.
 - [Search notes](./search.md) ("find", "the search box", "slash search") covers toolbar, keyboard, and CLI search with matching, empty, and clear states.
+
+## Not yet mapped
+
+- Settings has no recipe yet. Map it before verifying a change there.
+- Export as PDF, as Markdown and as HTML: no recipe drives them.
+- Search by tag (the documented `tag:` query prefix) is not driven by `search.md`.
+- Share by email needs an SMTP server this machine lacks. To recreate it: the Mailpit container image (`axllent/mailpit`), which receives the mail on a local port and shows it over HTTP. Not installed; the user decides.

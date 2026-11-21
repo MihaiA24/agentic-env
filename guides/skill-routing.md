@@ -1,13 +1,13 @@
 # Choose a skill for the job
 
-Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 14 in the pstack pack (13 pstack skills and the local `review-loop`), three from ponytail, two from caveman, and the two opt-in Spark skills. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
+Use a skill only when the task needs one; otherwise do the work. This guide follows [Decisions §6](../DECISIONS_AI_TOOLING.md#6-skills) and lists every curated skill, grouped by when you use it: 19 from Matt Pocock, 17 in the pstack pack (16 pstack skills and the local `review-loop`), three from ponytail, two from caveman, and three opt-in first-party skills: two for Spark and `static-guardrails`. [`agentic_env/skill-packs.json`](../agentic_env/skill-packs.json) defines the packs. For host setup and a project verifier, use [the pstack workflow](poteto-workflow.md); the implementation, prototype and maintenance routes below use that verifier.
 
 Invoke a skill in your prompt with your harness's syntax, listed in [Invoke skills in your harness](poteto-workflow.md#invoke-skills-in-your-harness). Invoking a recipe authorizes its named dependencies; Claude Code still loads a manual dependency only when your message names it. Reading a skill to check discovery does not invoke it.
 
 The **Starts** column says who starts a skill:
 
 - **Agent**: model-invocable; the agent picks it on its trigger.
-- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). The agent does not start one on its own. With the [agent rules](../README.md#agent-rules) installed, it offers `/review-loop` and `/wizard` at their moments and you decide.
+- **You**: manual-only (`disable-model-invocation: true`); name it in the prompt, or invoke a skill that names it (in Claude Code, name it in the same message too). The agent does not start one on its own. With the [agent rules](../README.md#agent-rules) installed, it offers `/review-loop`, `/wizard` and `/correct` at their moments and you decide.
 
 ## Start without a skill
 
@@ -17,7 +17,7 @@ The **Starts** column says who starts a skill:
 | A report you cannot restate yet | Have the agent [restate it](poteto-workflow.md#7-resolve-unclear-problems-and-designs) before any fix |
 | Proof that a change works | The project verifier, on the affected paths |
 
-The [agent rules](../README.md#agent-rules), installed by `agentic-bootstrap`, put these defaults in every session, with the skill to use at three recurring moments: a merge-readiness question, a fix made after a review, and a repeated error.
+The [agent rules](../README.md#agent-rules), installed by `agentic-bootstrap`, put these defaults in every session, with the skill to use at recurring moments: a merge-readiness question, a fix made after a review, a repeated error, and a mistake you correct a second time.
 
 ## During implementation
 
@@ -72,8 +72,12 @@ To ground a grilling session in facts, run `/how` and a scoped `/why` first, the
 
 | Skill | From | Starts | Use it for |
 |---|---|---|---|
-| `create-verification-skill` | pstack | You | Once per repository: verifier, CLI and feature map |
-| `maintain-verification-skill` | pstack | You | The verifier no longer matches the app: re-check every mapped feature |
+| `create-verification-skill` | pstack | You | Once per repository: verifier, driver CLI, smoke test and feature map |
+| `maintain-verification-skill` | pstack | You | The verifier no longer matches the app: rerun the smoke test and re-check every mapped feature |
+| `create-formal-verification-skill` | pstack | You | A promise that must hold however events interleave: a project skill that checks it formally on each change |
+| `maintain-formal-verification-skill` | pstack | You | Verified code changed: bring the model back in line with the code and rerun it |
+| `statechart` | pstack | You | Check a TLA+ model with TLC: a chart of the flow, or the path that breaks a rule. A formal verification skill usually loads it |
+| `static-guardrails` | This repository (opt-in) | You | Once per repository, before agents write much code: compiler, lint, import boundaries and dead code, with a baseline so only new violations fail |
 | `writing-for-agents` | Matt | Agent | Editing skills, `AGENTS.md` or `CLAUDE.md` |
 | `wizard` | Matt | You | Script a manual step only you can do, such as credentials or infrastructure |
 | `retro` | Matt | You | After a costly session: report problems in the environment; changes nothing |
@@ -183,6 +187,14 @@ For an ordinary change, verify the affected paths. Do not run full maintenance f
 
 Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier sharp](poteto-workflow.md#6-keep-the-verifier-sharp) for the prompt.
 
+## Prove promises that must hold on every ordering
+
+Run `/create-formal-verification-skill` once for code whose promise must hold however events interleave, such as a retry that must never charge twice. It writes a project skill that checks the promise on each change, and TLA+ results go through `/statechart`. Run `/maintain-formal-verification-skill` after changes to the verified code. See [Check rules on every ordering](poteto-workflow.md#check-rules-on-every-ordering) for the prompt and the Java prerequisite.
+
+## Add static guardrails once
+
+`/static-guardrails` sets up compiler strictness, lint bans whose errors name the fix, import boundaries and dead-code checks. Each rule starts with a baseline of existing violations, so only new ones fail. Run it once, before agents write much code. Later, `/correct` handles a mistake made twice. The skill is opt-in. [Add static guardrails](poteto-workflow.md#add-static-guardrails) has the install command and the prompt.
+
 ## Vet performance numbers before you use them
 
 Run `/benchmark-checklist` before a speedup, regression, or library choice goes into a report, PR, or decision. It names what limits the number, checks errors and that the work really ran, and alternates at least five runs per side. A single ballpark run is allowed when you ask for one, and the report says so.
@@ -196,4 +208,4 @@ Pick by what should change:
 
 ## Methods this stack does not include
 
-This stack excludes `/poteto-mode`, `/architect`, and `/swarm`. For planning, use the routes above rather than the articles' `/poteto-mode`. Local subagents do not replace `swarm` coverage.
+This stack excludes `/poteto-mode`, `/architect`, `/swarm` and `/no-comments`. For planning, use the routes above rather than the articles' `/poteto-mode`. Local subagents do not replace `swarm` coverage. For a comment ban, use `/static-guardrails`.

@@ -31,3 +31,4 @@ Use each skill when it is installed; otherwise do the step by hand.
 - The deliverable is a document (guide, README, RFC, ADR, report) → `technical-writing`.
 - A library-or-custom decision, or a fact about an external API → `research` before recommending.
 - A manual procedure with three or more credential or dashboard steps → offer `/wizard`.
+- The user corrects a mistake they already corrected in this repository → fix it, then offer `/correct` so a check catches it next time.

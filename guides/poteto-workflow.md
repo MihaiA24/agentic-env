@@ -1,11 +1,12 @@
 # pstack workflow: verify first, then design with evidence
 
-Lauren Tan (@poteto) explains how she works with pstack in two articles:
+Lauren Tan (@poteto) explains how she works with pstack in two articles and a talk:
 
 - [Part 1: Verification is all you need](https://x.com/poteto/status/2094457600259842065) ([local copy](../poteto/pstack-part-1.md))
 - [Part 2: The art of supervising someone smarter than you](https://x.com/poteto/article/2097732320606507506) ([local copy](../poteto/pstack-part-2.md))
+- [All Code Is Slop (Except Mine)](https://www.youtube.com/watch?v=O_zcc6Xl12g), a talk ([local transcript](../poteto/pstack-talk.md))
 
-[What the articles say](#what-the-articles-say) summarises each idea and links the step that applies it. [Apply it to a repository](#apply-it-to-a-repository) sets up one repository with this stack's skills. Her example verifier for a fictional app is [poteto/verification-skill-example](https://github.com/poteto/verification-skill-example). Steps 2, 5 and 6 adopt its checkout isolation, proof rules, cross-feature journeys and map layout. It has no licence and omits its driver script, so this repository links to it instead of copying it.
+[What the articles say](#what-the-articles-say) and [what the talk adds](#what-the-talk-adds) summarise each idea and link the step that applies it. [Apply it to a repository](#apply-it-to-a-repository) sets up one repository with this stack's skills. Her example verifier for a fictional app is [poteto/verification-skill-example](https://github.com/poteto/verification-skill-example). Steps 2, 5 and 6 adopt its checkout isolation, proof rules, cross-feature journeys and map layout. It has no licence and omits its driver script, so this repository links to it instead of copying it.
 
 ## What the articles say
 
@@ -31,9 +32,27 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles:
 - **Architect bigger changes.** Ground the problem, sketch competing interfaces as types and call sites, judge them, and implement against the chosen sketch. Scrap it when call sites repeat the same workaround or the types need escape hatches such as `any` or forced casts. → [Step 7](#7-resolve-unclear-problems-and-designs)
 - **Plan documents come last and stay short-lived.** Write an execution plan only after the design settles. Every task carries its own proof, because passing tests alone do not prove the code works. Keep each PR small, and delete the plan when the work lands. → [Step 7](#7-resolve-unclear-problems-and-designs)
 
-### What this stack uses instead
+## What the talk adds
 
-| In the articles | In this stack |
+The talk reports the results on her team's agent app: 11,000 pull requests shipped last month, about 227 contributors in October, a stable release about once a day, and a revert rate steady at about 0.5%. She credits a pyramid of guardrails, from most to least deterministic:
+
+1. The code itself: API design, architecture, refactoring.
+2. Lint rules, type systems, compilers and tests.
+3. Runtime and formal verification.
+4. Prose for what needs judgment: rules, skills and `AGENTS.md`.
+
+- **Correct with code, not prose.** Each time you correct an agent, turn the correction into a deterministic check, or remove the problem with better API design. Agents copy workarounds, anti-patterns and deprecated code, because those look like the established pattern. → [Step 1](#add-static-guardrails) and [step 6](#6-keep-the-verifier-sharp)
+- **Ban what needs nuance.** Her team bans `useEffect` in product code and allows it only inside its framework's APIs. Electron main-process and renderer code live in two top-level directories, and a dependency graph analyzer and lint rules forbid imports between them. Each ban is one less thing to catch in review. → [Step 1](#add-static-guardrails)
+- **Replace comments with lint errors.** Agents wrote comments to justify quick fixes such as imperative timers, and the timers spread. The team now bans about 99% of comments, and lint errors tell the agent to fix the root cause. → [Step 1](#add-static-guardrails)
+- **Block, then clean up.** "Start with a lint rule to prevent new occurrences of anti-patterns and then clean up those old patterns as well." → [Step 6](#6-keep-the-verifier-sharp)
+- **Review the artifacts.** Code review has shrunk to verification artifacts: videos, screenshots, diagrams and formal verification. Most of her tokens go to verification. The feature map gives you and the agent shared words, so "the thingy in the left sidebar" means one feature. → [Steps 2](#2-create-the-verifier-and-its-cli) and [5](#5-build-with-the-verifier)
+- **Verify flows formally.** TLA+ model-checks user flows such as notifications across devices, and Lean proves an algorithm in a virtualization library. `/statechart` draws a flow as a state machine from the user's point of view, which she reviews next to videos and screenshots. Formal verification has already found bugs, and she treats it as one more layer, not a guarantee. → [Step 3](#check-rules-on-every-ordering)
+- **Test UI properties.** [Bombadil](https://github.com/antithesishq/bombadil) runs property-based tests on UIs and has caught UI bugs for her team. → [Step 3](#check-rules-on-every-ordering)
+- **Foundations before factories.** Automating a loop that produces slop produces more slop. On each release her team runs an agent that fuzzes the app like a user and opens fix pull requests that merge automatically. That works because the codebase makes most pull requests good by default. This stack does not include that loop, because merges here need your approval.
+
+## What this stack uses instead
+
+| In the articles and talk | In this stack |
 |---|---|
 | `/poteto-mode` and its playbooks | Name the skill in your prompt; [skill routing](skill-routing.md) helps you pick it |
 | `/control-app` | The `/verify-<app>` skill you generate in step 2. Keep it model-invocable so agents load it through the step 4 `AGENTS.md` rule; her example verifier is manual-only. |
@@ -44,6 +63,8 @@ Lauren Tan (@poteto) explains how she works with pstack in two articles:
 | Multi-phase plan playbook | `/to-spec` or `/to-tickets` |
 | Dr Eggbot, routines and automations | Not included; schedule runs yourself (step 6) |
 | Gardening by hand | `/correct` turns a mistake made twice into a lint, type or check |
+| Lint bans and a dependency graph analyzer | `/static-guardrails` sets up the bans and import boundaries, with a baseline so only new violations fail (step 1). It is opt-in. |
+| A ban on about 99% of comments | An opt-in comment ban inside `/static-guardrails`, or `/correct` for a comment mistake made twice. pstack's `/no-comments` needs Cursor-only agents. |
 
 ## Apply it to a repository
 
@@ -68,7 +89,7 @@ pstack skills are manual-only, except `/technical-writing`, which the agent also
 
 ### 1. Get one user path running
 
-The verifier needs a working app to drive. For an existing app, go to step 2: the generator fixes or reports a broken startup before it writes anything.
+The verifier needs a working app to drive. For an existing app, go to [Add static guardrails](#add-static-guardrails). The step 2 generator fixes or reports a broken startup before it writes anything.
 
 For an empty repository, pick a stack you can control well (see Part 1) and one useful outcome, then build the smallest working path:
 
@@ -78,27 +99,34 @@ with disposable data, prove the outcome through the real UI or public
 API, and document the launch command and prerequisites.
 ```
 
-### 2. Create the verifier and its CLI
+#### Add static guardrails
 
-`/create-verification-skill` reads the repository and writes `.agents/skills/verify-<app>/SKILL.md` with launch, doctor, drive, evidence, cleanup and helper sections. It seeds a feature map of three to five features and proves one of them end to end. It does not require a CLI, so ask for one.
+Lint rules, types and import boundaries fail a bad change on every run, before you or the verifier look at it. Set them up before agents write much code in the repository. The verifier in step 2 then covers what they cannot express.
 
-The goal is deterministic commands, kept in the repository, that agents run instead of working out the steps each time. That saves time, context and tokens. Start with the drive commands (doctor, launch, the actions the app needs, logs, cleanup). With them and the feature map, agents can already explore the app and prove their changes. Checks come in step 3.
+`/static-guardrails` inventories the compiler, lint, boundary and dead-code setup. It adds each rule with a baseline of today's violations, so only new ones fail, and each error names the code to use instead. It proves every rule on a seeded violation, then makes one command run the checks locally and in CI. It ships TypeScript and Python setups. The skill is not in the `default` profile, so install it once per host from your agentic-env checkout:
+
+```bash
+uv run agentic-install-skills-mcps --skill-pack agentic-env --skill static-guardrails --yes
+```
+
+Then, in the project:
 
 ```text
-/create-verification-skill for this repository. Also build a small CLI
-in the verifier directory, so agents run commands instead of writing
-scripts: doctor, launch, the drive commands this app needs, logs and
-cleanup. Derive ports, profile and data directory from the checkout,
-refuse to attach to an instance another checkout started, and make
-doctor report who owns the port and whether the build is current. In
-the skill's evidence rules, require proof of every entry point, mode
-and enabled flag variant a change can affect, through its success,
-cancel, error, empty and persistence paths. A build that doctor
-reports stale is not evidence. Wait for observable end states, not
-fixed sleeps, and use eval only to read state after the user path ran.
-Reuse the repository's own runner and tests. Use subcommands, rich
---help, errors that say what to do instead, and --dry-run on
-destructive commands. Show me the evidence for the feature you prove.
+/static-guardrails for this repository. Ban [patterns agents misuse
+here], each with the replacement to use instead.
+```
+
+Without a list, it proposes rules from the repository's reverts, review comments and agent instruction file. It asks before it adds a dev dependency, and it prepares each commit for your approval. Add the comment ban only if you want it: ask for it in the same prompt.
+
+### 2. Create the verifier and its CLI
+
+`/create-verification-skill` reads the repository and writes `.agents/skills/verify-<app>/`. That holds a `SKILL.md` with CLI, launch, doctor, drive, debug, evidence and cleanup sections, the driver CLI itself, a smoke test and a feature map of three to five features. It proves one feature end to end, then runs the smoke test with the repository's own runner.
+
+The CLI matters most. It holds deterministic commands, kept in the repository, that agents run instead of working out the steps each time. That saves time, context and tokens. Its ports, profile and data directory come from the checkout, and its doctor reports who owns the port and whether the build is current. A web or Electron verifier wraps the `chrome-devtools` CLI, so the host needs Node, plus Chrome for a web app. With the CLI and the feature map, agents can already explore the app and prove their changes. Checks come in step 3.
+
+```text
+/create-verification-skill for this repository. Show me the evidence
+for the feature you prove.
 ```
 
 If the app has no usable control at all, ask for a dev-only sidecar or a debugger bridge first. Spend time here: every later step depends on this CLI.
@@ -132,6 +160,21 @@ working around it.
 
 Read the evidence and every expected result yourself. When they are right, commit them: they are now the approved behavior. Otherwise, send the report back to the session that wrote the checks, fix the verifier, and run this step again.
 
+#### Check rules on every ordering
+
+A check covers the cases someone wrote. Some promises must hold however events interleave, such as "a notification shows once across devices" or "a retry never charges twice", and scripted runs rarely reach the order that breaks them. For code like that, run:
+
+```text
+/create-formal-verification-skill for [area or bug]. The promise:
+[what must always or never happen].
+```
+
+It picks the tool that fits, usually a TLA+ model of the design. It shows the promise failing on a broken variant of the code, then writes a project skill under `.agents/skills/` that the next agent reruns on each change to that area. A TLA+ result goes through `/statechart`, which runs the TLC model checker and describes the shortest path to each broken rule in plain words. When every rule holds, it draws a chart of how the flow moves between states. Review the chart and the path as you review a video. When the covered code changes, `/maintain-formal-verification-skill` brings the model back in line.
+
+`/statechart` needs Java 11 or later. On a host without mise, download [`tla2tools.jar` 1.7.4](https://github.com/tlaplus/tlaplus/releases/tag/v1.7.4) and set `TLA2TOOLS` to its path.
+
+For a web or terminal UI, [Bombadil](https://github.com/antithesishq/bombadil) (MIT) explores user actions on its own and checks properties you state, such as "the cart total matches its items". This stack does not install it. Wrap it in a check like any other.
+
 ### 4. Point every agent at the verifier
 
 Add this to the repository's `AGENTS.md`, which OMP, Codex, Hermes and Claude Code read. Claude Code reads it in every session from v2.1.281 (the stack's floor is newer), but only when no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` exists in the working directory or above it. If one does, import `AGENTS.md` from it: `@AGENTS.md` in a root file, `@../AGENTS.md` in `.claude/CLAUDE.md`.
@@ -159,7 +202,7 @@ Each prompt states the outcome and asks for proof. The verifier and `AGENTS.md` 
 | Check the agent's reasoning | `/teach me why you implemented it this way and not [alternative].` |
 | Review | `/code-review [paths] in WIP mode against [baseline commit]. Use [ticket or brief] as the spec.` |
 
-Proof shows the action and its result: screenshots or a recording for a UI; the command, output and exit status for a CLI; requests, responses and stored state for a service.
+Proof shows the action and its result. For a UI that is a video of the user path, with screenshots for single states. For a CLI it is the command, output and exit status, and for a service the requests, responses and stored state. A rule checked by a formal verification skill also needs its `/statechart` chart or path.
 
 A proposed check is trusted only after you approve it as in step 3.
 
@@ -175,13 +218,13 @@ every approved check from a clean start. Report each failure with its
 old and new result, and do not edit any expected result.
 ```
 
-The skill checks every mapped feature against the source, drives each one live, fixes drift inside the verifier, and reports product regressions separately. It knows nothing about checks, yet it may edit the verifier scripts that hold them; the last two sentences of the prompt cover that. Neither they nor the `AGENTS.md` rule enforce anything, so read the diff: a changed expected result is a change for you to approve, not drift. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
+The skill checks every mapped feature against the source, runs the verifier's smoke test, drives each feature live, fixes drift inside the verifier, and reports product regressions separately. It knows nothing about checks, yet it may edit the verifier scripts that hold them; the last two sentences of the prompt cover that. Neither they nor the `AGENTS.md` rule enforce anything, so read the diff: a changed expected result is a change for you to approve, not drift. Lauren runs it daily; run it at least after large changes. To schedule it with cron or CI (`omp -p`, `claude -p`, `codex exec` or `hermes -z`), first prove that one unattended run loads the skill, keeps its evidence and stops cleanly.
 
 As the map grows, keep it sweepable. Group the README index by area and order it as a top-to-bottom regression pass. Describe flows that cross features, such as two sessions at once, a global shortcut or state shared between views, in `features/journeys.md` and list it last, so a full sweep ends with them. Maintenance drives it like any other feature file. Split a feature file once one of its sections needs its own preconditions, and keep every entry runnable without reading source.
 
-Treat the verifier as product code. When the CLI breaks or slows agents down, fix it before other work.
+Treat the verifier as product code. When the CLI breaks or slows agents down, fix it before other work. The smoke test shows when it breaks.
 
-Garden the codebase. When agents make the same class of mistake twice, run `/correct`. It turns the class into an architecture change, a type, a lint or a test that fails on the old mistake, and documentation comes last. Prefer this to another `AGENTS.md` line.
+Garden the codebase. When agents make the same class of mistake twice, run `/correct`. It turns the class into an architecture change, a type, a lint or a test that fails on the old mistake, and documentation comes last. Prefer this to another `AGENTS.md` line. A new lint first blocks only new occurrences. Then clean up the old ones in their own commits and delete deprecated code, because the next agent copies whatever it finds.
 
 ### 7. Resolve unclear problems and designs
 

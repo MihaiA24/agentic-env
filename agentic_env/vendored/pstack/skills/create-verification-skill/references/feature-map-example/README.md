@@ -43,5 +43,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 ## Features
 
-- [Create a note](./create-note.md) covers browser and CLI creation, cancellation, persistence, and cleanup.
-- [Search notes](./search.md) covers toolbar, keyboard, and CLI search with matching, empty, and clear states.
+Each entry gives, in quotes, the words users call the feature, so a request in their words resolves to one file.
+
+- [Create a note](./create-note.md) ("new note", "add a note") covers browser and CLI creation, cancellation, persistence, and cleanup.
+- [Search notes](./search.md) ("find", "the search box", "slash search") covers toolbar, keyboard, and CLI search with matching, empty, and clear states.

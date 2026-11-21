@@ -73,6 +73,9 @@
         { "name": "unslop", "description": "Cut AI tells from any writing" },
         { "name": "create-verification-skill", "description": "Generate a project-local skill that drives your app like a user" },
         { "name": "maintain-verification-skill", "description": "Periodic pass that keeps a verification skill and its feature map honest" },
+        { "name": "create-formal-verification-skill", "description": "Generate a project-local skill that model-checks a stateful flow with statechart" },
+        { "name": "maintain-formal-verification-skill", "description": "Periodic pass that keeps a formal verification skill and its models matched to the code" },
+        { "name": "statechart", "description": "Model a flow in TLA+ and check its rules with TLC; draws a chart and the breaking path" },
         { "name": "technical-writing", "description": "Diataxis structure and plain-sentence rules for human-facing docs" },
         { "name": "show-me-your-work", "description": "TSV decision log for long or unattended runs" },
         { "name": "recall", "description": "Rebuild recent working context into a current-state brief" },
@@ -99,12 +102,13 @@
     {
       "name": "agentic-env",
       "source": "./skills",
-      "note": "first-party domain skills; opt-in while reviewed independently of default profiles",
+      "note": "first-party skills; opt-in while reviewed independently of default profiles",
       "label": "agentic-env skills",
       "aliases": ["agentic-env"],
       "skills": [
         { "name": "apache-spark-static", "description": "Review Spark code and initial plans without runtime evidence; input volume may be unknown" },
-        { "name": "apache-spark-runtime", "description": "Diagnose live or completed Spark jobs from execution evidence and verify targeted optimizations" }
+        { "name": "apache-spark-runtime", "description": "Diagnose live or completed Spark jobs from execution evidence and verify targeted optimizations" },
+        { "name": "static-guardrails", "description": "Set up compiler, lint, boundary and dead-code guardrails with a ratchet, proven on a seeded violation" }
       ]
     }
   ],

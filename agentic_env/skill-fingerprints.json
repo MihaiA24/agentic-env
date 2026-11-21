@@ -41,13 +41,16 @@
         "benchmark-checklist": "d503ad5dc9cc45742428595d36cabd187e93bee9169a9b1c5b166fcdd9c6f7b0",
         "blast-radius": "a0add4213bb98378d4a5c04e4bdbfc8e539003e16fc2f8d24e36d18504aa84e2",
         "correct": "dee7fcd28ed3f78de179eea011881e0b43432a14ca407b1080a178d51e4bce0e",
-        "create-verification-skill": "9beba0e39a802143dd5e3f252a0cae206f43e0f16fd7185ef9d8e3fc8459cc57",
+        "create-formal-verification-skill": "0546aa382e68e6d7b7e6e3939a52b9bdbee9916df2cc3e09e26a8b679c58234c",
+        "create-verification-skill": "ce7077a1298f51cb96037f0060732e1993062d7232f91aa6f6ed14dd4c04fbb0",
         "how": "1e9f7bbbc6cbe4f16fb44fce8f70c4d14aa2e52429fec0f3938cbf2d3314d264",
-        "maintain-verification-skill": "3c1a4d48e8ffa7d212b295404b42a022dd581d7c6cd694c77010658177bb63b9",
+        "maintain-formal-verification-skill": "090135bbc50349eeff44e2cd8a4b1101b7d076776d9b6a2725fe971ed2a9a3e9",
+        "maintain-verification-skill": "f709d39b9b9b61b210f2053f242ddafc3d945059f1c662479045c0fcfc5fb03e",
         "recall": "86e9ac4c0fd330b59f83c91bfb7547c29c8228c750b421d594f5a29ab8342c7f",
         "review-loop": "599544ddf48206242d5e0188e50dd1e73a77c7b3a90e491b7f7f0b1f9e5b5b9a",
         "sharpen": "4eb226ea5a4a7d2dc16cf04e78d0e94df90a916a651cdc264c779d72036d966f",
         "show-me-your-work": "99a96d83e7b7af062c9f6b6cb264d314152a35e98711f9ee7dba98ddae0e6295",
+        "statechart": "7cb99b0e8110055a0ce0de319757a260a131a7df81d783a38ed961298f2a507a",
         "teach": "b093a24704a48aca97943632c3d556f745bbd0c55cfd4ccde240508ee6e73f0b",
         "technical-writing": "7fa8d71648ab74c7f17ac731206beaf301003a700866cdc9671c3fa17fe2d1f4",
         "unslop": "d3d239b05422c8dece51156528cd44aaf4e8a8f77dc959d11b9911894ba8436b",
@@ -68,7 +71,8 @@
       "upstream": null,
       "skills": {
         "apache-spark-runtime": "e41fcfa943684685809312f94321b6c16ecfae8b0b5ba3d80ffb6dc4f4d186c8",
-        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3"
+        "apache-spark-static": "2cdb6b8d0601317db320527fa20efc6cabc636ab3ffa1c431746a7743a2f2aa3",
+        "static-guardrails": "376f0c6ca824ec641ed1fd383c87103c83685240f423615ef322558b8b3970eb"
       }
     }
   }

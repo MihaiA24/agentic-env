@@ -44,6 +44,6 @@ Applying a correction inside the verification skill's directory is the work. Cre
 
 6. **Triage.** Wrong or missing user-POV description → doc drift, fix it. Working behavior the harness can't drive → harness gap, fix it; a harness fix follows the same helpers rule as generation (scripts executable, invocation documented in the skill body). App behavior that's actually broken → product gap; report it to the user with the drive that exposed it, and keep it out of this pass's changes.
 
-7. **Ship or stop.** For changed: re-read every changed file, then report the corrections and ask separately for whatever publication step you want (see Permissions). For clean or blocked: nothing to land, report the outcome and the coverage honestly.
+7. **Ship or stop.** For changed: re-read every changed file, then report the corrections and ask separately for whatever publication step you want (see Permissions). For clean or blocked: nothing to land, report the outcome and the coverage honestly. In every outcome, list the map's `Not yet mapped` entries this machine can drive and offer to map them; mapping one is a separate request.
 
 Keep concise run notes (features covered, unreachable prerequisites, confirmed drift, product regressions, outcome) in a scratch location; don't commit them.

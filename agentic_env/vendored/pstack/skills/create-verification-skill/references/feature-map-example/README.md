@@ -32,11 +32,11 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 ## Feature entry contract
 
-Each feature file starts with an H1 title and one paragraph describing the user-visible behavior. It then uses exactly four H2 sections in this order, with these English headings whatever language the rest of the map uses.
+Each feature file starts with an H1 title and one paragraph describing the user-visible behavior. It then uses exactly four H2 sections in this order, with these headings verbatim.
 
 1. `Sub-features` lists short IDs with one line for each behavior, covering every variant the user docs promise for the feature (each documented shortcut, option, mode or command form). The recipe drives each one; a variant it leaves out is named in `Not yet mapped`.
 2. `How to get to it (user POV)` lists every user entry point.
-3. `Driving it with <harness>` starts with `Preconditions:` and uses labeled bullets that pair each user action with an exact command and observable result. Each command targets exactly one element or endpoint, so it runs as written.
+3. `Driving it with <harness>` starts with `Preconditions:` and uses labeled bullets that pair each user action with an exact command and observable result.
 4. `Gotchas` lists traps that can waste or invalidate a verification run.
 
 Keep implementation details out of the map. Name only user paths, stable handles, required state, commands, and observable proof.

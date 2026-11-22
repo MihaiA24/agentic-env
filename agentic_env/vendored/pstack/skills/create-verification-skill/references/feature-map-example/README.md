@@ -27,7 +27,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - CLI proof includes the command, stdout, stderr, and exit code.
 - Mutation proof includes a read-only second view of the stored value.
 - Record the feature ID and entry point used with every artifact.
-- Report an unreachable path with the attempted command and the unmet precondition.
+- Report an unreachable path with the attempted command and the unmet precondition, then drive the closest real path that remains.
 - Do not report a skipped entry point as verified through a different path.
 
 ## Feature entry contract

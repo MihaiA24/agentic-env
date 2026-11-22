@@ -181,7 +181,7 @@ do not publish them until I approve.
 
 For an ordinary change, verify the affected paths. Do not run full maintenance for every change.
 
-Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, and reports product regressions separately. See [Keep the verifier sharp](poteto-workflow.md#6-keep-the-verifier-sharp) for the prompt.
+Invoke `/maintain-verification-skill` separately. It checks the feature map against the source, exercises every mapped feature, fixes verifier drift, reports product regressions separately, and offers to map the unmapped entries this machine can drive. See [Keep the verifier sharp](poteto-workflow.md#6-keep-the-verifier-sharp) for the prompt.
 
 ## Add static guardrails once
 

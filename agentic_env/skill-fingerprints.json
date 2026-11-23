@@ -3,7 +3,7 @@
   "packs": {
     "mattpocock": {
       "source": "./vendored/mattpocock/skills",
-      "upstream": "mattpocock/skills@4ae2317ddb22b046e26455e4f9c9b3aaaf62212d",
+      "upstream": "mattpocock/skills@abeeaf95660ba9e8b7c753eb38f441ca707a8823",
       "skills": {
         "code-review": "6c3c82aaf215d49802746e01c75b6527bbe6cd9a5153a6f41f11c0be4093782d",
         "codebase-design": "5cc2906c4e0e918d4315b59dc71f45639314d317a1dca771d1cad4fb58e3793b",
@@ -27,8 +27,8 @@
       }
     },
     "caveman": {
-      "source": "JuliusBrussee/caveman#v4.1.0",
-      "upstream": "JuliusBrussee/caveman@v4.1.0",
+      "source": "JuliusBrussee/caveman#v4.2.0",
+      "upstream": "JuliusBrussee/caveman@v4.2.0",
       "skills": {
         "caveman": "8dd75b3ad1dccebfc375f3ec73e714b02ef5666791416f228d8ebc53c8540597",
         "caveman-commit": "0157f6cd11ea35db6ab69a61442c502053626da6f6f44b0d100288ec50f63d6d"
@@ -36,7 +36,7 @@
     },
     "pstack": {
       "source": "./vendored/pstack/skills",
-      "upstream": "cursor/plugins@bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7",
+      "upstream": "cursor/plugins@7a583913eb1b8d1a0ee76753d1a2cf072e7b54f9",
       "skills": {
         "benchmark-checklist": "d503ad5dc9cc45742428595d36cabd187e93bee9169a9b1c5b166fcdd9c6f7b0",
         "blast-radius": "a0add4213bb98378d4a5c04e4bdbfc8e539003e16fc2f8d24e36d18504aa84e2",
@@ -49,8 +49,8 @@
         "sharpen": "4eb226ea5a4a7d2dc16cf04e78d0e94df90a916a651cdc264c779d72036d966f",
         "show-me-your-work": "99a96d83e7b7af062c9f6b6cb264d314152a35e98711f9ee7dba98ddae0e6295",
         "teach": "b093a24704a48aca97943632c3d556f745bbd0c55cfd4ccde240508ee6e73f0b",
-        "technical-writing": "7fa8d71648ab74c7f17ac731206beaf301003a700866cdc9671c3fa17fe2d1f4",
-        "unslop": "d3d239b05422c8dece51156528cd44aaf4e8a8f77dc959d11b9911894ba8436b",
+        "technical-writing": "1205231a2d52e1b3ca8fae74702c2e625101fedc93761de7eaf31499fba15d71",
+        "unslop": "95f87ffe4565ad681db23ee15a1bc59c2468450248acf0d1db1f10ebf52526cd",
         "why": "dd80fe9955b3cc07e7e7ae0e5941ee6208c54fb6cf053ad9da1de55024bd8353"
       }
     },

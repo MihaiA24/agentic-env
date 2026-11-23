@@ -1,8 +1,10 @@
 # Matt skills provenance
 
-Source: [mattpocock/skills at `4ae2317ddb22b046e26455e4f9c9b3aaaf62212d`](https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d), 2026-10-31. Licence: [MIT, Matt Pocock](LICENSE).
+Source: [mattpocock/skills at `abeeaf95660ba9e8b7c753eb38f441ca707a8823`](https://github.com/mattpocock/skills/tree/abeeaf95660ba9e8b7c753eb38f441ca707a8823), 2026-11-19. Licence: [MIT, Matt Pocock](LICENSE).
 
 Updated 2026-11-11 from [`49dd158`](https://github.com/mattpocock/skills/compare/49dd158d1076134a641b33efb035946536778336...4ae2317ddb22b046e26455e4f9c9b3aaaf62212d): upstream `7739eae` starts every sub-agent "with a fresh context window" in `code-review`, `codebase-design` (`DESIGN-IT-TWICE.md`), `grilling`, `improve-codebase-architecture`, `research` and `wayfinder`; the phrase is merged into the adapted delegation lines. The other selected packages are unchanged upstream. The rest of the range touches only unselected packages: `implement-spec`, `setup-matt-pocock-skills`, and in-progress `chief-of-staff` and `software-factory`.
+
+Updated 2026-11-23 from [`4ae2317`](https://github.com/mattpocock/skills/compare/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d...abeeaf95660ba9e8b7c753eb38f441ca707a8823): no selected package changed. The range touches only the in-progress `software-factory`, a frontmatter CI check and package metadata.
 
 The [manifest](../../skill-packs.json) selects nineteen complete packages from `skills/engineering/` and `skills/productivity/`, flattened into `skills/`. Supporting files and per-skill descriptors are retained; category indexes and unselected skills are omitted. `teach` was removed with its format files and descriptor; the public `teach` is pstack's. `handoff` was dropped on 2026-11-16 with its descriptor; OMP's own compaction writes the handoff document. `resolving-merge-conflicts` was removed upstream in `daa01d8`, dropped here on 2026-10-13 and restored on 2026-11-11 from `daa01d8^` because conflicts recur in the user's sessions; it has no upstream package at the pin, so it is maintained locally. Vendoring exists to preserve local adaptations, not to work around CLI pinning, since the skills CLI supports tags and commit SHAs.
 

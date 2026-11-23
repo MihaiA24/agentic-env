@@ -145,13 +145,13 @@ uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/custom skills" --skill-pack mattpocock --skill tdd,code-review --yes
 ```
 
-On Windows, from the checkout root in PowerShell:
+On Windows, from the checkout root (a clone or an extracted repository ZIP) in PowerShell:
 
 ```powershell
 uv run agentic-install-skills-mcps --skills-dir "C:\work\project\.devin\skills" --skill-profile default --yes
 ```
 
-Run **one** of the commands above. The `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes only the given destination: it selects no agent roots, installs no MCPs and registers no global provenance. Combining it with `--skill-agent`, `--mcp`, `--all-mcps`, or `--agent-rules` is an error.
+Run **one** of the commands above. The `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes only the given destination, plus the remote-pack download cache: it selects no agent roots, installs no MCPs and registers no global provenance. Combining it with `--skill-agent`, `--mcp`, `--all-mcps`, or `--agent-rules` is an error.
 
 The result is standalone copies, not links or managed installations. After copying, follow the shared [verification and refresh procedure](#verify-and-refresh-standalone-copies).
 
@@ -198,7 +198,7 @@ This procedure covers both custom-directory routes, not the managed-agent refres
 1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. A default Python-only copy leaves out the five remote-only skills by design; an explicitly requested unavailable skill fails before copying.
 2. **Check harness discovery separately.** Confirm the destination is the harness's documented skills folder, then load one selected skill by name without executing its recipe. Copying files proves neither discovery nor workflow compatibility. Doctor and `agentic-skill-drift` inspect the managed stack, not an arbitrary destination.
 3. **Refresh.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Preserve local edits and back up the existing selected packages first. On a terminal without `--yes`, rerun the custom-directory route on the same destination: it lists the skills already there and asks before overwriting them; declining installs nothing. The Python-only copier never overwrites, so rerun it into a new destination and compare whole package directories. Reinstalling `agentic-env` and `agentic-bootstrap` do not refresh standalone copies.
-4. **Handle errors.** The Python-only copier and `--yes` runs refuse existing skill names, including dangling symlinks, before copying any package. Every route leaves unrelated files alone. A confirmed overwrite copies each new package beside the old one before replacing it, so a failed copy keeps the old package. Otherwise a filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry.
+4. **Handle errors.** The Python-only copier and `--yes` runs refuse existing skill names, including dangling symlinks, before writing anything. Every route leaves unrelated files alone. A confirmed overwrite keeps each old package aside until its replacement is in place, so a failed replacement keeps the old package. Otherwise a filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry.
 
 There is no automatic merge, uninstall or rollback command for standalone copies. To remove one, preserve local changes, then delete only the package directories you copied.
 

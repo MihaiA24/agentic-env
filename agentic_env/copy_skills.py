@@ -20,6 +20,8 @@ def copy_skill_packages(
         raise ValueError("No vendored skill packages selected")
     if destination.exists() and not destination.is_dir():
         raise NotADirectoryError(f"{destination}: not a directory")
+    if len({package.name for package in packages}) != len(packages):
+        raise ValueError("Two selected packages share a skill name")
     for package in packages:
         if not (package / "SKILL.md").is_file():
             raise FileNotFoundError(f"{package}: missing SKILL.md")
@@ -28,6 +30,8 @@ def copy_skill_packages(
         target = destination / package.name
         if not target.is_symlink() and target.resolve() == package.resolve():
             raise ValueError(f"{target}: is the source package")
+        if target.exists() and not target.is_dir():
+            raise FileExistsError(f"{target}: exists and is not a skill directory")
         if (target.exists() or target.is_symlink()) and package.name not in replace:
             raise FileExistsError(
                 f"{target}: already exists; choose a destination without this skill"
@@ -35,18 +39,25 @@ def copy_skill_packages(
     destination.mkdir(parents=True, exist_ok=True)
     for package in packages:
         target = destination / package.name
-        if not (target.exists() or target.is_symlink()):
+        # copytree refuses a target that appeared after preflight: only `replace` overwrites.
+        if package.name not in replace or not (target.exists() or target.is_symlink()):
             shutil.copytree(package, target)
             continue
-        # Copy beside the old package first, so a failed copy leaves it intact.
+        # Stage the copy and move the old package aside, so no failure loses it.
         staging = Path(tempfile.mkdtemp(prefix=f".{package.name}.", dir=destination))
-        shutil.copytree(package, staging / package.name)
-        if target.is_dir() and not target.is_symlink():
-            shutil.rmtree(target)
-        else:
-            target.unlink()
-        (staging / package.name).rename(target)
-        staging.rmdir()
+        try:
+            shutil.copytree(package, staging / "new")
+            target.rename(staging / "old")
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        try:
+            (staging / "new").rename(target)
+        except BaseException:
+            (staging / "old").rename(target)
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        shutil.rmtree(staging)
 
 
 def main(argv: list[str] | None = None) -> int:

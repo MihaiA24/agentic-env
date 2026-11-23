@@ -55,7 +55,7 @@ python3 "$V" drive drift --pack mattpocock --pack pstack --format json
 python3 "$V" drive help install-skills --entry console
 ```
 
-Copier `script` uses isolated Python (`-I -S`); `module` exercises `python -m agentic_env.copy_skills`. Other commands use `uv run --frozen` with either their module or the checkout environment's installed `agentic-*` console entry. `drive install-skills` really uses the native skills CLI for a locally packaged custom-directory install; it additionally needs existing npm/Git/network access. It is not the Python-only copier.
+Copier `script` uses isolated Python (`-I -S`); `module` exercises `python -m agentic_env.copy_skills`. Other commands use `uv run --frozen` with either their module or the checkout environment's installed `agentic-*` console entry. `drive install-skills` really runs the installer's custom-directory route for a locally packaged pack: Python copies from the checkout, with no skills CLI, npm or Git. It is not the Python-only copier.
 
 The helper deliberately exposes a bounded safe subset. It has no generic shell/eval, managed provisioning, update, arbitrary target directory, or live picker passthrough. Maps identify the remaining public paths and their isolated acceptance prerequisites. Do not imply they were proved through this subset. The existing prompt-driven Unix PTY harness is reused by `drive tests --suite pickers`; its mocked installer boundary proves picker behavior, **not native installation**. Tests supplement, never replace, live user-path evidence.
 

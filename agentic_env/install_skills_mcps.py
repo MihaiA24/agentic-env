@@ -756,25 +756,19 @@ def _install_skill_directory(
     vendored packs from this checkout, remote packs from their pinned GitHub tarball."""
     from .skill_drift import locate_skill, source_root  # skill_drift imports this module
 
-    packages: list[Path] = []
+    wanted: dict[str, list[str]] = {}
     for name, skills in selection.items():
         pack = manifest.packs[name]
-        names = skills or pack.skills
-        if not names:
+        wanted[name] = skills or pack.skills
+        if not wanted[name]:
             warn(f"{pack.label}: no skill roster; name the skills with --skill")
             return False
-        info(f"Fetching {', '.join(names)} from {pack.source}...")
-        root = source_root(manifest, name, pack.upstream, offline=False)
-        for skill in names:
-            package = locate_skill(root, skill)
-            if package is None:
-                warn(f"{pack.label}: {skill} not found in {pack.source}")
-                return False
-            packages.append(package)
+    # Packages land at destination/<skill name>, so collisions are known before any download.
     existing = [
-        package.name
-        for package in packages
-        if (destination / package.name).exists() or (destination / package.name).is_symlink()
+        skill
+        for names in wanted.values()
+        for skill in names
+        if (destination / skill).exists() or (destination / skill).is_symlink()
     ]
     if existing:
         if non_interactive:
@@ -791,6 +785,17 @@ def _install_skill_directory(
         ):
             skip("existing skills kept; nothing installed")
             return True
+    packages: list[Path] = []
+    for name, names in wanted.items():
+        pack = manifest.packs[name]
+        info(f"Fetching {', '.join(names)} from {pack.source}...")
+        root = source_root(manifest, name, pack.upstream, offline=False)
+        for skill in names:
+            package = locate_skill(root, skill)
+            if package is None:
+                warn(f"{pack.label}: {skill} not found in {pack.source}")
+                return False
+            packages.append(package)
     try:
         copy_skill_packages(packages, destination, replace=existing)
     except (OSError, ValueError) as exc:

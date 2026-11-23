@@ -7,7 +7,7 @@ Read [the skill](../SKILL.md) for launch, isolation, evidence and cleanup; this 
 - Work from the complete checkout root with Python 3.12+ and uv. Set `V=.agents/skills/verify-agentic-env/verifier/control.py`.
 - Run `python3 "$V" launch`, then `python3 "$V" doctor`; require current source/build identity. Use only its reported owned workspace, never host skill/config directories.
 - The workspace starts with an empty sandbox HOME and no copied packages. For another fresh journey, preserve evidence, run cleanup, then launch again. Launch alone does not reset files.
-- Copier, safe bootstrap, source-only drift and configurator journeys require no provider credentials. ACP configuration needs the real OMP executable on host PATH; native skills installation needs npm/Git/network. Full provisioning/update uses the authorized clean-acceptance runner, not the offline sandbox.
+- Copier, safe bootstrap, source-only drift and configurator journeys require no provider credentials. ACP configuration needs the real OMP executable on host PATH; managed skills installation needs npm/Git/network, and custom-directory installation of remote packs needs network. Full provisioning/update uses the authorized clean-acceptance runner, not the offline sandbox.
 - No background service, TCP port, seed database or browser is applicable. Synchronize on process exit or the named terminal prompt, not sleeps.
 
 ## Driving conventions

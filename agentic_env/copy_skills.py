@@ -45,16 +45,15 @@ def copy_skill_packages(
             continue
         # Stage the copy and move the old package aside, so no failure loses it.
         staging = Path(tempfile.mkdtemp(prefix=f".{package.name}.", dir=destination))
+        old = staging / "old"
         try:
             shutil.copytree(package, staging / "new")
-            target.rename(staging / "old")
-        except BaseException:
-            shutil.rmtree(staging, ignore_errors=True)
-            raise
-        try:
+            target.rename(old)
             (staging / "new").rename(target)
         except BaseException:
-            (staging / "old").rename(target)
+            shutil.rmtree(staging / "new", ignore_errors=True)
+            if old.exists() or old.is_symlink():
+                old.rename(target)  # raises, keeping `old`, if target is occupied again
             shutil.rmtree(staging, ignore_errors=True)
             raise
         shutil.rmtree(staging)

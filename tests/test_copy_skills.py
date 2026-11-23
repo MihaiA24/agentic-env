@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from agentic_env.copy_skills import copy_skill_packages
 
@@ -89,3 +90,28 @@ class CopySkillTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 copy_skill_packages([source], destination)
             self.assertFalse(destination.exists())
+
+    def test_failed_replacement_keeps_the_old_package(self) -> None:
+        real_rename = Path.rename
+
+        def fail_publish(path: Path, target: Path) -> Path:
+            if path.name == "new":
+                raise OSError("rename denied")
+            return real_rename(path, target)
+
+        failures = {
+            "copy": patch("shutil.copytree", side_effect=OSError("disk full")),
+            "publish": patch.object(Path, "rename", fail_publish),
+        }
+        for failure, patcher in failures.items():
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as temporary:
+                source = Path(temporary) / "source/demo"
+                source.mkdir(parents=True)
+                (source / "SKILL.md").write_text("new", encoding="utf-8")
+                destination = Path(temporary) / "skills"
+                (destination / "demo").mkdir(parents=True)
+                (destination / "demo/SKILL.md").write_text("local", encoding="utf-8")
+                with patcher, self.assertRaises(OSError):
+                    copy_skill_packages([source], destination, replace={"demo"})
+                self.assertEqual((destination / "demo/SKILL.md").read_text(encoding="utf-8"), "local")
+                self.assertEqual([p.name for p in destination.iterdir()], ["demo"])

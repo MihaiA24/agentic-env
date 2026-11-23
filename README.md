@@ -11,7 +11,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 
 ## Quick usage
 
-The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and this repository's checkout. Use a supported Node LTS; acceptance uses Node 24 on Debian and macOS (Node 20 is end-of-life). For Windows or an offline copy, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
+The full stack targets macOS/Linux and requires Python 3.12+, Node.js 20+/npm, uv, curl, git, CA certificates, shell/archive utilities, C/C++ build tools and this repository's checkout. Use a supported Node LTS; acceptance uses Node 24 on Debian and macOS (Node 20 is end-of-life). To copy skills on Windows, the [custom-directory route](#install-into-another-harnesss-directory) needs Python and uv; offline, the [Python-only copier](#python-only-copy-on-windows) needs only Python and the checkout.
 
 ```bash
 git clone https://github.com/MihaiA24/agentic-env.git
@@ -50,7 +50,7 @@ For automation, completed `agentic-bootstrap --summary-format json` runs emit on
 |---|---|---|
 | Provision the full agent stack | [Quick usage](#quick-usage) | macOS/Linux prerequisites above; installs agents and manages configuration |
 | Refresh managed OMP/Hermes/Claude/Codex skills | [Managed refresh](#refresh-skills-on-an-existing-omp-host) | Management CLI and native skills CLI/npm; selected agent directories |
-| Copy any curated pack into another harness's folder | [Custom directory](#install-into-another-harnesss-directory) | macOS/Linux, Python 3.12+, uv, Node.js/npm and Git; network for remote packs |
+| Copy any curated pack into another harness's folder | [Custom directory](#install-into-another-harnesss-directory) | Python 3.12+ and uv on macOS, Linux or Windows; network for remote packs |
 | Copy vendored skills on Windows or offline | [Python-only copy](#python-only-copy-on-windows) | Python 3.12+ and a complete checkout; no other runtime dependencies |
 
 Windows acceptance covers only the Python-only copier, not full-stack provisioning or the native skills CLI path. Copying leaves skill bodies unchanged: scripts and OMP/Hermes-specific tool and delegation instructions may need adapting for another harness or OS.
@@ -63,7 +63,7 @@ agentic-install-skills-mcps --skill-profile default --yes
 
 [The manifest](agentic_env/skill-packs.json) contains 40 skills: the 38-skill `default` profile plus two opt-in Apache Spark skills. Every skill is opt-in: the `default` profile is only what a non-interactive install selects, and neither the doctor nor drift requires a skill you left out ([Decisions §6](DECISIONS_AI_TOOLING.md#6-skills)). Use `--skill-pack` to select packs, `--skill` to filter their selected names, and `--skill-agent` to override the default `hermes,claude,codex` targets. `--skill-config` supplies a manifest with the same shape; a pack without a `skills` list installs all its contents.
 
-In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
+In flag-driven runs, every explicit `--skill` name must match the selected packs' rosters; a partially invalid selection fails before any installation. Custom packs without a roster delegate name validation to the native skills CLI; with `--skills-dir`, such a pack needs explicit `--skill` names. Explicit `--skill` or `--skills-dir` selections that resolve to no packages also fail. An intentionally empty interactive selection remains a successful no-op.
 
 The skills picker lists one row per skill under its pack heading, plus an `All of <pack>` row that takes the whole roster. The `default` profile pre-checks the pack rows; `--skill NAME` pre-checks those skill rows instead. A manifest `skills` entry is either a name or `{"name": ..., "description": ...}`; the description shows under the list while that row is highlighted. `--mcp` installs a single MCP server (`codebase-memory-mcp` or `agentmemory`); `--all-mcps` installs both. `--agent-rules` installs the optional [agent rules](#agent-rules).
 
@@ -124,7 +124,7 @@ Each skill is a single `SKILL.md`; detailed Apache findings and version-pinned c
 
 #### Install into another harness's directory
 
-`--skills-dir PATH` copies complete selected packages into `PATH/<skill>/SKILL.md`, including their scripts and references. `PATH` is the skills folder, not the project root. This route needs no OMP/Hermes installation but still uses the native skills CLI and npm, even for vendored-only selections. Without them, use the Python-only route below.
+`--skills-dir PATH` copies complete selected packages into `PATH/<skill>/SKILL.md`, including their scripts and references. `PATH` is the skills folder, not the project root. This route needs no OMP/Hermes, skills CLI, npm or git, on any OS. Vendored packs come from the checkout; remote packs (caveman, ponytail) download as GitHub tarballs at the manifest's pinned tag, cached under `~/.cache/agentic-env/skill-sources` (shared with `agentic-skill-drift`). Offline, use the Python-only route below for the vendored skills.
 
 For the guided flow, run `uv run agentic-install-skills-mcps` from this checkout: choose skills, select **Other / custom directory**, enter the path, then review and confirm. Choose **Supported harnesses** instead to keep the existing managed-agent installation. Ctrl-C at either destination prompt cancels without installing anything.
 
@@ -145,7 +145,13 @@ uv run agentic-install-skills-mcps \
   --skills-dir "/path/to/custom skills" --skill-pack mattpocock --skill tdd,code-review --yes
 ```
 
-Run **one** of the commands above. The `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes only the given destination: it selects no agent roots, installs no MCPs and registers no global provenance. Combining it with `--skill-agent`, `--mcp`, `--all-mcps`, or `--agent-rules` is an error.
+On Windows, from the checkout root (a clone or an extracted repository ZIP) in PowerShell:
+
+```powershell
+uv run agentic-install-skills-mcps --skills-dir "C:\work\project\.devin\skills" --skill-profile default --yes
+```
+
+Run **one** of the commands above. The `--skill-pack`, `--skill-profile`, `--skill`, and `--skill-config` selectors still apply. Directory mode writes only the given destination, plus the remote-pack download cache: it selects no agent roots, installs no MCPs and registers no global provenance. Combining it with `--skill-agent`, `--mcp`, `--all-mcps`, or `--agent-rules` is an error.
 
 The result is standalone copies, not links or managed installations. After copying, follow the shared [verification and refresh procedure](#verify-and-refresh-standalone-copies).
 
@@ -179,7 +185,7 @@ On macOS/Linux, the equivalent command from the checkout root is:
 python3 agentic_env/copy_skills.py --skills-dir "/path/to/project/.devin/skills"
 ```
 
-By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
+By default it copies the **35 locally packaged skills** (33 vendored Matt/pstack skills plus the two first-party Spark skills), including scripts and references, and lists the **5 remote-only caveman/ponytail skills it did not copy**; the [custom-directory route](#install-into-another-harnesss-directory) installs them. Unlike the managed installer, this copier does not use the `default` profile; it copies every local manifest package. The manifest owns this roster. `--skill` accepts comma-separated or repeated names. An unavailable name or an empty `--skill` is an error; the copier never substitutes a different selection.
 
 The copier accepts only `--skills-dir`, `--skill` and `--help`. Pack, profile and custom-manifest selectors, `--yes`, agent targets and MCP flags belong to `agentic-install-skills-mcps`. Success is the copy message plus exit status 0; in PowerShell, check `$LASTEXITCODE` immediately after the command.
 
@@ -191,10 +197,10 @@ This procedure covers both custom-directory routes, not the managed-agent refres
 
 1. **Check the result.** Require exit status 0. Confirm each selected skill has `PATH/<skill>/SKILL.md` and its scripts/references. A default Python-only copy leaves out the five remote-only skills by design; an explicitly requested unavailable skill fails before copying.
 2. **Check harness discovery separately.** Confirm the destination is the harness's documented skills folder, then load one selected skill by name without executing its recipe. Copying files proves neither discovery nor workflow compatibility. Doctor and `agentic-skill-drift` inspect the managed stack, not an arbitrary destination.
-3. **Refresh into a new directory.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Rerun the same route with a new destination. Compare whole package directories, and preserve local edits and back up the existing selected packages before you replace them. Reinstalling `agentic-env` and `agentic-bootstrap` do not refresh standalone copies.
-4. **Handle errors without overwriting.** Both routes refuse existing skill names, including dangling symlinks, before copying any package, and leave unrelated files alone. Choose a fresh destination instead of deleting local work. A filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry into a new one.
+3. **Refresh.** Get the reviewed checkout or manifest version you want, and record its revision or archive identity and your selection. Preserve local edits and back up the existing selected packages first. On a terminal without `--yes`, rerun the custom-directory route on the same destination: it lists the skills already there and asks before overwriting them; declining installs nothing. The Python-only copier never overwrites, so rerun it into a new destination and compare whole package directories. Reinstalling `agentic-env` and `agentic-bootstrap` do not refresh standalone copies.
+4. **Handle errors.** The Python-only copier and `--yes` runs refuse existing skill names, including dangling symlinks, before writing anything. Every route leaves unrelated files alone. A confirmed overwrite keeps each old package aside until its replacement is in place, so a failed replacement keeps the old package. Otherwise a filesystem failure mid-copy can leave incomplete new packages, because failure does not roll back. Inspect the failed destination, fix the error, and retry.
 
-There is no force-overwrite, automatic merge, uninstall or rollback command for standalone copies. To remove one, preserve local changes, then delete only the package directories you copied.
+There is no automatic merge, uninstall or rollback command for standalone copies. To remove one, preserve local changes, then delete only the package directories you copied.
 
 #### Refresh skills on an existing OMP host
 

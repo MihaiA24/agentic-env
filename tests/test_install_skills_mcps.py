@@ -14,10 +14,11 @@ import sys
 import tempfile
 import termios
 import unittest
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
-from agentic_env import install_skills_mcps, skill_lock
+from agentic_env import install_skills_mcps, skill_drift, skill_lock
 
 
 class InstallSkillsMcpsTests(unittest.TestCase):
@@ -300,16 +301,11 @@ class InstallSkillsMcpsTests(unittest.TestCase):
                 encoding="utf-8",
             )
             skills.chmod(0o755)
-            destination = root / "skills"
             with patch.dict(os.environ, {"PATH": str(skills.parent)}):
                 argv = ["--skill-pack", "caveman", "--all-mcps", "--yes"]
                 self.assertEqual(install_skills_mcps.main(argv), 1)
                 mock_codebase.assert_called_once()
                 mock_agentmemory.assert_called_once()
-
-                argv = ["--skill-pack", "caveman", "--skills-dir", str(destination), "--yes"]
-                self.assertEqual(install_skills_mcps.main(argv), 1)
-            self.assertFalse(destination.exists())
 
     def test_resolve_pack_skills_intersects_rosters_and_passes_whole_packs(self) -> None:
         manifest = install_skills_mcps.SkillManifest(
@@ -494,20 +490,12 @@ class InstallSkillsMcpsTests(unittest.TestCase):
         )
         assert manifest is not None
 
-        def stage(source, skills, directory):
-            for skill in skills:
-                shutil.copytree(Path(source) / skill, directory / ".agents" / "skills" / skill)
-            return True
-
-        with (
-            tempfile.TemporaryDirectory() as temp,
-            patch.object(install_skills_mcps, "_install_skill_package", side_effect=stage),
-        ):
+        with tempfile.TemporaryDirectory() as temp:
             destination = Path(temp) / "project skills"
             destination.mkdir()
             unrelated = destination / "notes.txt"
             unrelated.write_text("keep me", encoding="utf-8")
-            install = install_skills_mcps._install_skill_directory
+            install = partial(install_skills_mcps._install_skill_directory, non_interactive=True)
             self.assertTrue(install(manifest, {"mattpocock": ["writing-for-agents"]}, destination))
             installed = destination / "writing-for-agents"
             source = Path(manifest.source("mattpocock")) / "writing-for-agents"
@@ -527,6 +515,70 @@ class InstallSkillsMcpsTests(unittest.TestCase):
             self.assertFalse((destination / "missing").exists())
             self.assertFalse((destination / "tdd").exists())
             self.assertEqual(unrelated.read_text(), "keep me")
+
+            # On a terminal: declining keeps everything; confirming replaces dirs and links.
+            interactive = partial(install_skills_mcps._install_skill_directory, non_interactive=False)
+            with patch.object(install_skills_mcps, "ask", return_value=False):
+                self.assertTrue(interactive(manifest, selection, destination))
+            self.assertTrue(installed.is_symlink())
+            self.assertFalse((destination / "tdd").exists())
+
+            (destination / "tdd").mkdir()
+            (destination / "tdd" / "SKILL.md").write_text("local changes", encoding="utf-8")
+            with patch.object(install_skills_mcps, "ask", return_value=True) as ask:
+                self.assertTrue(interactive(manifest, selection, destination))
+            ask.assert_called_once()
+            for skill in ("tdd", "writing-for-agents"):
+                self.assertFalse((destination / skill).is_symlink())
+                self.assertEqual(
+                    (destination / skill / "SKILL.md").read_bytes(),
+                    (Path(manifest.source("mattpocock")) / skill / "SKILL.md").read_bytes(),
+                )
+            self.assertFalse((destination / "missing").exists())
+            self.assertEqual(
+                {path.name for path in destination.iterdir()},
+                {"notes.txt", "tdd", "writing-for-agents"},
+            )
+
+    def test_directory_install_fetches_pinned_remote_packs_without_npm(self) -> None:
+        manifest = install_skills_mcps.load_skill_manifest(
+            install_skills_mcps.SKILL_PACK_CONFIG_PATH
+        )
+        assert manifest is not None
+        upstream = manifest.packs["caveman"].upstream
+        assert upstream is not None and upstream.path is not None
+        install = partial(install_skills_mcps._install_skill_directory, non_interactive=True)
+        selection = {"mattpocock": ["tdd"], "caveman": []}
+        with tempfile.TemporaryDirectory() as temp:
+            tree = Path(temp) / "tree"
+            for skill in ("caveman", "caveman-commit"):
+                (tree / upstream.path / skill).mkdir(parents=True)
+                (tree / upstream.path / skill / "SKILL.md").write_text(skill, encoding="utf-8")
+            fetched = []
+
+            def fetch(repo, ref, *, offline):
+                fetched.append((repo, ref, offline))
+                return tree
+
+            destination = Path(temp) / "skills"
+            with (
+                patch.dict(os.environ, {"PATH": ""}),
+                patch.object(skill_drift, "fetch_tree", side_effect=fetch),
+            ):
+                self.assertTrue(install(manifest, selection, destination))
+            self.assertEqual(fetched, [(upstream.repo, upstream.ref, False)])
+            self.assertEqual(
+                {path.name for path in destination.iterdir()}, {"tdd", "caveman", "caveman-commit"}
+            )
+            self.assertEqual(
+                (destination / "caveman-commit" / "SKILL.md").read_text(encoding="utf-8"),
+                "caveman-commit",
+            )
+
+            failed = Path(temp) / "failed"
+            with patch.object(skill_drift, "fetch_tree", return_value=None):
+                self.assertFalse(install(manifest, selection, failed))
+            self.assertFalse(failed.exists())
 
     def test_directory_mode_rejects_global_agent_and_mcp_selections(self) -> None:
         manifest = install_skills_mcps.load_skill_manifest(
@@ -886,18 +938,11 @@ with patch.object(m, "_validate_remote_contract", return_value=True), \\
 """
 
 _DIRECTORY_CHILD = """
-import shutil, sys
-from pathlib import Path
+import sys
 from unittest.mock import patch
 from agentic_env import install_skills_mcps as m
-def stage(source, skills, directory):
-    for skill in skills:
-        shutil.copytree(Path(source) / skill, directory / ".agents" / "skills" / skill)
-    return True
 trip = {"side_effect": AssertionError("MCP-INSTALL-CALLED")}
-with patch.object(m, "cmd_exists", return_value=True), \\
-     patch.object(m, "_install_skill_package", side_effect=stage), \\
-     patch.object(m, "_install_codebase_memory", **trip), \\
+with patch.object(m, "_install_codebase_memory", **trip), \\
      patch.object(m, "_install_agentmemory", **trip):
     raise SystemExit(m.main(sys.argv[1:]))
 """

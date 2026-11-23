@@ -13,7 +13,6 @@ import subprocess
 import sys
 from pathlib import Path
 from dataclasses import dataclass, field
-from tempfile import TemporaryDirectory
 
 import questionary
 
@@ -720,14 +719,20 @@ def _replay_command(
 
 
 def _install_skills(
-    manifest: SkillManifest, selection: dict[str, list[str]], destination: SkillDestination
+    manifest: SkillManifest,
+    selection: dict[str, list[str]],
+    destination: SkillDestination,
+    *,
+    non_interactive: bool = True,
 ) -> bool:
+    if isinstance(destination, Path):
+        return _install_skill_directory(
+            manifest, selection, destination, non_interactive=non_interactive
+        )
+
     if not cmd_exists("skills") and not cmd_exists("npm"):
         warn("skills CLI requires npm or a global skills binary")
         return False
-
-    if isinstance(destination, Path):
-        return _install_skill_directory(manifest, selection, destination)
 
     if not destination:
         warn("No target agents selected for skill installation")
@@ -741,24 +746,62 @@ def _install_skills(
 
 
 def _install_skill_directory(
-    manifest: SkillManifest, selection: dict[str, list[str]], destination: Path
+    manifest: SkillManifest,
+    selection: dict[str, list[str]],
+    destination: Path,
+    *,
+    non_interactive: bool,
 ) -> bool:
-    """Resolve packages with the existing CLI, then copy into the exact destination."""
-    try:
-        if destination.exists() and not destination.is_dir():
-            warn(f"{destination}: not a directory")
+    """Copy selected packages into the exact destination with Python alone, on any OS:
+    vendored packs from this checkout, remote packs from their pinned GitHub tarball."""
+    from .skill_drift import locate_skill, source_root  # skill_drift imports this module
+
+    wanted: dict[str, list[str]] = {}
+    for name, skills in selection.items():
+        pack = manifest.packs[name]
+        wanted[name] = skills or pack.skills
+        if not wanted[name]:
+            warn(f"{pack.label}: no skill roster; name the skills with --skill")
             return False
-        with TemporaryDirectory(prefix="agentic-skills-") as temporary:
-            staging = Path(temporary)
-            for name, skills in selection.items():
-                if not _install_skill_package(manifest.source(name), skills, staging):
-                    return False
-            packages = sorted((staging / ".agents" / "skills").iterdir())
-            copy_skill_packages(packages, destination)
-            ok(f"Installed skill packages: {len(packages)} in {destination}")
+    # Packages land at destination/<skill name>, so collisions are known before any download.
+    existing = [
+        skill
+        for names in wanted.values()
+        for skill in names
+        if (destination / skill).exists() or (destination / skill).is_symlink()
+    ]
+    if existing:
+        if non_interactive:
+            warn(
+                f"Already in {destination}: {', '.join(existing)}; "
+                "rerun on a terminal without --yes to choose overwriting them"
+            )
+            return False
+        if not ask(
+            f"Overwrite {len(existing)} existing skill(s) in {destination}: "
+            f"{', '.join(existing)}? Local changes in them are lost",
+            default=False,
+            non_interactive=False,
+        ):
+            skip("existing skills kept; nothing installed")
+            return True
+    packages: list[Path] = []
+    for name, names in wanted.items():
+        pack = manifest.packs[name]
+        info(f"Fetching {', '.join(names)} from {pack.source}...")
+        root = source_root(manifest, name, pack.upstream, offline=False)
+        for skill in names:
+            package = locate_skill(root, skill)
+            if package is None:
+                warn(f"{pack.label}: {skill} not found in {pack.source}")
+                return False
+            packages.append(package)
+    try:
+        copy_skill_packages(packages, destination, replace=existing)
     except (OSError, ValueError) as exc:
         warn(f"Directory skill installation failed: {exc}")
         return False
+    ok(f"Installed skill packages: {len(packages)} in {destination}")
     return True
 
 
@@ -780,17 +823,9 @@ def _skills_cli() -> list[str] | None:
     return ["npx", "--yes", SKILLS_CLI_PACKAGE]
 
 
-def _install_skill_package(
-    source: str, skills: list[str], destination: SkillDestination
-) -> bool:
-    """`skills add` into the agents' global roots, or a project-local copy under
-    `destination`; Codex's project root is `.agents/skills`, which the directory
-    installer stages through."""
-    if isinstance(destination, Path):
-        directory, agents, mode = destination, ("codex",), "--copy"
-    else:
-        directory, agents, mode = None, destination, "--global"
-    command = ["add", source, "--yes", mode]
+def _install_skill_package(source: str, skills: list[str], agents: tuple[str, ...]) -> bool:
+    """`skills add` into the agents' global roots."""
+    command = ["add", source, "--yes", "--global"]
     for skill in skills:
         command.extend(["--skill", skill])
     for skill_agent in agents:
@@ -805,7 +840,7 @@ def _install_skill_package(
     if runner is None:
         return False
     try:
-        run([*runner, *command], cwd=str(directory) if directory is not None else None)
+        run([*runner, *command])
     except (OSError, subprocess.CalledProcessError) as exc:
         warn(f"skills CLI failed for {source}: {exc}")
         return False
@@ -1265,7 +1300,9 @@ def main(argv: list[str] | None = None) -> int:
 
     ok_all = True
     if skill_selection:
-        ok_all = _install_skills(manifest, skill_selection, destination) and ok_all
+        ok_all = _install_skills(
+            manifest, skill_selection, destination, non_interactive=non_interactive
+        ) and ok_all
     else:
         skip("skill packs: skipped")
 

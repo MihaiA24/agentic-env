@@ -326,7 +326,7 @@ Evidence survives cleanup; host HOME/configuration and credentials are not inher
             "drift": "Offline repository-source checks; never accepts/rewrites a baseline",
             "stack-doctor": "Diagnose sandbox stack; missing unprovisioned binaries/config may fail",
             "help": "Exercise a management CLI's own help entry point",
-            "install-skills": "Native custom-directory install of a local pack (requires npm/network); never selects agent roots",
+            "install-skills": "Custom-directory install of a local pack (Python copy, no npm); never selects agent roots",
         }[entry])
         sub.add_argument("--entry", choices=("module", "console"), default="module", help="Checkout module or checkout uv environment's installed console command")
         if entry == "bootstrap":
@@ -349,7 +349,7 @@ Evidence survives cleanup; host HOME/configuration and credentials are not inher
         elif entry == "install-skills":
             sub.add_argument("--pack", choices=("mattpocock", "pstack", "agentic-env"), default="mattpocock", help="Locally packaged pack only")
             sub.add_argument("--skill", default="writing-for-agents", help="Skill name(s) in this pack; invalid/empty values exercise errors")
-            sub.add_argument("--dry-run", action="store_true", help="Print wrapper plan; no npm/network/copy, NOT application evidence")
+            sub.add_argument("--dry-run", action="store_true", help="Print wrapper plan; no copy, NOT application evidence")
     logs = subs.add_parser("logs", help="Read retained evidence, including after cleanup")
     logs.add_argument("--run", help="Evidence directory basename (default: latest)")
     cleanup = subs.add_parser("cleanup", help="Remove only this checkout's owned workspace/cache; never evidence or foreign processes")

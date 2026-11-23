@@ -6,11 +6,15 @@ import argparse
 import json
 import shutil
 import sys
+import tempfile
+from collections.abc import Collection
 from pathlib import Path
 
 
-def copy_skill_packages(packages: list[Path], destination: Path) -> None:
-    """Preflight every package before copying; never overwrite existing skills."""
+def copy_skill_packages(
+    packages: list[Path], destination: Path, replace: Collection[str] = ()
+) -> None:
+    """Preflight every package before copying; overwrite only skills named in `replace`."""
     destination = destination.resolve()
     if not packages:
         raise ValueError("No vendored skill packages selected")
@@ -22,13 +26,27 @@ def copy_skill_packages(packages: list[Path], destination: Path) -> None:
         if destination.is_relative_to(package.resolve()):
             raise ValueError(f"{destination}: destination is inside source package {package}")
         target = destination / package.name
-        if target.exists() or target.is_symlink():
+        if not target.is_symlink() and target.resolve() == package.resolve():
+            raise ValueError(f"{target}: is the source package")
+        if (target.exists() or target.is_symlink()) and package.name not in replace:
             raise FileExistsError(
                 f"{target}: already exists; choose a destination without this skill"
             )
     destination.mkdir(parents=True, exist_ok=True)
     for package in packages:
-        shutil.copytree(package, destination / package.name)
+        target = destination / package.name
+        if not (target.exists() or target.is_symlink()):
+            shutil.copytree(package, target)
+            continue
+        # Copy beside the old package first, so a failed copy leaves it intact.
+        staging = Path(tempfile.mkdtemp(prefix=f".{package.name}.", dir=destination))
+        shutil.copytree(package, staging / package.name)
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+        (staging / package.name).rename(target)
+        staging.rmdir()
 
 
 def main(argv: list[str] | None = None) -> int:

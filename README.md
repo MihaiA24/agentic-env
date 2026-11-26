@@ -5,7 +5,7 @@ Install and maintain an OMP-primary, Hermes-secondary stack.
 - [Decisions](DECISIONS_AI_TOOLING.md): operative policy and wiring.
 - [Stack overview](docs/stack-overview.md): architecture and research index.
 - [Project memory](docs/project-memory-stack.md): per-repo setup.
-- [pstack workflow](guides/poteto-workflow.md): Lauren Tan's pstack articles summarised, then applied to a repository step by step.
+- [pstack workflow](guides/poteto-workflow.md): set up a project verifier and use it to prove changes, step by step. [About the pstack workflow](guides/poteto-workflow-background.md) summarises Lauren Tan's pstack articles and talk.
 - [Skill routing](guides/skill-routing.md): choose a skill for the task; every curated skill, when it runs, and who starts it.
 - [OMP in T3 Code and PyCharm](guides/omp-acp.md): install optional desktop clients, register native ACP, and select OpenAI Fast with `/fast`.
 
